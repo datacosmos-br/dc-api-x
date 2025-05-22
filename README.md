@@ -180,6 +180,17 @@ See [Code Quality Guidelines](docs/06-code-quality.md) for best practices.
 
 ---
 
+## 🔧 CI/CD Setup
+
+> **Note:** GitHub workflow files (`.github/workflows/*`) need to be added to the repository manually through the GitHub interface. This is because pushing these files requires the `workflow` scope in OAuth permissions. The original workflow files include:
+> 
+> - `bump.yml`: Version bumping and changelog management
+> - `lint.yml`: Code quality checks for PRs
+>
+> If you're contributing to this project, please ensure your OAuth token has the appropriate permissions or add the workflow files through the GitHub web interface.
+
+---
+
 ## 🤝 License
 
 [MIT](LICENSE) © 2025 Datacosmos — Marlon Costa.

@@ -140,3 +140,6 @@ dmypy.json
 # Project specific
 logs/
 .scaffold-tracking/ 
+
+# Never ignore GitHub directory (needed for CI/CD)
+!.github/ 
