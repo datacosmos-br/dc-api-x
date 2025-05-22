@@ -7,10 +7,12 @@ UUIDs, and dates.
 
 import re
 import uuid
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, List, Dict, TypeVar, cast, Union
+from typing import Any, TypeVar, Union
 
-T = TypeVar('T')
+T = TypeVar("T")
+R = TypeVar("R")
 
 
 def validate_url(url: str) -> tuple[bool, str | None]:
@@ -112,8 +114,8 @@ def validate_date(
 
 
 def validate_required_fields(
-    data: Dict[str, Any],
-    required_fields: List[str],
+    data: dict[str, Any],
+    required_fields: list[str],
 ) -> tuple[bool, str | None]:
     """
     Validate that all required fields are present in data.
@@ -138,7 +140,7 @@ def validate_required_fields(
     return True, None
 
 
-def validate_enum_field(value: Any, valid_values: List[T]) -> tuple[bool, str | None]:
+def validate_enum_field(value: Any, valid_values: list[T]) -> tuple[bool, str | None]:
     """
     Validate that a value is in a list of valid values.
 
@@ -184,3 +186,123 @@ def validate_min_max(
         return False, f"Value {value} is greater than the maximum {max_value}"
 
     return True, None
+
+
+def validate_not_empty(value: str, field_name: str) -> None:
+    """Validate that a string is not empty.
+
+    Args:
+        value: String value to validate
+        field_name: Name of the field being validated
+
+    Raises:
+        ValueError: If the value is empty
+    """
+    if not value:
+        raise ValueError(f"{field_name} cannot be empty")
+
+
+def validate_type(value: Any, expected_type: type[T], field_name: str) -> T:
+    """Validate that a value is of the expected type.
+
+    Args:
+        value: Value to validate
+        expected_type: Expected type
+        field_name: Name of the field being validated
+
+    Returns:
+        The validated value
+
+    Raises:
+        TypeError: If the value is not of the expected type
+    """
+    if not isinstance(value, expected_type):
+        raise TypeError(
+            f"{field_name} must be of type {expected_type.__name__}, "
+            f"got {type(value).__name__}",
+        )
+    return value
+
+
+def validate_dict(
+    value: dict[str, Any],
+    required_keys: list[str],
+    field_name: str,
+) -> dict[str, Any]:
+    """Validate that a dictionary contains required keys.
+
+    Args:
+        value: Dictionary to validate
+        required_keys: List of required keys
+        field_name: Name of the field being validated
+
+    Returns:
+        The validated dictionary
+
+    Raises:
+        ValueError: If the dictionary is missing required keys
+    """
+    missing_keys = [key for key in required_keys if key not in value]
+    if missing_keys:
+        raise ValueError(
+            f"{field_name} is missing required keys: {', '.join(missing_keys)}",
+        )
+    return value
+
+
+def validate_list(value: list[Any], min_length: int, field_name: str) -> list[Any]:
+    """Validate that a list has at least a minimum length.
+
+    Args:
+        value: List to validate
+        min_length: Minimum length
+        field_name: Name of the field being validated
+
+    Returns:
+        The validated list
+
+    Raises:
+        ValueError: If the list is shorter than the minimum length
+    """
+    if len(value) < min_length:
+        raise ValueError(
+            f"{field_name} must have at least {min_length} items, got {len(value)}",
+        )
+    return value
+
+
+def validate_one_of(value: Any, valid_values: list[Any], field_name: str) -> Any:
+    """Validate that a value is one of a set of valid values.
+
+    Args:
+        value: Value to validate
+        valid_values: List of valid values
+        field_name: Name of the field being validated
+
+    Returns:
+        The validated value
+
+    Raises:
+        ValueError: If the value is not one of the valid values
+    """
+    if value not in valid_values:
+        raise ValueError(f"{field_name} must be one of {valid_values}, got {value}")
+    return value
+
+
+def validate_callable(value: Callable[..., R], field_name: str) -> Callable[..., R]:
+    """Validate that a value is callable.
+
+    Args:
+        value: Value to validate
+        field_name: Name of the field being validated
+
+    Returns:
+        The validated callable
+
+    Raises:
+        TypeError: If the value is not callable
+    """
+    if not callable(value):
+        raise TypeError(f"{field_name} must be callable, got {type(value).__name__}")
+    return value

@@ -6,39 +6,138 @@ This module defines the BasicAuthProvider class for HTTP Basic Authentication.
 
 from typing import Any, Optional
 
+from ...exceptions import AuthenticationError, InvalidCredentialsError
 from .provider import AuthProvider
 
 
 class BasicAuthProvider(AuthProvider):
-    """Provider for HTTP Basic Authentication."""
+    """Simple username/password authentication provider.
 
-    def __init__(self, username: str, password: str) -> None:
-        """
-        Initialize with username and password.
+    This provider stores credentials in memory and validates against them.
+    It's primarily used for testing or simple authentication scenarios.
+    """
+
+    def __init__(
+        self,
+        username: str = "",
+        password: str = "",
+        token_expiration: int = 3600,
+    ):
+        """Initialize the basic auth provider.
 
         Args:
-            username: Username for authentication
-            password: Password for authentication
+            username: Default username
+            password: Default password
+            token_expiration: Token expiration time in seconds
         """
-        self.username: Optional[str] = username
-        self.password: Optional[str] = password
+        self.valid_username = username
+        self.valid_password = password
+        self.token_expiration = token_expiration
+        self._token: Optional[str] = None
+        self._authenticated = False
 
-    def authenticate(self) -> None:
-        """Nothing to do for basic auth, just store credentials."""
+    def authenticate(
+        self,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Authenticate using basic credentials.
 
-    def is_authenticated(self) -> bool:
-        """Always authenticated if credentials are set."""
-        return self.username is not None and self.password is not None
+        Args:
+            username: Username to authenticate (optional if set in constructor)
+            password: Password to authenticate (optional if set in constructor)
 
-    def get_auth_headers(self) -> dict[str, str]:
-        """Return auth headers as empty dict (handled by requests auth)."""
-        return {}
+        Returns:
+            Dict containing authentication info
 
-    def get_auth_params(self) -> dict[str, Any]:
-        """Return auth params with basic auth credentials."""
-        return {"auth": (self.username, self.password)}
+        Raises:
+            AuthenticationError: If authentication fails
+            InvalidCredentialsError: If credentials are invalid
+        """
+        # Use provided credentials or fall back to those set in constructor
+        auth_username = username or self.valid_username
+        auth_password = password or self.valid_password
 
-    def clear_auth(self) -> None:
-        """Clear credentials."""
-        self.username = None
-        self.password = None
+        # Check if credentials are valid
+        if not auth_username or not auth_password:
+            raise AuthenticationError("Username and password are required")
+
+        if auth_username != self.valid_username or auth_password != self.valid_password:
+            raise InvalidCredentialsError("Invalid username or password")
+
+        # Create a simple token
+        import time
+        import uuid
+
+        token_value = str(uuid.uuid4())
+        expiration = int(time.time()) + self.token_expiration
+
+        # Store token for validation
+        self._token = token_value
+        self._authenticated = True
+
+        # Return authentication information
+        return {
+            "authenticated": True,
+            "username": auth_username,
+            "token": token_value,
+            "expires_at": str(expiration),
+            "user": {"username": auth_username},
+        }
+
+    def validate_token(self, token: str) -> bool:
+        """Validate an authentication token.
+
+        Args:
+            token: Token to validate
+
+        Returns:
+            True if the token is valid, False otherwise
+        """
+        return token == self._token and self._authenticated
+
+    def get_auth_header(self) -> dict[str, str]:
+        """Get authentication header for requests.
+
+        Returns:
+            Authorization header dictionary
+        """
+        if not self._authenticated or not self._token:
+            return {}
+
+        return {"Authorization": f"Bearer {self._token}"}
+
+    def refresh_token(self) -> dict[str, Any]:
+        """Refresh the authentication token.
+
+        Returns:
+            Dict containing the new token information
+        """
+        if not self._authenticated:
+            raise AuthenticationError("Not authenticated")
+
+        # Generate a new token
+        import time
+        import uuid
+
+        token_value = str(uuid.uuid4())
+        expiration = int(time.time()) + self.token_expiration
+
+        # Update stored token
+        self._token = token_value
+
+        # Return new token information
+        return {
+            "token": token_value,
+            "expires_at": str(expiration),
+        }
+
+    def logout(self) -> bool:
+        """Logout and invalidate the current token.
+
+        Returns:
+            True if logout was successful
+        """
+        self._token = None
+        self._authenticated = False
+        return True

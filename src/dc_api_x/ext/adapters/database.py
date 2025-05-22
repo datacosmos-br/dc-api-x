@@ -5,7 +5,7 @@ This module defines the DatabaseAdapter abstract class for database operations.
 """
 
 import abc
-from typing import Any, Generic, Optional, TypeVar, Type
+from typing import Any, Generic, Optional, TypeVar
 
 from .protocol import ProtocolAdapter
 
@@ -27,7 +27,12 @@ class DatabaseTransaction(abc.ABC):
         """Enter context manager."""
         return self
 
-    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_val: Optional[BaseException], exc_tb: Optional[Any]) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[type[BaseException]],
+        exc_val: Optional[BaseException],
+        exc_tb: Optional[Any],
+    ) -> None:
         """Exit context manager."""
         if exc_type is not None:
             self.rollback()

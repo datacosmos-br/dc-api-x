@@ -6,6 +6,7 @@ including JSON, tables, CSV, and text.
 """
 
 import csv
+import datetime
 import io
 import json
 from collections.abc import Callable
@@ -34,7 +35,10 @@ def format_json(data: Any, indent: int = 2) -> str:
         except json.JSONDecodeError:
             return data
 
-    return cast(str, json.dumps(data, indent=indent, ensure_ascii=False, sort_keys=True))
+    return cast(
+        str,
+        json.dumps(data, indent=indent, ensure_ascii=False, sort_keys=True),
+    )
 
 
 def format_table(
@@ -66,7 +70,7 @@ def format_table(
     # Determine fields if not provided
     if fields is None and data:
         fields = list(data[0].keys())
-    
+
     # Default to empty list if fields is None
     fields = fields or []
 
@@ -96,7 +100,7 @@ def format_table(
     # Write to file if requested
     if output_file is not None:
         if isinstance(output_file, str):
-            with Path(output_file).open('w') as f:
+            with Path(output_file).open("w") as f:
                 f.write(table_str)
         else:
             output_file.write(table_str)
@@ -127,7 +131,7 @@ def format_csv(
     # Determine fields if not provided
     if fields is None and data:
         fields = list(data[0].keys())
-    
+
     # Default to empty list if fields is None
     fields = fields or []
 
@@ -154,7 +158,7 @@ def format_csv(
     # Write to file if requested
     if output_file is not None:
         if isinstance(output_file, str):
-            with Path(output_file).open('w') as f:
+            with Path(output_file).open("w") as f:
                 f.write(csv_str)
         else:
             output_file.write(csv_str)
@@ -206,9 +210,75 @@ def format_text(
     # Write to file if requested
     if output_file is not None:
         if isinstance(output_file, str):
-            with Path(output_file).open('w') as f:
+            with Path(output_file).open("w") as f:
                 f.write(text)
         else:
             output_file.write(text)
 
     return text
+
+
+def normalize_key(key: str) -> str:
+    """Normalize a key for consistent formatting.
+
+    Args:
+        key: The key to normalize
+
+    Returns:
+        Normalized key string
+    """
+    return key.lower().replace(" ", "_").replace("-", "_")
+
+
+def format_datetime(dt: datetime.datetime) -> str:
+    """Format a datetime object to ISO format.
+
+    Args:
+        dt: Datetime object to format
+
+    Returns:
+        Formatted datetime string
+    """
+    return dt.isoformat()
+
+
+def format_value(value: Any) -> str:
+    """Format any value as a string.
+
+    Args:
+        value: Value to format
+
+    Returns:
+        Formatted string representation
+    """
+    if value is None:
+        return ""
+    if isinstance(value, (str, int, float, bool)):
+        return str(value)
+    if isinstance(value, datetime.datetime):
+        return format_datetime(value)
+    if isinstance(value, (dict, list)):
+        return json.dumps(value)
+    # For any other type, ensure we return a string
+    return str(value)
+
+
+def format_response_data(data: dict[str, Any]) -> dict[str, Any]:
+    """Format response data for consistent output.
+
+    Args:
+        data: Response data to format
+
+    Returns:
+        Formatted response data
+    """
+    result = {}
+    for key, value in data.items():
+        normalized_key = normalize_key(key)
+        if isinstance(value, dict):
+            result[normalized_key] = format_response_data(value)
+        elif isinstance(value, list) and value and isinstance(value[0], dict):
+            result[normalized_key] = [format_response_data(item) for item in value]
+        else:
+            result[normalized_key] = value
+    return result

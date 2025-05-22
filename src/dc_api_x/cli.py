@@ -195,7 +195,7 @@ def request_get(
 
             # Output result
             if output:
-                with Path(output).open('w') as f:
+                with Path(output).open("w") as f:
                     f.write(formatted_output)
                 console.print(f"Output written to: [bold]{output}[/bold]")
             else:
@@ -292,7 +292,7 @@ def request_post(
 
             # Output result
             if output:
-                with Path(output).open('w') as f:
+                with Path(output).open("w") as f:
                     f.write(formatted_output)
                 console.print(f"Output written to: [bold]{output}[/bold]")
             else:
@@ -322,7 +322,12 @@ def schema() -> None:
     default="./schemas",
     help="Output directory for schemas",
 )
-@click.option("--all", is_flag=True, help="Extract all entity schemas", name="extract_all")
+@click.option(
+    "--all",
+    is_flag=True,
+    help="Extract all entity schemas",
+    name="extract_all",
+)
 @click.pass_context
 def schema_extract(
     _: click.Context,  # Unused context parameter
@@ -472,7 +477,7 @@ def schema_show(
 
             # Output result
             if output:
-                with Path(output).open('w') as f:
+                with Path(output).open("w") as f:
                     f.write(formatted_output)
                 console.print(f"Output written to: [bold]{output}[/bold]")
             else:
@@ -530,7 +535,13 @@ def entity_list(
 @click.argument("entity")
 @click.argument("id", required=False)
 @click.option("--profile", help="Configuration profile to use")
-@click.option("--filter", "-f", multiple=True, help="Filter conditions (name=value)", name="filter_params")
+@click.option(
+    "--filter",
+    "-f",
+    multiple=True,
+    help="Filter conditions (name=value)",
+    name="filter_params",
+)
 @click.option("--sort", help="Sort field")
 @click.option(
     "--order",
@@ -627,7 +638,7 @@ def entity_get(
 
             # Output result
             if output:
-                with Path(output).open('w') as f:
+                with Path(output).open("w") as f:
                     f.write(formatted_output)
                 console.print(f"Output written to: [bold]{output}[/bold]")
             else:

@@ -5,54 +5,55 @@ This module defines the base AuthProvider abstract class that all
 specific authentication providers must inherit from.
 """
 
-import abc
-from typing import Any
+from typing import Any, Protocol
 
 
-class AuthProvider(abc.ABC):
-    """
-    Base interface for authentication providers.
+class AuthProvider(Protocol):
+    """Abstract base class for authentication providers.
 
-    Authentication providers handle authentication for various protocols
-    and services.
+    Authentication providers handle different authentication mechanisms
+    like basic auth, OAuth, JWT, etc.
     """
 
-    @abc.abstractmethod
-    def authenticate(self) -> None:
-        """
-        Authenticate with the service.
-
-        This method should perform the authentication process and store
-        any necessary credentials for future requests.
-        """
-
-    @abc.abstractmethod
-    def is_authenticated(self) -> bool:
-        """
-        Check if the provider is authenticated.
+    def authenticate(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        """Authenticate with the provider.
 
         Returns:
-            True if authenticated, False otherwise
+            Authentication result with token and user information
         """
+        ...
 
-    @abc.abstractmethod
-    def get_auth_headers(self) -> dict[str, str]:
-        """
-        Get headers for authentication.
-
-        Returns:
-            Headers to include in the request for authentication
-        """
-
-    @abc.abstractmethod
-    def get_auth_params(self) -> dict[str, Any]:
-        """
-        Get parameters for authentication.
+    def get_auth_header(self) -> dict[str, str]:
+        """Get authentication header for making authenticated requests.
 
         Returns:
-            Parameters to include in the request for authentication
+            Dictionary with authentication headers
         """
+        ...
 
-    @abc.abstractmethod
-    def clear_auth(self) -> None:
-        """Clear authentication credentials."""
+    def validate_token(self, token: str) -> bool:
+        """Validate an authentication token.
+
+        Args:
+            token: Token to validate
+
+        Returns:
+            True if the token is valid, False otherwise
+        """
+        ...
+
+    def refresh_token(self) -> dict[str, Any]:
+        """Refresh the authentication token.
+
+        Returns:
+            New token information
+        """
+        ...
+
+    def logout(self) -> bool:
+        """Logout and invalidate the current token.
+
+        Returns:
+            True if logout was successful
+        """
+        ...
