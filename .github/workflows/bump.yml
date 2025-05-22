@@ -1,0 +1,24 @@
+# .github/workflows/bump.yml
+name: monthly-dep-bump
+on:
+  schedule: [{ cron: "0 4 1 * *" }] # every 1st of the month
+jobs:
+  upgrade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.10" }
+      - run: pip install poetry
+      - run: poetry update --latest
+      - run: poetry lock
+      - run: git config --global user.email "bot@datacosmos.com.br"
+      - run: git config --global user.name  "DC Bot"
+      - run: |
+          git checkout -b dep-bump-$(date +%Y%m)
+          git commit -am "chore: monthly dependency bump"
+          git push -u origin HEAD
+      - uses: peter-evans/create-pull-request@v6
+        with:
+          title: "chore: monthly dependency bump"
+          body: "Automated update via **poetry update --latest**"

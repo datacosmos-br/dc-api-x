@@ -1,0 +1,287 @@
+[build-system]
+requires = ["poetry-core>=2.1.3"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "dc-api-x"
+version = "0.2.0"
+description = "Datacosmos multi-protocol client (HTTP, DB, LDAP, …) with plug-in architecture"
+authors = ["Marlon Costa <marlon.costa@datacosmos.com.br>"]
+license = "MIT"
+readme = "README.md"
+packages = [{ include = "dc_api_x", from = "src" }]
+repository = "https://github.com/datacosmos-br/dc-api-x"
+documentation = "https://datacosmos-br.github.io/dc-api-x/"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Typing :: Typed",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Database",
+]
+
+# ========================================================================== #
+#  Runtime dependencies (core)                                               #
+# ========================================================================== #
+[tool.poetry.dependencies]
+python = "^3.10"
+# Networking
+requests = "^2.32.3"
+httpx = "^0.28.1"
+# Validation / settings
+pydantic = "^2.11.5"
+pydantic-settings = "^2.9.1"
+# CLI / logging
+click = "^8.1.8"
+typer = { version = "^0.15.4", extras = ["all"] } # rich-help & completion
+rich = "^14.0.0"
+structlog = "^25.3.0"
+# Plug-ins / retries / tracing
+pluggy = "^1.6.0"
+tenacity = "^9.1.2"
+opentelemetry-api = "^1.33.1"
+opentelemetry-sdk = "^1.33.1"
+# Misc
+python-dotenv = "^1.1.0"
+responses = { version = "^0.25.7", optional = true } # used only in tests
+
+# ========================================================================== #
+#  Dev / CI toolchain                                                        #
+# ========================================================================== #
+[tool.poetry.group.dev.dependencies]
+black = "^25.1.0"
+isort = "^6.0.1"
+ruff = "^0.11.11"
+mypy = "^1.15.0"
+pyupgrade = "3.19.1"
+pylint = "^3.3.7"
+autoflake = "^2.3.1"
+refurb = "^2.1.0"
+bandit = "^1.8.3"
+types-requests = "^2.32.0.20250515"
+pre-commit = "^4.2.0"
+build = "^1.2.2"
+mdformat           = "^0.7.22"     # opinionated formatter (Black-style for MD)
+mdformat-gfm       = "^0.4.1"      # GitHub-flavoured tables, task lists …
+pymarkdownlnt      = "^0.9.30"     # strict Markdown lint (configurable)
+
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.5"
+pytest-cov = "^6.1.1"
+pytest-mock = "^3.14.0"
+pytest-asyncio = "^0.26.0"
+pytest-xdist = "^3.6.1"
+responses = "^0.25.7"
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "*"
+sphinx-rtd-theme = "*"
+sphinx-autodoc-typehints = "^3.0.0"
+myst-parser = "^4.0.0"
+sphinx-copybutton = "^0.5.2"
+
+[tool.poetry.group.examples.dependencies]
+pyyaml = "^6.0.2"
+colorama = "^0.4.6"
+tabulate = "^0.9.0"
+
+[tool.poetry.scripts]
+dcapix = "dc_api_x.cli:main"
+
+# ========================================================================== #
+#  Plugin namespace (populated by external wheels)                           #
+# ========================================================================== #
+[tool.poetry.plugins."dc_api_x.plugins"]
+# oracle_db  = "dc_api_x_oracle_db"
+# wms        = "dc_api_x_oracle_wms"
+
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+  | reference
+  | examples
+  | .*__pydantic_schema__.py
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+combine_as_imports = true
+include_trailing_comma = true
+multi_line_output = 3
+force_grid_wrap = 0
+skip_glob = ["**/reference/**", "**/examples/**", "**/.venv/**"]
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = true
+# disallow_untyped_defs = true
+no_implicit_optional = true
+no_implicit_reexport = true
+# plugins = ["pydantic.mypy"]
+python_version = "3.10"
+strict_optional = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
+warn_untyped_fields = true
+
+[[tool.mypy.overrides]]
+module = [
+    "responses.*",
+    "pluggy.*",
+    "typer.*",
+    "rich.*",
+    "structlog.*",
+    "opentelemetry.*",
+]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+exclude = [
+    ".venv/**",
+    ".venv*/**",
+    "env*/**",
+    "venv*/**",
+    "reference/**",
+    "*/examples/**",
+    "*/test_venv/**",
+    "*/.mypy_cache/**",
+    "*/.pytest_cache/**",
+    "*/.ruff_cache/**",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "N",   # pep8-naming
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "DTZ", # flake8-datetimez
+    "T10", # flake8-debugger
+    "ISC", # flake8-implicit-str-concat
+    "G",   # flake8-logging-format
+    "PIE", # flake8-pie
+    "PT",  # flake8-pytest-style
+    "RET", # flake8-return
+    "SIM", # flake8-simplify
+    "ARG", # flake8-unused-arguments
+    "ERA", # eradicate
+    "PD",  # pandas-vet
+    "PGH", # pygrep-hooks
+    "PL",  # pylint
+    "TRY", # tryceratops
+    "BLE", # flake8-blind-except
+    "COM", # flake8-commas
+    "A",   # flake8-builtins
+    "ICN", # flake8-import-conventions
+    "PTH", # flake8-use-pathlib
+    "FLY", # flynt
+    "FBT", # boolean-trap
+    "S",   # flake8-bandit
+]
+
+ignore = [
+    "E501",  # line too long - handled by black
+    "UP007", # Union syntax (X | Y) requires Python 3.10
+    "S101",  # Use of assert in tests is OK
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"] # Imported but unused, star imports
+"tests/*" = [
+    "S101",
+    "S105",
+    "S106",
+    "PLR2004",
+    "ARG002",
+] # Use of assert, Magic values in tests, Unused arguments in tests
+"src/dc_api_x/client.py" = ["ARG002"] # Unused method arguments
+"src/dc_api_x/ext/hooks.py" = ["ARG002"] # Unused method arguments
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+known-third-party = [
+    "requests",
+    "httpx",
+    "pydantic",
+    "rich",
+    "structlog",
+    "pluggy",
+    "typer",
+    "opentelemetry",
+]
+
+[tool.ruff.lint.flake8-quotes]
+docstring-quotes = "double"
+inline-quotes = "double"
+
+[tool.bandit]
+exclude_dirs = ["tests", ".venv", "reference", "examples"]
+skips = ["B101"]                                           # Skip assert statements in tests
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-v --cov=src/dc_api_x --cov-report=term --cov-report=html"
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests requiring external services",
+    "plugins: tests for plugin system",
+]
+asyncio_mode = "auto"
+xvs_timeout = 300
+
+[tool.coverage.run]
+source = ["src/dc_api_x"]
+omit = ["tests/*", "**/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
+
+# mdformat config (keeps 88-col wrap like Python code)
+[tool.mdformat]
+number             = true          # auto-number ordered lists
+wrap               = 88
