@@ -1,0 +1,25 @@
+# This is a CODEOWNERS file to define individuals or teams responsible for code in this repository
+# Each line is a file pattern followed by one or more owners.
+# Order is important; the last matching pattern takes precedence.
+
+# Default owners for everything in the repo
+* @your-username
+
+# Core files and documentation
+/docs/ @your-username @docs-reviewer
+/README.md @your-username @docs-reviewer
+
+# GitHub Actions workflows
+/.github/workflows/ @your-username @devops-team
+
+# Core codebase 
+/src/dc_api_x/ @your-username @core-team
+
+# Plugins directory
+/src/dc_api_x/plugins/ @plugins-team @your-username
+
+# Test files
+/tests/ @testing-team @your-username
+
+# Replace with actual usernames or team names before using
+# Format: GitHub username or @org/team-name 

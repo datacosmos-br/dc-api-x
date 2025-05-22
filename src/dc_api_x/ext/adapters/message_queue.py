@@ -31,7 +31,12 @@ class MessageQueueAdapter(ProtocolAdapter):
         """
 
     @abc.abstractmethod
-    def subscribe(self, topic: str, callback: Callable[[str, Any], None], **kwargs: Any) -> None:
+    def subscribe(
+        self,
+        topic: str,
+        callback: Callable[[str, Any], None],
+        **kwargs: Any,
+    ) -> None:
         """
         Subscribe to a topic.
 

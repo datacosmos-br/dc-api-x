@@ -4,469 +4,328 @@ Data models for DCApiX.
 This module provides base classes for data models with validation.
 """
 
-from typing import Any, ClassVar, Generic, Optional, TypeVar, Union, Dict, List, Iterator
+from typing import (
+    Any,
+    Generic,
+    Optional,
+    TypeVar,
+    Union,
+)
 
-from pydantic import BaseModel as PydanticBaseModel
-from pydantic import ConfigDict
+from pydantic import BaseModel as PydanticBaseModel, ConfigDict, Field
 
 T = TypeVar("T")
 K = TypeVar("K")
 V = TypeVar("V")
 
 
-class BaseModel(PydanticBaseModel):
-    """
-    Base model for API data models.
+class ConfigurableBase(PydanticBaseModel):
+    """Base class for configurable models with support for custom settings."""
 
-    This class extends Pydantic's BaseModel with API-specific utilities.
-    """
-
-    model_config: ClassVar[ConfigDict] = {
-        "extra": "ignore",  # Ignore extra fields not defined in model
-        "validate_assignment": True,  # Validate values on assignment
-        "arbitrary_types_allowed": True,  # Allow custom types
-        "populate_by_name": True,  # Allow populating by field name
-    }
-
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Convert model to dictionary.
-
-        Returns:
-            Dict representation of the model
-        """
-        return self.model_dump()
-
-    def to_json(self, **kwargs: Any) -> str:
-        """
-        Convert model to JSON string.
-
-        Args:
-            **kwargs: Arguments to pass to model_dump_json
-
-        Returns:
-            JSON string representation of the model
-        """
-        return self.model_dump_json(**kwargs)
-
-    def get(self, key: str, default: Any = None) -> Any:
-        """
-        Get attribute by key with fallback to default.
-
-        Args:
-            key: Attribute name
-            default: Default value if attribute does not exist
-
-        Returns:
-            Attribute value or default
-        """
-        return getattr(self, key, default)
-
-    @classmethod
-    def model_validate(cls, obj: Any, **kwargs: Any) -> "BaseModel":
-        """
-        Validate and create a model instance from an object.
-
-        Args:
-            obj: Object to validate
-            **kwargs: Additional arguments for model validation
-
-        Returns:
-            Validated model instance
-        """
-        return super().model_validate(obj, **kwargs)
+    model_config = ConfigDict(
+        extra="allow",
+        validate_assignment=True,
+        populate_by_name=True,
+        frozen=False,
+    )
 
 
-class ApiResponse:
-    """
-    API response data.
+class Metadata(ConfigurableBase):
+    """Metadata information for API responses."""
 
-    This class encapsulates the response from an API request, including
-    status, data, and error information.
-    """
-
-    def __init__(
-        self,
-        *,
-        success: bool = True,
-        status_code: int = 200,
-        data: Any = None,
-        error: str | None = None,
-        error_code: str | None = None,
-        error_details: dict[str, Any] | None = None,
-    ):
-        """
-        Initialize ApiResponse.
-
-        Args:
-            success: Whether the request was successful
-            status_code: HTTP status code
-            data: Response data
-            error: Error message (if any)
-            error_code: Error code (if any)
-            error_details: Additional error details (if any)
-        """
-        self.success = success
-        self.status_code = status_code
-        self.data = data
-        self.error = error
-        self.error_code = error_code
-        self.error_details = error_details or {}
-
-    @classmethod
-    def success_response(cls, data: Any, status_code: int = 200) -> "ApiResponse":
-        """
-        Create a successful response.
-
-        Args:
-            data: Response data
-            status_code: HTTP status code
-
-        Returns:
-            ApiResponse: Successful response
-        """
-        return cls(
-            success=True,
-            status_code=status_code,
-            data=data,
-        )
-
-    @classmethod
-    def error_response(
-        cls,
-        error: str,
-        status_code: int = 400,
-        error_code: str | None = None,
-        error_details: dict[str, Any] | None = None,
-    ) -> "ApiResponse":
-        """
-        Create an error response.
-
-        Args:
-            error: Error message
-            status_code: HTTP status code
-            error_code: Error code
-            error_details: Additional error details
-
-        Returns:
-            ApiResponse: Error response
-        """
-        return cls(
-            success=False,
-            status_code=status_code,
-            error=error,
-            error_code=error_code,
-            error_details=error_details,
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Convert response to dictionary.
-
-        Returns:
-            dict[str, Any]: Response as dictionary
-        """
-        result = {
-            "success": self.success,
-            "status_code": self.status_code,
-        }
-
-        if self.success:
-            result["data"] = self.data
-        else:
-            result["error"] = self.error
-            if self.error_code:
-                result["error_code"] = self.error_code
-            if self.error_details:
-                result["error_details"] = self.error_details
-
-        return result
-
-    def __str__(self) -> str:
-        """Return string representation of the response."""
-        if self.success:
-            return f"ApiResponse(success={self.success}, status_code={self.status_code}, data={self.data})"
-        return f"ApiResponse(success={self.success}, status_code={self.status_code}, error={self.error})"
-
-    def __bool__(self) -> bool:
-        """Return boolean representation of the response (success status)."""
-        return self.success
-
-
-class GenericResponse(Generic[T]):
-    """
-    Generic response for any protocol.
-
-    This class can be used to encapsulate responses from any protocol,
-    not just HTTP APIs.
-    """
-
-    def __init__(
-        self,
-        *,
-        success: bool = True,
-        data: Optional[T] = None,
-        error: Optional[str] = None,
-        error_code: Optional[str] = None,
-        error_details: Optional[dict[str, Any]] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ):
-        """
-        Initialize GenericResponse.
-
-        Args:
-            success: Whether the operation was successful
-            data: Response data
-            error: Error message (if any)
-            error_code: Error code (if any)
-            error_details: Additional error details (if any)
-            metadata: Additional metadata about the response
-        """
-        self.success = success
-        self.data = data
-        self.error = error
-        self.error_code = error_code
-        self.error_details = error_details or {}
-        self.metadata = metadata or {}
-        # Initialize methods as instance attributes to avoid mypy errors
-        self._success_data: Optional[T] = None
-        self._error_message: Optional[str] = None
-        self._error_code: Optional[str] = None
-        self._error_details: Optional[dict[str, Any]] = None
-        self._metadata: Optional[dict[str, Any]] = None
-
-    @classmethod
-    def success(
-        cls,
-        data: T,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> "GenericResponse[T]":
-        """
-        Create a successful response.
-
-        Args:
-            data: Response data
-            metadata: Additional metadata
-
-        Returns:
-            Successful response
-        """
-        return cls(
-            success=True,
-            data=data,
-            metadata=metadata,
-        )
-
-    @classmethod
-    def error(
-        cls,
-        error: str,
-        error_code: Optional[str] = None,
-        error_details: Optional[dict[str, Any]] = None,
-        metadata: Optional[dict[str, Any]] = None,
-    ) -> "GenericResponse[T]":
-        """
-        Create an error response.
-
-        Args:
-            error: Error message
-            error_code: Error code
-            error_details: Additional error details
-            metadata: Additional metadata
-
-        Returns:
-            Error response
-        """
-        return cls(
-            success=False,
-            error=error,
-            error_code=error_code,
-            error_details=error_details,
-            metadata=metadata,
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Convert response to dictionary.
-
-        Returns:
-            Response as dictionary
-        """
-        result = {
-            "success": self.success,
-        }
-
-        if self.success:
-            result["data"] = self.data
-        else:
-            result["error"] = self.error
-            if self.error_code:
-                result["error_code"] = self.error_code
-            if self.error_details:
-                result["error_details"] = self.error_details
-
-        if self.metadata:
-            result["metadata"] = self.metadata
-
-        return result
-
-    def __bool__(self) -> bool:
-        """Return boolean representation of the response (success status)."""
-        return self.success
-
-
-class DatabaseResult(Generic[T]):
-    """
-    Result of a database operation.
-    """
-
-    def __init__(
-        self,
-        *,
-        success: bool = True,
-        rows: Optional[list[T]] = None,
-        affected_rows: int = 0,
-        error: Optional[str] = None,
-        query: Optional[str] = None,
-        params: Optional[dict[str, Any]] = None,
-    ):
-        """
-        Initialize DatabaseResult.
-
-        Args:
-            success: Whether the operation was successful
-            rows: Query result rows
-            affected_rows: Number of affected rows for write operations
-            error: Error message (if any)
-            query: Query that was executed
-            params: Parameters used in the query
-        """
-        self.success = success
-        self.rows = rows or []
-        self.affected_rows = affected_rows
-        self.error = error
-        self.query = query
-        self.params = params
+    version: str = "1.0.0"
+    timestamp: str = ""
+    count: Optional[int] = None
+    total: Optional[int] = None
+    page: Optional[int] = None
+    pages: Optional[int] = None
+    next_page: Optional[str] = None
+    prev_page: Optional[str] = None
 
     @property
-    def first(self) -> Optional[T]:
-        """
-        Get the first result row, or None if there are no results.
-
-        Returns:
-            First result row or None
-        """
-        return self.rows[0] if self.rows else None
-
-    def __bool__(self) -> bool:
-        """Return boolean representation of the result (success status)."""
-        return self.success
-
-    def __len__(self) -> int:
-        """Return number of result rows."""
-        return len(self.rows)
-
-    def __iter__(self) -> Iterator[T]:
-        """Iterate over result rows."""
-        return iter(self.rows)
+    def has_more(self) -> bool:
+        """Check if there are more pages available."""
+        if self.page is None or self.pages is None:
+            return False
+        return self.page < self.pages
 
 
-class DirectoryEntry:
-    """
-    Directory (LDAP) entry.
-    """
+class ErrorDetail(ConfigurableBase):
+    """Detailed error information."""
 
-    def __init__(
+    code: str = ""
+    message: str = ""
+    details: Optional[dict[str, Any]] = None
+    field: Optional[str] = None
+    source: Optional[str] = None
+
+
+class Error(ConfigurableBase):
+    """Error information for API responses."""
+
+    type: str = "error"
+    title: str = "Error"
+    status: int = 400
+    detail: str = ""
+    errors: list[ErrorDetail] = Field(default_factory=list)
+
+    def add_error(
         self,
-        dn: str,
-        attributes: dict[str, list[Union[str, bytes]]],
-    ):
-        """
-        Initialize DirectoryEntry.
+        message: str,
+        code: str = "",
+        field: Optional[str] = None,
+    ) -> None:
+        """Add an error detail to the errors list."""
+        error_detail = ErrorDetail(code=code, message=message, field=field)
+        self.errors.append(error_detail)
+
+
+class GenericResponse(Generic[T], ConfigurableBase):
+    """Generic API response model that can hold any data type."""
+
+    success: bool = True
+    data: Optional[T] = None
+    error: Optional[Error] = None
+    meta: Metadata = Field(default_factory=Metadata)
+
+    def __init__(self, **data: Any):
+        """Initialize the response with the provided data."""
+        super().__init__(**data)
+        self._set_defaults()
+
+    def _set_defaults(self) -> None:
+        """Set default values for the response."""
+        if self.error and not self.data:
+            self.success = False
+
+        # Create metadata if not provided
+        if not self.meta:
+            self.meta = Metadata()
+
+        # Create empty error object if success is False but no error is provided
+        if not self.success and not self.error:
+            self.error = Error()
+
+    @classmethod
+    def from_data(
+        cls,
+        data: T,
+        meta: Optional[dict[str, Any]] = None,
+    ) -> "GenericResponse[T]":
+        """Create a success response from data.
 
         Args:
-            dn: Distinguished name
-            attributes: Entry attributes
-        """
-        self.dn = dn
-        self.attributes = attributes
-
-    def get_attribute(
-        self,
-        name: str,
-        default: Any = None,
-        *,
-        as_string: bool = True,
-    ) -> Any:
-        """
-        Get an attribute value.
-
-        Args:
-            name: Attribute name
-            default: Default value if attribute doesn't exist
-            as_string: Whether to convert bytes to strings
+            data: The data to include in the response
+            meta: Optional metadata for the response
 
         Returns:
-            Attribute value or default
+            A successful response with the provided data
         """
-        values = self.attributes.get(name, [])
-        if not values:
-            return default
+        meta_obj = Metadata(**(meta or {}))
+        return cls(success=True, data=data, meta=meta_obj)
 
-        value = values[0]
-        if as_string and isinstance(value, bytes):
-            return value.decode("utf-8")
-
-        return value
-
-    def get_attribute_values(
-        self,
-        name: str,
-        *,
-        as_string: bool = True,
-    ) -> list[Any]:
-        """
-        Get all values of an attribute.
+    @classmethod
+    def from_error(
+        cls,
+        error: Union[str, Error],
+        status: Optional[int] = None,
+        error_code: Optional[str] = None,
+        details: Optional[dict[str, Any]] = None,
+    ) -> "GenericResponse[T]":
+        """Create an error response.
 
         Args:
-            name: Attribute name
-            as_string: Whether to convert bytes to strings
+            error: Error message or Error object
+            status: HTTP status code (default: 400)
+            error_code: Application-specific error code
+            details: Additional error details
 
         Returns:
-            List of attribute values
+            An error response with the provided information
         """
-        values = self.attributes.get(name, [])
+        if isinstance(error, str):
+            error_obj = Error(detail=error)
+            if status is not None:
+                error_obj.status = status
+            if error_code:
+                error_obj.add_error(error, error_code)
+            if details:
+                if error_obj.errors:
+                    error_obj.errors[0].details = details
+        else:
+            error_obj = error
 
-        if as_string:
-            return [
-                value.decode("utf-8") if isinstance(value, bytes) else value
-                for value in values
-            ]
+        return cls(success=False, error=error_obj, data=None)
 
-        return values
 
-    def to_dict(self, *, as_string: bool = True) -> dict[str, Any]:
-        """
-        Convert entry to dictionary.
+class ApiRequest(ConfigurableBase):
+    """API request model with method, path, query parameters, and headers."""
+
+    method: str = "GET"
+    path: str = "/"
+    query_params: Optional[dict[str, Any]] = None
+    headers: Optional[dict[str, str]] = None
+    body: Optional[Any] = None
+    auth: Optional[dict[str, Any]] = None
+
+    def with_params(self, **params: Any) -> "ApiRequest":
+        """Return a new request with additional query parameters."""
+        new_params = dict(self.query_params or {})
+        new_params.update(params)
+        return self.model_copy(update={"query_params": new_params})
+
+    def with_headers(self, **headers: str) -> "ApiRequest":
+        """Return a new request with additional headers."""
+        new_headers = dict(self.headers or {})
+        new_headers.update(headers)
+        return self.model_copy(update={"headers": new_headers})
+
+    def with_body(self, body: Any) -> "ApiRequest":
+        """Return a new request with the specified body."""
+        return self.model_copy(update={"body": body})
+
+    def with_auth(self, **auth: Any) -> "ApiRequest":
+        """Return a new request with the specified authentication."""
+        new_auth = dict(self.auth or {})
+        new_auth.update(auth)
+        return self.model_copy(update={"auth": new_auth})
+
+
+class DirectoryEntry(ConfigurableBase):
+    """Directory entry model for LDAP responses."""
+
+    dn: str
+    attributes: dict[str, list[Union[str, bytes]]]
+
+    def get_attribute(self, name: str) -> list[Union[str, bytes]]:
+        """Get attribute values by name."""
+        return self.attributes.get(name, [])
+
+    def get_attribute_value(self, name: str) -> Optional[Union[str, bytes]]:
+        """Get the first value of an attribute."""
+        values = self.get_attribute(name)
+        return values[0] if values else None
+
+
+class AuthResponse(ConfigurableBase):
+    """Authentication response model."""
+
+    authenticated: bool = False
+    token: Optional[str] = None
+    token_expiration: Optional[str] = None
+    username: Optional[str] = None
+    user_data: Optional[dict[str, Any]] = None
+
+    def is_valid(self) -> bool:
+        """Check if the authentication response is valid."""
+        return self.authenticated and self.token is not None
+
+
+class ApiResponse(GenericResponse[dict[str, Any]]):
+    """API response model with status code and headers."""
+
+    status_code: int = 200
+    headers: dict[str, str] = Field(default_factory=dict)
+
+    @classmethod
+    def create_success(
+        cls,
+        data: Any,
+        status_code: int = 200,
+        meta: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> "ApiResponse":
+        """Create a success response.
 
         Args:
-            as_string: Whether to convert bytes to strings
+            data: Response data
+            status_code: HTTP status code
+            meta: Response metadata
+            headers: Response headers
 
         Returns:
-            Entry as dictionary
+            A successful API response
         """
-        result: dict[str, Any] = {"dn": self.dn}
+        response = cls.from_data(data, meta)
+        response.status_code = status_code
+        if headers:
+            response.headers = headers
+        return response
 
-        for key, values in self.attributes.items():
-            if as_string:
-                result[key] = [
-                    value.decode("utf-8") if isinstance(value, bytes) else value
-                    for value in values
-                ]
-            else:
-                result[key] = values
+    @classmethod
+    def create_error(
+        cls,
+        error: Union[str, Error],
+        status_code: int = 400,
+        error_code: Optional[str] = None,
+        details: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ) -> "ApiResponse":
+        """Create an error response.
 
-        return result
+        Args:
+            error: Error message or Error object
+            status_code: HTTP status code
+            error_code: Application-specific error code
+            details: Additional error details
+            headers: Response headers
+
+        Returns:
+            An error API response
+        """
+        if isinstance(error, str):
+            error_obj = Error(
+                message=error,
+                code=error_code or "error",
+                details=details,
+            )
+        else:
+            error_obj = error
+
+        response = cls(
+            data=None,
+            meta={},
+            success=False,
+            error=error_obj,
+            status_code=status_code,
+            headers=headers or {},
+        )
+        return response
+
+    def is_success(self) -> bool:
+        """Check if the response is successful.
+
+        Returns:
+            True if the response is successful, False otherwise
+        """
+        return self.success and 200 <= self.status_code < 300
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the response to a dictionary.
+
+        Returns:
+            Dictionary representation of the response
+        """
+        error_dict = None
+        if self.error:
+            error_dict = self.error.model_dump()
+
+        return {
+            "data": self.data,
+            "meta": self.meta or {},
+            "success": self.success,
+            "error": error_dict,
+        }
+
+    def to_json(self) -> str:
+        """Convert the response to a JSON string.
+
+        Returns:
+            JSON string representation of the response
+        """
+        import json
+
+        return json.dumps(self.to_dict())
 
 
 class QueueMessage:

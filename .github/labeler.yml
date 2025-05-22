@@ -1,0 +1,40 @@
+# Add 'core' label to any changes in the core module
+core:
+  - src/dc_api_x/!(plugins|ext|entity|schema)/**/*
+  - src/dc_api_x/*.py
+
+# Add 'plugins' label to any change within the plugins folder
+plugins:
+  - src/dc_api_x/plugins/**/*
+
+# Add 'extensions' label to any change within the ext folder
+extensions:
+  - src/dc_api_x/ext/**/*
+
+# Add 'entity' label to any change within the entity folder
+entity:
+  - src/dc_api_x/entity/**/*
+
+# Add 'schema' label to any change within the schema folder
+schema:
+  - src/dc_api_x/schema/**/*
+
+# Add 'documentation' label to any change to the docs folder
+documentation:
+  - docs/**/*
+  - "**/*.md"
+
+# Add 'testing' label to any change to the tests folder
+testing:
+  - tests/**/*
+
+# Add 'dependencies' label to any change to dependency files
+dependencies:
+  - pyproject.toml
+  - poetry.lock
+  - requirements*.txt
+
+# Add 'github-actions' label to any change to the workflows folder
+github-actions:
+  - .github/workflows/**/*
+  - .github/*.yml
