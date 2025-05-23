@@ -23,10 +23,8 @@ from .exceptions import (
     ConfigurationError,
     RequestError,
 )
-from .response import ApiResponse, GenericResponse
-from .utils.adapters import HttpAdapter
-from .utils.auth import AuthProvider
-from .utils.proto import (
+from .ext.adapters import HttpAdapter
+from .ext.adapters.protocol import (
     DatabaseAdapter,
     DatabaseResult,
     DirectoryAdapter,
@@ -34,6 +32,8 @@ from .utils.proto import (
     MessageQueueAdapter,
     ProtocolAdapter,
 )
+from .ext.auth.provider import AuthProvider
+from .models import ApiResponse, GenericResponse
 
 # Type variables for plugins
 P = TypeVar("P", bound="ApiPlugin")
@@ -338,13 +338,13 @@ class ApiClient:
 
         # Validate configuration
         if not self.url:
-            raise ConfigurationError("API URL is required")
+            raise MissingUrlError()
 
         if not self.username:
-            raise ConfigurationError("API username is required")
+            raise MissingUsernameError()
 
         if not self.password:
-            raise ConfigurationError("API password is required")
+            raise MissingPasswordError()
 
         # Initialize hooks
         self._request_hooks = cfg.request_hooks or []
@@ -354,7 +354,7 @@ class ApiClient:
 
         # Initialize auth provider
         if cfg.auth_provider is None:
-            from .ext.auth import BasicAuthProvider
+            from .ext.auth.basic import BasicAuthProvider
 
             cfg.auth_provider = BasicAuthProvider(self.username, self.password)
         self.auth_provider = cfg.auth_provider
@@ -459,7 +459,7 @@ class ApiClient:
         Returns:
             HttpAdapter implementation
         """
-        from .utils.adapters import RequestsHttpAdapter
+        from .ext.adapters.http import RequestsHttpAdapter
 
         return RequestsHttpAdapter(
             timeout=self.timeout,
@@ -499,7 +499,7 @@ class ApiClient:
                 return cast(P, plugin)
         return None
 
-    def _make_http_request(
+    def _make_http_request(  # noqa: PLR0912
         self,
         method: str,
         endpoint: str,
@@ -642,17 +642,17 @@ class ApiClient:
 
             # Wrap exception
             if isinstance(e, requests.Timeout):
-                raise ApiConnectionError(
-                    f"Request timed out after {self.timeout} seconds",
+                raise ConnectionTimeoutError(
+                    self.timeout,
                     details={"url": url, "method": method},
                 ) from e
             if isinstance(e, requests.ConnectionError):
-                raise ApiConnectionError(
-                    f"Failed to connect to API: {str(e)}",
+                raise ConnectionFailedError(
+                    e,
                     details={"url": url, "method": method},
                 ) from e
-            raise ApiConnectionError(
-                f"API request failed: {str(e)}",
+            raise RequestFailedError(
+                e,
                 details={"url": url, "method": method},
             ) from e
 
@@ -876,7 +876,7 @@ class ApiClient:
                 error_code="QUERY_FAILED",
                 error_details={"query": query, "params": params},
             )
-        except Exception as e:  # Keep this catch-all, but add From
+        except (ClientError, OSError) as e:  # More specific exceptions
             return GenericResponse.error(
                 str(e),
                 error_code="QUERY_FAILED",
@@ -922,7 +922,7 @@ class ApiClient:
                     "filter": search_filter,
                 },
             )
-        except Exception as e:  # Keep this catch-all, but add From
+        except (ClientError, OSError) as e:  # More specific exceptions
             return GenericResponse.error(
                 str(e),
                 error_code="SEARCH_FAILED",
@@ -965,7 +965,7 @@ class ApiClient:
                 error_code="PUBLISH_FAILED",
                 error_details={"topic": topic},
             )
-        except Exception as e:  # Keep this catch-all, but add From
+        except (ClientError, OSError) as e:  # More specific exceptions
             return GenericResponse.error(
                 str(e),
                 error_code="PUBLISH_FAILED",
@@ -983,7 +983,7 @@ class ApiClient:
         except (AttributeError, TypeError):
             if self.debug:
                 logger.exception("Error disconnecting adapter")
-        except Exception:  # Keep this catch-all for safety
+        except (ClientError, OSError):  # More specific exceptions
             if self.debug:
                 logger.exception("Error disconnecting adapter")
 
@@ -998,7 +998,7 @@ class ApiClient:
                             "Error shutting down plugin %s",
                             plugin.__class__.__name__,
                         )
-                except Exception:  # Keep this catch-all for safety
+                except (ClientError, OSError):  # More specific exceptions
                     if self.debug:
                         logger.exception(
                             "Error shutting down plugin %s",
@@ -1113,3 +1113,70 @@ class ApiClient:
                 details=error_details,
                 status_code=api_response.status_code,
             )
+
+
+class ConnectionTimeoutError(ApiConnectionError):
+    """Raised when a request times out."""
+
+    def __init__(self, timeout: int, details: dict[str, Any]) -> None:
+        """Initialize the error.
+
+        Args:
+            timeout: The timeout duration in seconds
+            details: Additional error details
+        """
+        super().__init__(f"Request timed out after {timeout} seconds", details=details)
+
+
+class ConnectionFailedError(ApiConnectionError):
+    """Raised when a connection to the API fails."""
+
+    def __init__(self, error: Exception, details: dict[str, Any]) -> None:
+        """Initialize the error.
+
+        Args:
+            error: The underlying error
+            details: Additional error details
+        """
+        super().__init__(f"Failed to connect to API: {str(error)}", details=details)
+
+
+class RequestFailedError(ApiConnectionError):
+    """Raised when an API request fails for any reason."""
+
+    def __init__(self, error: Exception, details: dict[str, Any]) -> None:
+        """Initialize the error.
+
+        Args:
+            error: The underlying error
+            details: Additional error details
+        """
+        super().__init__(f"API request failed: {str(error)}", details=details)
+
+
+class ClientError(ApiError):
+    """Base exception for client errors."""
+
+
+class MissingUrlError(ConfigurationError):
+    """Raised when the API URL is missing."""
+
+    def __init__(self) -> None:
+        """Initialize the error."""
+        super().__init__("API URL is required")
+
+
+class MissingUsernameError(ConfigurationError):
+    """Raised when the API username is missing."""
+
+    def __init__(self) -> None:
+        """Initialize the error."""
+        super().__init__("API username is required")
+
+
+class MissingPasswordError(ConfigurationError):
+    """Raised when the API password is missing."""
+
+    def __init__(self) -> None:
+        """Initialize the error."""
+        super().__init__("API password is required")
