@@ -6,12 +6,13 @@ This module provides classes for working with API schemas.
 
 import json
 from pathlib import Path
-from typing import Any, Optional
-
-from pydantic import create_model
+from typing import Any, Optional, Type, TypeVar, cast
 
 from dc_api_x.client import ApiClient
-from dc_api_x.models import BaseModel
+from pydantic import BaseModel, ConfigDict, create_model
+
+# Define a generic type for models
+ModelT = TypeVar("ModelT", bound=BaseModel)
 
 
 class SchemaDefinition:
@@ -201,7 +202,7 @@ class SchemaManager:
         self,
         json_type: str,
         format_type: str | None = None,
-    ) -> type:
+    ) -> Type[Any]:
         """
         Get Python type from JSON Schema type.
 
@@ -213,7 +214,7 @@ class SchemaManager:
             Python type
         """
         # Use a mapping dictionary for basic types
-        type_mapping = {
+        type_mapping: dict[str, Type[Any]] = {
             "integer": int,
             "number": float,
             "boolean": bool,
@@ -231,7 +232,7 @@ class SchemaManager:
         # Return the mapped type or Any as fallback
         return type_mapping.get(json_type, Any)
 
-    def get_model(self, schema_name: str) -> type[BaseModel] | None:
+    def get_model(self, schema_name: str) -> Type[BaseModel] | None:
         """
         Get model class for schema.
 
@@ -246,7 +247,7 @@ class SchemaManager:
             return None
 
         # Define field types and defaults
-        field_definitions = {}
+        field_definitions: dict[str, tuple[Type[Any], Any]] = {}
 
         for field_name, field_def in schema.fields.items():
             field_type = self._python_type_from_json_type(
@@ -262,10 +263,13 @@ class SchemaManager:
                 field_definitions[field_name] = (Optional[field_type], None)
 
         # Create model dynamically
-        model = create_model(
-            schema_name,
-            __base__=BaseModel,
-            **field_definitions,
+        model = cast(
+            Type[BaseModel],
+            create_model(
+                schema_name,
+                __base__=BaseModel,
+                **field_definitions,
+            ),
         )
 
         # Add docstring

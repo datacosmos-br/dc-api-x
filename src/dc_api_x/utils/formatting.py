@@ -37,10 +37,7 @@ def format_json(data: Any, indent: int = 2) -> str:
             return data
 
     try:
-        return cast(
-            str,
-            json.dumps(data, indent=indent, ensure_ascii=False, sort_keys=True),
-        )
+        return json.dumps(data, indent=indent, ensure_ascii=False, sort_keys=True)
     except TypeError as err:
 
         def _json_serialization_error(err):
@@ -342,7 +339,7 @@ def format_response_data(data: dict[str, Any]) -> dict[str, Any]:
     Returns:
         Formatted response data
     """
-    result = {}
+    result: dict[str, Any] = {}
     for key, value in data.items():
         normalized_key = normalize_key(key)
 

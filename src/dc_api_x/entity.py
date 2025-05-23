@@ -4,10 +4,11 @@ Entity management for DCApiX.
 This module provides entity classes for managing API resources.
 """
 
-from typing import Any
+from typing import Any, Type
 
-from dc_api_x.client import ApiClient, ApiResponse
-from dc_api_x.models import BaseModel
+from dc_api_x.client import ApiClient
+from dc_api_x.models import ApiResponse
+from pydantic import BaseModel
 
 
 class Entity:
@@ -22,7 +23,7 @@ class Entity:
         self,
         client: ApiClient,
         resource_path: str,
-        model_class: type[BaseModel] | None = None,
+        model_class: Type[BaseModel] | None = None,
     ):
         """
         Initialize entity.
@@ -143,7 +144,7 @@ class EntityManager:
     def get_entity(
         self,
         resource_path: str,
-        model_class: type[BaseModel] | None = None,
+        model_class: Type[BaseModel] | None = None,
     ) -> Entity:
         """
         Get entity for resource path.

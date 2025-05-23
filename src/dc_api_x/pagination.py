@@ -5,10 +5,14 @@ This module provides utilities for handling paginated API responses.
 """
 
 from collections.abc import Generator
-from typing import Any
+from typing import Any, Type, TypeVar, cast
+
+from pydantic import BaseModel
 
 from dc_api_x.client import ApiClient
-from dc_api_x.models import BaseModel
+
+# Define a generic type for models
+T = TypeVar("T", bound=BaseModel)
 
 # Error message constants
 PAGINATION_FAILED = "Pagination failed: {}"
@@ -19,7 +23,7 @@ NOT_A_LIST_ERROR = "Response data is not a list"
 def paginate(
     client: ApiClient,
     endpoint: str,
-    model_class: type[BaseModel] | None = None,
+    model_class: Type[BaseModel] | None = None,
     page_param: str = "page",
     page_size_param: str = "per_page",
     page_size: int = 100,
@@ -61,17 +65,20 @@ def paginate(
 
         # Check for errors
         if not response.success:
-            raise RuntimeError(PAGINATION_FAILED.format(response.error))
+            error_message = str(response.error) if response.error else "Unknown error"
+            raise RuntimeError(PAGINATION_FAILED.format(error_message))
 
         # Extract data
+        response_data = response.data or {}
+        
         if data_key:
             # Data is nested under a key
-            if not isinstance(response.data, dict) or data_key not in response.data:
+            if not isinstance(response_data, dict) or data_key not in response_data:
                 raise ValueError(MISSING_DATA_KEY.format(data_key))
-            items = response.data[data_key]
+            items = response_data[data_key]
         else:
             # Data is directly in response
-            items = response.data
+            items = response_data
 
         # Ensure items is a list
         if not isinstance(items, list):
@@ -84,8 +91,12 @@ def paginate(
         # Yield each item
         for item in items:
             if model_class:
-                # Convert to model
-                yield model_class.model_validate(item)
+                # Convert to model (handle model_validate and model_construct for different pydantic versions)
+                if hasattr(model_class, "model_validate"):
+                    yield model_class.model_validate(item)
+                else:
+                    # Fallback for older pydantic versions
+                    yield model_class(**item)
             else:
                 # Yield raw item
                 yield item

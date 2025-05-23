@@ -17,6 +17,9 @@ Features:
 - Logging and monitoring hooks
 """
 
+# Models
+from pydantic import BaseModel  # Use pydantic's BaseModel directly
+
 from . import config, exceptions, models, pagination, schema, utils
 
 # Client
@@ -45,16 +48,34 @@ from .ext import (  # Auth; Providers; Adapters; Hooks
     TokenAuthProvider,
     TransformProvider,
 )
-
-# Models
+from .models import ConfigurableBase  # ConfigurableBase instead of BaseModel
 from .models import (
     ApiResponse,
-    BaseModel,
-    DatabaseResult,
     DirectoryEntry,
     GenericResponse,
     QueueMessage,
 )
+
+
+# Define DatabaseResult since it's not in models.py
+class DatabaseResult:
+    """Database query result with rows and metadata."""
+
+    def __init__(
+        self,
+        success: bool = True,
+        rows: list[dict[str, any]] = None,
+        query: str = "",
+        params: dict[str, any] = None,
+    ):
+        self.success = success
+        self.rows = rows or []
+        self.query = query
+        self.params = params or {}
+
+    def __repr__(self) -> str:
+        return f"DatabaseResult(success={self.success}, rows={len(self.rows)})"
+
 
 # Plugin management
 from .plugin_manager import enable_plugins, get_adapter, list_adapters
@@ -72,6 +93,7 @@ __all__ = [
     # Models
     "ApiResponse",
     "BaseModel",
+    "ConfigurableBase",  # Add ConfigurableBase to __all__
     "GenericResponse",
     "DatabaseResult",
     "DirectoryEntry",

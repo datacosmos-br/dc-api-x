@@ -275,21 +275,26 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
         """
         if isinstance(error, str):
             error_obj = Error(
-                message=error,
-                code=error_code or "error",
-                details=details,
+                detail=error,
+                status=status_code,
             )
+            if error_code:
+                error_obj.add_error(error, error_code)
+            if details and error_obj.errors:
+                error_obj.errors[0].details = details
         else:
             error_obj = error
 
         response = cls(
             data=None,
-            meta={},
+            meta=Metadata(),
             success=False,
             error=error_obj,
             status_code=status_code,
             headers=headers or {},
         )
+        
+        return response
 
     def is_success(self) -> bool:
         """Check if the response is successful.
