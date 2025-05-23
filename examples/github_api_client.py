@@ -8,13 +8,21 @@ by extending the DCApiX classes.
 
 import os
 import sys
-from typing import list
+from pathlib import Path
 
 # Add src directory to path to import dc_api_x
 # If the package is installed, you can remove these lines
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
+sys.path.insert(0, Path.resolve(Path(__file__).parent.parent / "src"))
+
 
 from dc_api_x import ApiClient, ApiResponse, BaseModel, Entity, EntityManager
+
+
+class GitHubTokenError(ValueError):
+    """Exception raised when GitHub token is missing."""
+
+    def __init__(self):
+        super().__init__("GitHub token is required")
 
 
 class GitHubUser(BaseModel):
@@ -65,13 +73,13 @@ class GitHubApiClient(ApiClient):
         # GitHub uses token authentication instead of username/password
         self.token = token or os.environ.get("GITHUB_TOKEN")
         if not self.token:
-            raise ValueError("GitHub token is required")
+            raise GitHubTokenError()
 
         # Initialize parent class without username/password
         super().__init__(
             url=url,
             username="token",  # Placeholder, not used
-            password="token",  # Placeholder, not used
+            password="token",  # Placeholder, not used  # noqa: S106
             **kwargs,
         )
 

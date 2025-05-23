@@ -8,11 +8,12 @@ using DCApiX classes and utilities.
 
 import os
 import sys
-from typing import Any, dict
+from typing import Any
 
 # Add src directory to path to import dc_api_x
 # If the package is installed, you can remove these lines
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
+
 
 from dc_api_x import ApiClient, ApiResponse, BaseModel, Entity, EntityManager, paginate
 
@@ -229,13 +230,14 @@ def main():
         model_class=Product,
     )
 
-    print("Fetching products with pagination (5 items per page):")
-    count = 0
-    for product in all_products:
-        if count >= 10:  # Limit to 10 products for this example
+    # Define constant for the product limit
+    max_products = 10
+
+    print(f"Fetching products with pagination (5 items per page):")
+    for i, product in enumerate(all_products):
+        if i >= max_products:  # Limit to max_products products for this example
             break
         print(f"  • {product.title} - ${product.price}")
-        count += 1
 
     return 0
 

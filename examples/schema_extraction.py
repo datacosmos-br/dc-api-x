@@ -8,10 +8,24 @@ models from those schemas using DCApiX.
 
 import sys
 from pathlib import Path
-from typing import Any, dict, list, type
+from typing import Any
 
 from dc_api_x import ApiClient, BaseModel, SchemaDefinition, SchemaManager
 from dc_api_x.utils.formatting import format_json
+
+
+class SchemaNotFoundError(ValueError):
+    """Exception raised when a schema cannot be found."""
+
+    def __init__(self, schema_name: str):
+        super().__init__(f"Schema not found: {schema_name}")
+
+
+class ModelCreationError(ValueError):
+    """Exception raised when a model cannot be created from a schema."""
+
+    def __init__(self, schema_name: str):
+        super().__init__(f"Failed to create model for schema: {schema_name}")
 
 
 class SchemaExtractionExample:
@@ -30,7 +44,6 @@ class SchemaExtractionExample:
         Args:
             api_url: API base URL
             schema_dir: Directory for schema storage
-            
             offline_mode: Whether to operate in offline mode (using only cached schemas)
         """
         self.api_url = api_url
@@ -45,7 +58,7 @@ class SchemaExtractionExample:
             self.client = ApiClient(
                 url=api_url,
                 username="demo",  # Placeholder
-                password="demo",  # Placeholder
+                password="demo",  # Placeholder - noqa: S106
             )
 
             # Disable authentication for demo
@@ -251,7 +264,7 @@ class SchemaExtractionExample:
         """
         schema = self.schema_manager.get_schema(name)
         if not schema:
-            raise ValueError(f"Schema not found: {name}")
+            raise SchemaNotFoundError(name)
         return schema
 
     def display_schema(self, name: str):
@@ -282,38 +295,36 @@ class SchemaExtractionExample:
         """
         model = self.schema_manager.get_model(schema_name)
         if not model:
-            raise ValueError(f"Failed to create model for schema: {schema_name}")
+            raise ModelCreationError(schema_name)
         return model
 
     def demonstrate_model_usage(
-        self, model_class: type[BaseModel], sample_data: dict[str, Any],
+        self,
+        model_class: type[BaseModel],
+        sample_data: dict[str, Any],
     ):
         """
-        Demonstrate model usage with sample data.
+        Demonstrate usage of dynamically generated model.
 
         Args:
             model_class: Model class
-            sample_data: Sample data for the model
+            sample_data: Sample data to create model instance
         """
-        print(f"\n=== Using {model_class.__name__} Model ===")
+        print("\n=== Model Usage Demonstration ===")
+        print(f"Model class: {model_class.__name__}")
+        print("Sample data:")
+        print(format_json(sample_data, indent=2))
 
-        # Create model instance
+        # Create model instance from sample data
         model = model_class.model_validate(sample_data)
-
-        # Display model data
-        print("Model data:")
+        print("\nModel instance created:")
         model_dict = model.to_dict()
         print(format_json(model_dict, indent=2))
 
-        # Demonstrate model methods
-        print("\nAccessing fields:")
+        # Demonstrate field access
+        print("\nAccessing model fields:")
         for field in list(model_dict.keys())[:3]:  # Show first 3 fields
-            print(f"  • {field}: {model.get(field)}")
-
-        # Convert to JSON
-        print("\nJSON representation:")
-        json_str = model.to_json(indent=2)
-        print(json_str)
+            print(f"  • {field}: {getattr(model, field)}")
 
 
 def main():

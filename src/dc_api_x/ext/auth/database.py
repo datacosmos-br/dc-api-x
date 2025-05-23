@@ -30,7 +30,7 @@ class DatabaseAuthProvider(AuthProvider):
         adapter: Any,
         query: str,
         username_field: str = "username",
-        password_field: str = "password",  # noqa: B107
+        password_field: str = "password",  # noqa: S107, B107
         token_expiration: int = 3600,
     ):
         """Initialize the database auth provider.

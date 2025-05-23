@@ -31,7 +31,7 @@ def example_http_client() -> None:
     # Create an authentication provider
     auth_provider = BasicAuthProvider(
         username="username",
-        password="password",
+        password="password",  # noqa: S106
     )
 
     # Create an HTTP adapter
@@ -108,7 +108,7 @@ def example_ldap_client() -> None:
     # Create an authentication provider
     auth_provider = BasicAuthProvider(
         username="cn=admin,dc=example,dc=com",
-        password="admin_password",
+        password="admin_password",  # noqa: S106
     )
 
     # Create an LDAP adapter
@@ -143,20 +143,20 @@ def main() -> None:
 
     try:
         example_http_client()
-    except Exception as e:
-        logger.exception("HTTP example failed: %s", e)
+    except Exception:
+        logger.exception("HTTP example failed")
 
     try:
         example_database_client()
-    except Exception as e:
-        logger.exception("Database example failed: %s", e)
+    except Exception:
+        logger.exception("Database example failed")
 
     try:
         # Skip LDAP example by default as it requires an LDAP server
         if os.environ.get("RUN_LDAP_EXAMPLE") == "1":
             example_ldap_client()
-    except Exception as e:
-        logger.exception("LDAP example failed: %s", e)
+    except Exception:
+        logger.exception("LDAP example failed")
 
 
 if __name__ == "__main__":

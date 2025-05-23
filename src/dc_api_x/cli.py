@@ -36,7 +36,7 @@ console = Console()
     help="Enable debug output",
 )
 @click.pass_context
-def cli(ctx: click.Context, debug: bool) -> None:
+def cli(ctx: click.Context, *, debug: bool = False) -> None:
     """
     DCApiX - Python API Extensions CLI.
 
@@ -82,7 +82,7 @@ def config_show(profile: str | None) -> None:
         # Convert to dictionary (excluding sensitive fields)
         config_dict = cfg.to_dict()
         if "password" in config_dict:
-            config_dict["password"] = "********"  # noqa: S105, B105
+            config_dict["password"] = "********"  # noqa: S105
 
         # Pretty print configuration
         console.print("[bold]Configuration:[/bold]")
@@ -334,6 +334,7 @@ def schema_extract(
     entity: str | None,
     profile: str | None,
     output_dir: str,
+    *,
     extract_all: bool,
 ) -> None:
     """Extract schema for an entity."""
