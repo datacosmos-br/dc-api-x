@@ -164,7 +164,7 @@ class AlreadyExistsError(BaseAPIError):
         super().__init__(message, "already_exists", details)
 
 
-class TimeoutError(BaseAPIError):
+class ApiTimeoutError(BaseAPIError):
     """Exception raised when an operation times out."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -175,6 +175,10 @@ class TimeoutError(BaseAPIError):
             details: Optional error details
         """
         super().__init__(message, "timeout", details)
+
+
+# For backward compatibility
+TimeoutError = ApiTimeoutError  # noqa: A001
 
 
 class RateLimitError(BaseAPIError):

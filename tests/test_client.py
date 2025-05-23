@@ -10,6 +10,7 @@ import responses
 
 from dc_api_x.client import ApiClient
 from dc_api_x.exceptions import (
+    ApiTimeoutError,
     AuthenticationError,
     ConfigurationError,
     ConnectionError,
@@ -140,7 +141,7 @@ class TestApiClient:
         responses.add(
             responses.GET,
             "https://api.example.com/users",
-            body=TimeoutError("Request timed out"),
+            body=ApiTimeoutError("Request timed out"),
         )
 
         # Make request and expect error
