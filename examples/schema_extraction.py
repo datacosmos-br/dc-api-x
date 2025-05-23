@@ -21,6 +21,7 @@ class SchemaExtractionExample:
         self,
         api_url: str = "https://api.example.com",
         schema_dir: str = "./schemas",
+        *,
         offline_mode: bool = False,
     ):
         """
@@ -29,6 +30,7 @@ class SchemaExtractionExample:
         Args:
             api_url: API base URL
             schema_dir: Directory for schema storage
+            
             offline_mode: Whether to operate in offline mode (using only cached schemas)
         """
         self.api_url = api_url

@@ -9,6 +9,7 @@ import logging
 from typing import Any, Optional, TypeVar, Union, cast
 
 import requests
+
 from dc_api_x.constants import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_BACKOFF,
@@ -496,9 +497,9 @@ class ApiClient:
 
             # Convert to appropriate error type
             if isinstance(e, requests.RequestException):
-                def _request_error(err):
-                    return RequestError(f"Request error: {str(err)}")
-                raise _request_error(e) from e
+                raise RequestError(f"Request error: {str(e)}") from e
+        else:
+            return api_response
 
     def _process_response(self, response: requests.Response) -> ApiResponse:
         """

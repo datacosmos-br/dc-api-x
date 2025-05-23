@@ -60,7 +60,7 @@ def enable_plugins() -> None:
         return
 
     load_plugins()
-    _plugin_state.set_loaded(True)
+    _plugin_state.set_loaded(loaded=True)
 
 
 def load_plugins() -> list[str]:
