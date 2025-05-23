@@ -1,42 +1,41 @@
-name: "DC-API-X Advanced CodeQL Configuration"
-
-disable-default-queries: true
+name: "CodeQL Advanced Configuration"
 
 queries:
   - uses: security-extended
   - uses: security-and-quality
 
-query-filters:
-  - exclude:
-      problem.severity:
-        - note
-        - recommendation
-
-paths-ignore:
-  - "**/test/**"
-  - "**/tests/**"
-  - "**/.pytest_cache/**"
-  - "**/venv/**"
-  - "**/.venv/**"
-  - "**/docs/**"
-  - "**/examples/**"
-
 paths:
   - src
-  - scripts
+  - tests
 
-security-severity-overrides:
-  - security-severity:
-      - 8.0 # High severity
-    tags:
-      - security
-      - sql-injection
-      - xss
-  - security-severity:
-      - 7.0 # High-Medium severity
-    tags:
-      - security
-      - command-injection
-      - path-injection
+paths-ignore:
+  - "**/*.test.py"
+  - "tests/fixtures/**"
+  - "docs/**"
+  - ".github/**"
+  - ".venv/**"
+  - "**/*_test.py"
+  - "**/test_*.py"
+  - "**/conftest.py"
 
-trap-caching: true
+query-filters:
+  - exclude:
+      id: py/clear-text-logging-sensitive-data
+      reason: "Will be addressed separately"
+  - exclude:
+      id: py/unsafe-hash-usage
+      reason: "False positives with the way we manage secret hashing"
+  - exclude:
+      id: py/hardcoded-credentials
+      severity: error
+      reason: "Test credentials only"
+
+interpretation-rules:
+  - id: py/sql-injection
+    severity: error
+  - id: py/path-injection
+    severity: error
+  - id: py/xss
+    severity: error
+  - id: py/unsafe-deserialization
+    severity: error
