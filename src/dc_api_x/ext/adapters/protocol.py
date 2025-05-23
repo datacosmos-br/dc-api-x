@@ -5,17 +5,9 @@ This module defines the base ProtocolAdapter abstract class that all
 specific protocol adapters must inherit from.
 """
 
+from contextlib import AbstractAsyncContextManager, AbstractContextManager
 from types import TracebackType
-from typing import (
-    Any,
-    AsyncContextManager,
-    ContextManager,
-    Optional,
-    Protocol,
-    TypeAlias,
-    TypeVar,
-    Union,
-)
+from typing import Any, Optional, Protocol, TypeAlias, TypeVar, Union
 
 T = TypeVar("T")
 P = TypeVar("P")
@@ -118,7 +110,7 @@ class AsyncContextAdapter(Adapter, Protocol):
 class HttpAdapter(ProtocolAdapter, Protocol):
     """HTTP protocol adapter interface."""
 
-    def request(
+    def request(  # noqa: PLR0913
         self,
         method: str,
         url: str,
@@ -164,7 +156,7 @@ class HttpAdapter(ProtocolAdapter, Protocol):
             Response data
         """
 
-    def post(
+    def post(  # noqa: PLR0913
         self,
         url: str,
         *,
@@ -188,7 +180,7 @@ class HttpAdapter(ProtocolAdapter, Protocol):
             Response data
         """
 
-    def put(
+    def put(  # noqa: PLR0913
         self,
         url: str,
         *,
@@ -232,7 +224,7 @@ class HttpAdapter(ProtocolAdapter, Protocol):
             Response data
         """
 
-    def patch(
+    def patch(  # noqa: PLR0913
         self,
         url: str,
         *,
@@ -290,13 +282,13 @@ class Transaction(Protocol):
         """Rollback the transaction."""
 
 
-class DatabaseTransaction(Transaction, ContextManager["DatabaseTransaction"]):
+class DatabaseTransaction(Transaction, AbstractContextManager["DatabaseTransaction"]):
     """Database transaction with context manager support."""
 
 
 class AsyncDatabaseTransaction(
     Transaction,
-    AsyncContextManager["AsyncDatabaseTransaction"],
+    AbstractAsyncContextManager["AsyncDatabaseTransaction"],
 ):
     """Async database transaction with async context manager support."""
 

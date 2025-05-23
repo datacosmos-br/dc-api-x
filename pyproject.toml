@@ -32,18 +32,19 @@ python = "^3.10"
 requests = "^2.32.3"
 httpx = "^0.28.1"
 # Validation / settings
-pydantic = "^2.11.5"
+pydantic = "^2.11.4"
 pydantic-settings = "^2.9.1"
 # CLI / logging
 click = "^8.1.8"
 typer = { version = "^0.15.4", extras = ["all"] } # rich-help & completion
+doctyper = "^0.15.4"
 rich = "^14.0.0"
 structlog = "^25.3.0"
 # Plug-ins / retries / tracing
 pluggy = "^1.6.0"
-tenacity = "^9.1.2"
-opentelemetry-api = "^1.33.1"
-opentelemetry-sdk = "^1.33.1"
+# tenacity = "^9.1.2"
+# opentelemetry-api = "^1.33.1"
+# opentelemetry-sdk = "^1.33.1"
 # Misc
 python-dotenv = "^1.1.0"
 responses = { version = "^0.25.7", optional = true } # used only in tests
@@ -56,17 +57,17 @@ black = "^25.1.0"
 isort = "^6.0.1"
 ruff = "^0.11.11"
 mypy = "^1.15.0"
-pyupgrade = "3.19.1"
+# pyupgrade = "3.19.1"
 pylint = "^3.3.7"
-autoflake = "^2.3.1"
+# autoflake = "^2.3.1"
 refurb = "^2.1.0"
 bandit = "^1.8.3"
 types-requests = "^2.32.0.20250515"
-pre-commit = "^4.2.0"
 build = "^1.2.2"
-mdformat           = "^0.7.22"     # opinionated formatter (Black-style for MD)
-mdformat-gfm       = "^0.4.1"      # GitHub-flavoured tables, task lists …
-pymarkdownlnt      = "^0.9.30"     # strict Markdown lint (configurable)
+# mdformat           = "^0.7.22"     # opinionated formatter (Black-style for MD)
+# mdformat-gfm       = "^0.4.1"      # GitHub-flavoured tables, task lists …
+# pymarkdownlnt      = "^0.9.30"     # strict Markdown lint (configurable)
+ldap3 = "^2.9.1"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^8.3.5"
@@ -129,6 +130,7 @@ multi_line_output = 3
 force_grid_wrap = 0
 skip_glob = ["**/reference/**", "**/examples/**", "**/.venv/**"]
 
+
 [tool.mypy]
 check_untyped_defs = true
 disallow_any_generics = true
@@ -137,7 +139,7 @@ disallow_untyped_decorators = true
 # disallow_untyped_defs = true
 no_implicit_optional = true
 no_implicit_reexport = true
-# plugins = ["pydantic.mypy"]
+plugins = ["pydantic.mypy"]
 python_version = "3.10"
 strict_optional = true
 warn_redundant_casts = true
@@ -158,6 +160,7 @@ module = [
     "rich.*",
     "structlog.*",
     "opentelemetry.*",
+    "ldap3.*",
 ]
 ignore_missing_imports = true
 
@@ -285,3 +288,5 @@ exclude_lines = [
 [tool.mdformat]
 number             = true          # auto-number ordered lists
 wrap               = 88
+
+plugins = ["pydantic.mypy"]

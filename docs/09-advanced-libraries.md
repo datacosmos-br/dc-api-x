@@ -15,12 +15,15 @@
 | DB    | **SQLAlchemy 2** | *Core select*, sync & async engines, `Session.begin()` context-manager, SQL compilation caching |
 | Oracle| **python-oracledb** | Thin vs Thick mode, DRCP pooling, `json.dumps()` type handlers |
 | LDAP  | **ldap3** | Connection pooling, *DirSync* (AD), RFC 4533 Sync Request, `RESTARTABLE` strategy |
-| Models| **pydantic v2** | Custom validators, generics, `model_validate` on external payloads, JSON Schema export |
+| Models| **pydantic V2.11** | Custom validators, generics, `model_validate` on external payloads, JSON Schema export |
 | Retry | **tenacity** | Exponential back-off + jitter, per-adapter policies, circuit-breaker pattern |
 | Plugins| **pluggy** | Dynamic discovery, version compat guard via `PluginValidationError` |
 | Logging| **structlog** + **rich** | Context vars (`bind`), colorised console, JSON when `LOG_AS_JSON=1` |
 | CLI   | **typer** | Auto-completion, rich-help, parameter callbacks |
 | Obs.  | **opentelemetry-api / sdk** | Span injection inside hooks (`trace_id` logged) |
+| ETL   | **singer** + **meltano** | Tap/target pipelines, stream extraction, transformation (future) |
+| System | **osquery** | SQL-based system monitoring, OS instrumentation (future) |
+| Infrastructure | **steampipe** | Infrastructure as SQL, cloud service querying (future) |
 
 ---
 
@@ -71,7 +74,7 @@ Set `oracledb.defaults.fetch_lobs = False` unless you **really** need LOBs.
 
 ---
 
-## 5 ▸ Pydantic v2 Pro Tips
+## 5 ▸ Pydantic V2.11 Pro Tips
 
 ```python
 from pydantic import BaseModel, Field, EmailStr
@@ -248,427 +251,178 @@ except (ValueError, KeyError, TypeError):  # Specific exceptions
 
 # TRY400: Use logging.exception in handlers
 try:
-    authenticate()
-except AuthError as e:
-    logging.exception("Authentication failed")  # Not logging.error(f"...")
-
-# PLR2004: Magic values
-HTTP_UNAUTHORIZED = 401  # Define constants
-if response.status_code == HTTP_UNAUTHORIZED:
-    refresh_token()
+    do_something_risky()
+except Exception:
+    # Instead of print or logger.error:
+    logger.exception("Operation failed")  # Includes full traceback
 ```
 
 ---
 
-## 14 ▸ Advanced Code Quality with wemake-python-styleguide
+## 14 ▸ Future Library Integrations
 
-For projects requiring the strictest code quality standards, combine ruff with wemake-python-styleguide:
+DCApiX plans to integrate several powerful libraries through its plugin ecosystem. Here are best practices and patterns for working with these upcoming integrations. For detailed implementation timelines, see our [Plugin Roadmap](15-pluggy.md#future-plugin-roadmap).
+
+### 14.1 HTTPX Advanced Features
+
+The planned **dc-api-x-httpx** plugin will leverage HTTPX's modern features:
 
 ```python
-# WPS221: Complex expressions with multiple conditions
-# ❌ AVOID:
-result = [x for x in items if x > 10 and x % 2 == 0 and is_valid(x)]
+import httpx
 
-# ✅ PREFER: Split into steps
-def is_valid_item(x):
-    return x > 10 and x % 2 == 0 and is_valid(x)
+# HTTP/2 with connection pooling and async support
+async def fetch_with_httpx():
+    limits = httpx.Limits(max_keepalive_connections=10, max_connections=20)
+    async with httpx.AsyncClient(http2=True, limits=limits) as client:
+        # Parallel requests
+        tasks = [client.get(f"https://api.example.com/items/{i}") for i in range(10)]
+        responses = await asyncio.gather(*tasks)
+        return [r.json() for r in responses]
 
-result = [x for x in items if is_valid_item(x)]
+# Streaming response processing
+def stream_large_dataset():
+    with httpx.Client() as client:
+        with client.stream("GET", "https://api.example.com/large-dataset") as response:
+            for chunk in response.iter_lines():
+                yield process_chunk(chunk)
+```
 
-# WPS204: Overused expressions
-# ❌ AVOID:
-if some_dict.get('key') and some_dict.get('key').get('nested'):
-    value = some_dict.get('key').get('nested')
-    # Use value...
+### 14.2 Advanced LDAP Operations
 
-# ✅ PREFER: Extract to variables
-key_data = some_dict.get('key')
-if key_data and key_data.get('nested'):
-    nested_value = key_data.get('nested')
-    # Use nested_value...
+The multiple LDAP plugins (ldap3, python-ldap, Ldaptor) will enable advanced directory operations:
 
-# WPS226: String literal overuse
-# ❌ AVOID:
-if status == 'success' or status == 'partial_success':
-    print('Operation succeeded with status: ' + status)
+```python
+# ldap3 pattern for efficient searches
+def efficient_ldap_search(search_base, search_filter):
+    from ldap3 import Server, Connection, SUBTREE, RESTARTABLE
     
-# ✅ PREFER: Use constants
-SUCCESS_STATUS = 'success'
-PARTIAL_SUCCESS_STATUS = 'partial_success'
-SUCCESS_MESSAGE = 'Operation succeeded with status: {0}'
-
-if status in (SUCCESS_STATUS, PARTIAL_SUCCESS_STATUS):
-    print(SUCCESS_MESSAGE.format(status))
-
-# WPS210: Too many local variables
-# WPS231: Too high function cognitive complexity
-# Solutions:
-# 1. Break into smaller functions
-# 2. Use composition
-# 3. Apply functional programming patterns
+    server = Server('ldap://example.com', get_info='ALL')
+    conn = Connection(server, 'uid=admin,cn=users,dc=example,dc=com', 'password',
+                     client_strategy=RESTARTABLE, auto_bind=True)
+    
+    # Paged search for large directories
+    entry_list = []
+    conn.search(search_base, search_filter, search_scope=SUBTREE,
+                attributes=['cn', 'mail'], paged_size=100)
+                
+    # Process paged results
+    entry_list.extend(conn.entries)
+    cookie = conn.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
+    while cookie:
+        conn.search(search_base, search_filter, search_scope=SUBTREE,
+                    attributes=['cn', 'mail'], paged_size=100, paged_cookie=cookie)
+        entry_list.extend(conn.entries)
+        cookie = conn.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
+    
+    return entry_list
 ```
 
-Setup:
+### 14.3 ETL Patterns with Singer and Meltano
 
-```bash
-# Installation
-pip install wemake-python-styleguide
-
-# Usage with ruff
-ruff check && ruff format && flake8 . --select=WPS
-
-# Configuration in setup.cfg
-[flake8]
-select = WPS
-ignore = WPS305,WPS306  # Allow f-strings
-max-complexity = 10
-max-line-length = 88
-```
-
-Benefits:
-
-* Enforces extremely strict code quality standards
-* Identifies complex structures that may lead to maintainability issues
-* Promotes modular, testable code architecture
-* Complements ruff by focusing on code complexity metrics
-
----
-
-## 15 ▸ Type Safety with mypy
+The **dc-api-x-singer** and **dc-api-x-meltano** plugins will enable standardized data pipelines:
 
 ```python
-# Always fully annotate function signatures (no-untyped-def)
-def connect(
-    url: str,
-    options: ConnectionOptions | None = None,
-) -> Connection:
-    # Implementation...
-
-# Validate None access to prevent "union-attr" errors
-def get_username(user: User | None) -> str:
-    if user is None:
-        return "anonymous"
-    return user.username  # Safe access after None check
-
-# Cast Any to specific types for "no-any-return" errors
-def get_response_data() -> dict[str, str]:
-    response = fetch_external_data()  # Returns Any
-    # Type validation to ensure return type matches annotation
-    return {str(k): str(v) for k, v in response.items()}
-
-# Install missing type stubs
-# python -m pip install types-requests types-PyYAML
-
-# Handle type-incompatible assignments
-def process_item_count(config: dict[str, Any]) -> int:
-    # Not safe: count = config.get('count')  # might be None or str
-    count_value = config.get('count')
-    if count_value is None:
-        return 0
-    elif isinstance(count_value, int):
-        return count_value
-    return int(count_value)  # Convert str to int
+# Creating a Singer Tap implementation
+class MyCustomTap:
+    def discover(self):
+        """Return a catalog of available streams."""
+        return {
+            "streams": [
+                {
+                    "tap_stream_id": "users",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "integer"},
+                            "name": {"type": "string"},
+                            "created_at": {"type": "string", "format": "date-time"}
+                        }
+                    },
+                    "metadata": [
+                        {"breadcrumb": [], "metadata": {"selected": True}}
+                    ]
+                }
+            ]
+        }
+    
+    def sync(self, state=None):
+        """Sync data from the source."""
+        for record in self._fetch_records(state):
+            yield {
+                "type": "RECORD",
+                "stream": "users",
+                "record": record
+            }
 ```
 
-Common mypy errors to fix:
+### 14.4 System Monitoring with OSQuery
 
-* `no-untyped-def`: Add complete parameter and return type annotations
-* `union-attr`: Check for `None` before accessing attributes
-* `no-any-return`: Validate/cast return values to match declared type
-* `import-untyped`: Install type stubs with `python -m pip install types-package`
-* `assignment`: Ensure types match in assignments or add proper conversion
-
----
-
-## 16 ▸ Cheat-Sheet for Plugin Authors
-
-| Step | Action                                                                                  |
-| ---- | --------------------------------------------------------------------------------------- |
-| 1    | Fork the [template-plugin repo](https://github.com/datacosmos/dc-api-x-plugin-template) |
-| 2    | Implement adapter in `<50` lines (inherit `ProtocolAdapter`)                            |
-| 3    | Write pytest unit test + Sphinx docs                                                    |
-| 4    | `poetry build && twine upload --repository datacosmos-internal dist/*`                  |
-| 5    | Add yourself to AUTHORS.md 🎉                                                           |
-
----
-
-* Master these advanced tools and dc-api-x becomes a superpower—not just a library.
-
-## Advanced Libraries & Code Quality Tools
-
-This document covers advanced libraries and tools used in the dc-api-x project to maintain code quality and enforce standards.
-
-### Code Quality Tools
-
-### wemake-python-styleguide
-
-[wemake-python-styleguide](https://wemake-python-styleguide.readthedocs.io/) is an opinionated, strict linter for Python that enforces high code quality standards. It's built on top of flake8 and includes over 900 checks to ensure your code remains maintainable and clean.
-
-### Key Features
-
-* **Extremely strict**: Enforces best practices and prevents many anti-patterns
-* **Comprehensive**: Over 900 built-in checks for various issues
-* **Customizable**: Can be fine-tuned for your project's specific needs
-* **Well-documented**: Detailed explanations for each error code
-
-#### Common Issues and Solutions
-
-##### ARG002: Unused method arguments
+The **dc-api-x-osquery** plugin will enable SQL-based system monitoring:
 
 ```python
-# ❌ Error: Unused method argument
-def process_data(data, options):  # options is unused
-    return transform(data)
-
-# ✅ Solution 1: Use underscore prefix for unused arguments
-def process_data(data, _options):
-    return transform(data)
-
-# ✅ Solution 2: Remove the unused parameter if not needed by interface
-def process_data(data):
-    return transform(data)
-
-# ✅ Solution 3: Use the parameter
-def process_data(data, options):
-    if options.get("verbose"):
-        logger.debug("Processing data")
-    return transform(data)
+def monitor_system_resources():
+    import osquery
+    
+    # Initialize osquery instance
+    instance = osquery.SpawnInstance()
+    instance.open()
+    
+    # Query system information using SQL
+    processes = instance.client.query("SELECT pid, name, cpu_time FROM processes ORDER BY cpu_time DESC LIMIT 10")
+    memory_usage = instance.client.query("SELECT * FROM memory_info")
+    disk_usage = instance.client.query("SELECT * FROM disk_usage")
+    
+    return {
+        "top_processes": processes.response,
+        "memory": memory_usage.response,
+        "disk": disk_usage.response
+    }
 ```
 
-##### PLR2004: Magic value used in comparison
+### 14.5 Infrastructure Querying with Steampipe
+
+The **dc-api-x-steampipe** plugin will enable SQL queries across cloud infrastructure:
 
 ```python
-# ❌ Error: Magic value in comparison
-if status_code == 200:  # 200 is a magic value
-    process_response(response)
-
-# ✅ Solution: Use named constants
-HTTP_OK = 200
-if status_code == HTTP_OK:
-    process_response(response)
+def query_cloud_resources():
+    from steampipe_client import SteampipeClient
+    
+    client = SteampipeClient()
+    
+    # Query AWS resources with SQL
+    ec2_instances = client.query("""
+        SELECT 
+            instance_id, 
+            instance_type, 
+            region, 
+            state_name 
+        FROM 
+            aws_ec2_instance
+        WHERE 
+            tags ->> 'Environment' = 'Production'
+    """)
+    
+    # Query multi-cloud resources
+    multi_cloud_vms = client.query("""
+        SELECT
+            'AWS' as cloud,
+            instance_id as id,
+            instance_type as type
+        FROM
+            aws_ec2_instance
+        UNION
+        SELECT
+            'Azure' as cloud,
+            id,
+            size as type
+        FROM
+            azure_compute_virtual_machine
+    """)
+    
+    return {
+        "ec2_instances": ec2_instances,
+        "multi_cloud_vms": multi_cloud_vms
+    }
 ```
 
-##### WPS432: Found magic number
-
-Similar to PLR2004, but for numeric literals used in other contexts.
-
-```python
-# ❌ Error: Magic number
-def calculate_tax(amount):
-    return amount * 0.21  # 0.21 is a magic number
-
-# ✅ Solution: Use named constants
-TAX_RATE = 0.21
-def calculate_tax(amount):
-    return amount * TAX_RATE
-```
-
-##### WPS202: Found too many module members
-
-```python
-# ❌ Error: Too many module members
-# models.py with 20+ classes and functions
-
-# ✅ Solution: Split into submodules
-# models/__init__.py - Exports everything
-# models/user.py - User-related models
-# models/product.py - Product-related models
-# models/order.py - Order-related models
-```
-
-##### WPS210: Found too many local variables
-
-```python
-# ❌ Error: Too many local variables
-def process_order(order):
-    customer_name = order.customer.name
-    customer_email = order.customer.email
-    order_total = order.total
-    tax_amount = order_total * TAX_RATE
-    shipping_cost = calculate_shipping(order)
-    discount = apply_discounts(order)
-    final_price = order_total + tax_amount + shipping_cost - discount
-    # ... more variables and processing
-    return final_price
-
-# ✅ Solution: Extract smaller functions and use data classes
-def calculate_final_price(order):
-    tax_amount = calculate_tax(order.total)
-    shipping_cost = calculate_shipping(order)
-    discount = apply_discounts(order)
-    return order.total + tax_amount + shipping_cost - discount
-
-def process_order(order):
-    customer = get_customer_details(order.customer)
-    final_price = calculate_final_price(order)
-    # Much fewer local variables
-    return create_order_summary(customer, order, final_price)
-```
-
-#### Configuring for Your Project
-
-To configure wemake-python-styleguide for your project, add settings to `setup.cfg`:
-
-```ini
-[flake8]
-# Base flake8 configuration:
-max-line-length = 88
-select = WPS
-ignore = 
-    # Allow f-strings
-    WPS305,
-    WPS306,
-    # Allow docstrings without imperative mood
-    WPS326
-
-# wemake-python-styleguide settings:
-max-complexity = 10
-max-imports = 15
-max-module-members = 15
-max-methods = 10
-max-local-variables = 8
-max-arguments = 5
-max-attributes = 8
-max-cognitive-complexity = 15
-
-# Per-file ignores
-per-file-ignores =
-    # Allow magic values in test files
-    tests/*:PLR2004,ARG002
-    # Allow unused arguments in interface implementations
-    src/your_module/client.py:ARG002
-```
-
-##### Integration with CI/CD
-
-Add wemake-python-styleguide to your CI/CD pipeline to enforce these rules on every commit:
-
-```yaml
-- name: Lint with wemake-python-styleguide
-  run: flake8 src/ tests/ --select=WPS
-```
-
-##### Ignoring Specific Issues
-
-For cases where rule violations are necessary or appropriate:
-
-1. **Inline ignores** for specific lines:
-
-   ```python
-   value = 42  # noqa: WPS432
-   ```
-
-2. **Per-file ignores** in `setup.cfg`:
-
-   ```ini
-   per-file-ignores =
-       tests/*:PLR2004,ARG002
-   ```
-
-3. **Global ignores** for specific error codes:
-
-   ```ini
-   ignore = 
-       WPS305,  # Allow f-strings
-       WPS306,  # Allow string format
-   ```
-
-#### Examples of Complex Code Issues
-
-Below are some examples of complex code patterns that would be flagged by wemake-python-styleguide:
-
-##### 1. Nested Functions and Classes
-
-```python
-# ❌ Complex nested structure
-def outer_function():
-    def inner_function():
-        class NestedClass:  # WPS431: Found nested class
-            def __init__(self):
-                self.value = 1
-        return NestedClass()
-    return inner_function()
-
-# ✅ Flattened structure
-class Helper:
-    def __init__(self):
-        self.value = 1
-
-def create_helper():
-    return Helper()
-
-def outer_function():
-    return create_helper()
-```
-
-##### 2. Complex Expressions
-
-```python
-# ❌ Complex expression
-result = [x for x in range(10) if x % 2 == 0 and x > 5 or x % 3 == 0]  # WPS221
-
-# ✅ Simpler expressions
-even_greater_than_five = [x for x in range(10) if x % 2 == 0 and x > 5]
-divisible_by_three = [x for x in range(10) if x % 3 == 0]
-result = even_greater_than_five + divisible_by_three
-```
-
-##### 3. Deep Nesting
-
-```python
-# ❌ Deep nesting
-def process_data(data):
-    if data:
-        for item in data:
-            if item.active:
-                for subitem in item.subitems:
-                    if subitem.valid:  # WPS220: Found too deep nesting
-                        process_subitem(subitem)
-
-# ✅ Reduced nesting with early returns and helper functions
-def is_processable(subitem):
-    return subitem.valid
-
-def process_subitems(subitems):
-    for subitem in subitems:
-        if is_processable(subitem):
-            process_subitem(subitem)
-
-def process_item(item):
-    if not item.active:
-        return
-    process_subitems(item.subitems)
-
-def process_data(data):
-    if not data:
-        return
-    for item in data:
-        process_item(item)
-```
-
-##### 4. Function with Too Many Arguments
-
-```python
-# ❌ Too many arguments
-def configure_service(name, host, port, username, password, timeout, retries, ssl, proxy, debug):  # WPS211
-    # ...implementation
-
-# ✅ Using a configuration object
-@dataclass
-class ServiceConfig:
-    name: str
-    host: str
-    port: int
-    username: str
-    password: str
-    timeout: int = 30
-    retries: int = 3
-    ssl: bool = True
-    proxy: str | None = None
-    debug: bool = False
-
-def configure_service(config: ServiceConfig):
-    # ...implementation
-```
-
-By following these guidelines and using the tools like wemake-python-styleguide, you can maintain a high-quality codebase that remains maintainable and robust as it grows.
+These integration patterns demonstrate how DCApiX will leverage these powerful libraries to expand its capabilities while maintaining its core principles of clean APIs, strong typing, and comprehensive documentation.

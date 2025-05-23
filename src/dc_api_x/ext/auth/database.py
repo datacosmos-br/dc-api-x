@@ -9,6 +9,13 @@ from typing import Any, Optional
 from ...exceptions import AuthenticationError
 from .provider import AuthProvider
 
+# Error message constants
+NO_ADAPTER_ERROR = "No database adapter provided"
+CONNECT_ERROR = "Failed to connect to database: %s"
+AUTH_FAILED_ERROR = "Authentication failed: %s"
+INVALID_CREDENTIALS = "Invalid credentials"
+NOT_AUTHENTICATED = "Not authenticated"
+
 
 # Criando a exceção que está faltando
 class InvalidCredentialsError(AuthenticationError):
@@ -28,7 +35,7 @@ class DatabaseAuthProvider(AuthProvider):
         adapter: Any,
         query: str,
         username_field: str = "username",
-        password_field: str = "password",  # noqa: S107, B107
+        password_field: str = "password",  # noqa: S107
         token_expiration: int = 3600,
     ):
         """Initialize the database auth provider.
@@ -69,62 +76,50 @@ class DatabaseAuthProvider(AuthProvider):
             AuthenticationError: If authentication fails for other reasons
         """
         if not self.adapter:
+            raise AuthenticationError(NO_ADAPTER_ERROR)
 
-            def _no_adapter_error():
-                return AuthenticationError("No database adapter provided")
+        # Connect to the database if not already connected
+        if not self.adapter.is_connected():
+            try:
+                self.adapter.connect()
+            except Exception as e:
+                raise AuthenticationError(CONNECT_ERROR % str(e)) from e
 
-            raise _no_adapter_error()
+        # Prepare query parameters
+        params = {
+            self.username_field: username,
+            self.password_field: password,
+        }
 
         try:
-            # Connect to the database if not already connected
-            if not self.adapter.is_connected():
-                self.adapter.connect()
-
             # Execute the query with credentials
-            params = {
-                self.username_field: username,
-                self.password_field: password,
-            }
             result = self.adapter.execute_query(self.query, params)
-
-            # Check if any results were returned
-            if not result or len(result) == 0:
-
-                def _invalid_credentials():
-                    return InvalidCredentialsError("Invalid credentials")
-
-                raise _invalid_credentials()
-
-            # Get the first user record
-            user_data = result[0]
-
-            # Generate a token (this would typically be more sophisticated)
-            import time
-            import uuid
-
-            token = str(uuid.uuid4())
-            expiration = int(time.time()) + self.token_expiration
-
-            # Store the token for validation
-            self._token = token
-
-            # Create the authentication result
-            auth_result = {
-                "token": token,
-                "expires_at": str(expiration),  # Convert to string for consistency
-                "user": user_data,
-            }
-
-            return auth_result
-
         except Exception as e:
-            if isinstance(e, InvalidCredentialsError):
-                raise
+            raise AuthenticationError(AUTH_FAILED_ERROR % str(e)) from e
 
-            def _auth_failed_error(err):
-                return AuthenticationError(f"Authentication failed: {str(err)}")
+        # Check if any results were returned
+        if not result or len(result) == 0:
+            raise InvalidCredentialsError(INVALID_CREDENTIALS)
 
-            raise _auth_failed_error(e) from e
+        # Get the first user record
+        user_data = result[0]
+
+        # Generate a token (this would typically be more sophisticated)
+        import time
+        import uuid
+
+        token = str(uuid.uuid4())
+        expiration = int(time.time()) + self.token_expiration
+
+        # Store the token for validation
+        self._token = token
+
+        # Create the authentication result
+        return {
+            "token": token,
+            "expires_at": str(expiration),  # Convert to string for consistency
+            "user": user_data,
+        }
 
     def set_connection_params(
         self,
@@ -181,11 +176,7 @@ class DatabaseAuthProvider(AuthProvider):
         """
         # This would typically look up the user and generate a new token
         if not self._token:
-
-            def _not_authenticated_error():
-                return AuthenticationError("Not authenticated")
-
-            raise _not_authenticated_error()
+            raise AuthenticationError(NOT_AUTHENTICATED)
 
         import time
         import uuid

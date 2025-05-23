@@ -212,7 +212,8 @@ clean:
 test: install
 	@echo "$(BGREEN)$(ARROW) Running tests for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
 	@if [ -d "tests" ]; then \
-		$(POETRY) run pytest tests/; \
+		echo "$(CYAN)  $(BULLET) Unsetting PYTHONPATH to avoid conflicts$(NC)"; \
+		PYTHONPATH="" $(POETRY) run pytest tests/ --mock-services; \
 	else \
 		echo "$(YELLOW)  $(BULLET) No tests directory found$(NC)"; \
 	fi

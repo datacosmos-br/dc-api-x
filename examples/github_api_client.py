@@ -14,8 +14,10 @@ from pathlib import Path
 # If the package is installed, you can remove these lines
 sys.path.insert(0, Path.resolve(Path(__file__).parent.parent / "src"))
 
+import dc_api_x as apix
 
-from dc_api_x import ApiClient, ApiResponse, BaseModel, Entity, EntityManager
+# Enable plugins to access all registered adapters and providers
+apix.enable_plugins()
 
 
 class GitHubTokenError(ValueError):
@@ -25,7 +27,7 @@ class GitHubTokenError(ValueError):
         super().__init__("GitHub token is required")
 
 
-class GitHubUser(BaseModel):
+class GitHubUser(apix.BaseModel):
     """GitHub User model."""
 
     id: int
@@ -37,7 +39,7 @@ class GitHubUser(BaseModel):
     following: int = 0
 
 
-class GitHubRepo(BaseModel):
+class GitHubRepo(apix.BaseModel):
     """GitHub Repository model."""
 
     id: int
@@ -49,7 +51,7 @@ class GitHubRepo(BaseModel):
     private: bool = False
 
 
-class GitHubApiClient(ApiClient):
+class GitHubApiClient(apix.ApiClient):
     """
     Custom GitHub API client.
 
@@ -95,7 +97,7 @@ class GitHubApiClient(ApiClient):
         # Initialize entity manager
         self.entities = GitHubEntityManager(self)
 
-    def get_authenticated_user(self) -> ApiResponse:
+    def get_authenticated_user(self) -> apix.ApiResponse:
         """Get the authenticated user."""
         return self.get("user")
 
@@ -106,7 +108,7 @@ class GitHubApiClient(ApiClient):
         order: str = "desc",
         per_page: int = 30,
         page: int = 1,
-    ) -> ApiResponse:
+    ) -> apix.ApiResponse:
         """
         Search GitHub repositories.
 
@@ -133,7 +135,7 @@ class GitHubApiClient(ApiClient):
         return self.get("search/repositories", params=params)
 
 
-class GitHubEntityManager(EntityManager):
+class GitHubEntityManager(apix.EntityManager):
     """Entity manager for GitHub API."""
 
     def __init__(self, client: GitHubApiClient):
@@ -148,16 +150,16 @@ class GitHubEntityManager(EntityManager):
         self.entities["users"] = self.get_entity("users", GitHubUser)
         self.entities["repositories"] = self.get_entity("repos", GitHubRepo)
 
-    def get_user_entity(self) -> Entity:
+    def get_user_entity(self) -> apix.Entity:
         """Get users entity."""
         return self.get_entity("users", GitHubUser)
 
-    def get_repository_entity(self) -> Entity:
+    def get_repository_entity(self) -> apix.Entity:
         """Get repositories entity."""
         return self.get_entity("repos", GitHubRepo)
 
 
-class GitHubRepository(Entity):
+class GitHubRepository(apix.Entity):
     """GitHub Repository entity with specialized methods."""
 
     def get_issues(
@@ -167,7 +169,7 @@ class GitHubRepository(Entity):
         state: str = "open",
         sort: str = "created",
         direction: str = "desc",
-    ) -> ApiResponse:
+    ) -> apix.ApiResponse:
         """
         Get repository issues.
 
@@ -197,7 +199,7 @@ class GitHubRepository(Entity):
         title: str,
         body: str,
         labels: list[str] | None = None,
-    ) -> ApiResponse:
+    ) -> apix.ApiResponse:
         """
         Create an issue in a repository.
 
@@ -224,6 +226,10 @@ class GitHubRepository(Entity):
 
 def main():
     """Run the example."""
+    # Check available plugins and adapters
+    print("Available adapters:", apix.list_adapters())
+    print("Available auth providers:", apix.list_auth_providers())
+
     # Create GitHub API client
     try:
         client = GitHubApiClient()

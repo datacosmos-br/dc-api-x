@@ -1,0 +1,333 @@
+"""
+DCApiX - Python API Extensions.
+
+DCApiX provides utilities for working with APIs and other data protocols.
+
+It provides a flexible foundation for building clients for various services,
+including HTTP APIs, databases, LDAP directories, and message queues.
+
+Features:
+- Multi-protocol support (HTTP, Database, LDAP, Message Queues)
+- Pluggable architecture with runtime-discovery of extensions
+- Comprehensive error handling and reporting
+- Flexible authentication mechanisms
+- Data validation and transformation
+- Schema-based API client generation
+- Pagination support
+- Logging and monitoring hooks
+"""
+
+from typing import Any, Optional
+
+from pydantic import BaseModel
+
+from . import config, constants, exceptions, models, pagination, schema, utils
+# Import ApiClient later to avoid circular imports
+from .constants import (
+    CONFIG_DEFAULT_ENV_FILE,
+    CONFIG_ENV_PREFIX,
+    CONFIG_FILE_NOT_FOUND_ERROR,
+    CONFIG_JSON_EXTENSION,
+    CONFIG_PASSWORD_KEY,
+    CONFIG_REQUIRED_KEYS,
+    CONFIG_TIMEOUT_KEY,
+    CONFIG_URL_KEY,
+    CONFIG_USERNAME_KEY,
+    CONFIG_VERIFY_SSL_KEY,
+    DEFAULT_CACHE_TTL,
+    DEFAULT_ENCODING,
+    DEFAULT_JSON_CONTENT_TYPE,
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_PAGE,
+    DEFAULT_PAGE_SIZE,
+    DEFAULT_RETRY_BACKOFF,
+    DEFAULT_TIMEOUT,
+    DEFAULT_VERIFY_SSL,
+    HTTP_BAD_REQUEST,
+    HTTP_CREATED,
+    HTTP_FORBIDDEN,
+    HTTP_INTERNAL_SERVER_ERROR,
+    HTTP_NOT_FOUND,
+    HTTP_OK,
+    HTTP_UNAUTHORIZED,
+    INVALID_JSON_ERROR,
+    INVALID_JSON_UTF8_ERROR,
+    INVALID_PROFILE_CONFIG_ERROR,
+    INVALID_TYPE_ERROR,
+    MAX_PAGE_SIZE,
+    PROFILE_ENV_FILE_NOT_FOUND_ERROR,
+    SCHEMA_ENTITY_NOT_SPECIFIED_ERROR,
+    SCHEMA_EXTRACTION_FAILED_ERROR,
+    UNSUPPORTED_FORMAT_ERROR,
+    URL_EMPTY_ERROR,
+    URL_FORMAT_ERROR,
+)
+from .entity import EntityManager
+from .entity.base import BaseEntity
+from .exceptions import (
+    AdapterError,
+    AlreadyExistsError,
+    ApiConnectionError,
+    ApiError,
+    ApiTimeoutError,
+    AuthenticationError,
+    AuthorizationError,
+    BaseAPIError,
+    CLIError,
+    ConfigError,
+    ConfigurationError,
+    InvalidCredentialsError,
+    InvalidOperationError,
+    NotFoundError,
+    RateLimitError,
+    ServerError,
+    ValidationError,
+)
+from .ext import (
+    ApiResponseHook,
+    AuthProvider,
+    BasicAuthProvider,
+    BatchDataProvider,
+    CacheAdapter,
+    ConfigProvider,
+    DatabaseAdapter,
+    DataProvider,
+    DirectoryAdapter,
+    ErrorHook,
+    HeadersHook,
+    HttpAdapter,
+    LdapAuthProvider,
+    LoggingHook,
+    MessageQueueAdapter,
+    ProtocolAdapter,
+    RequestHook,
+    ResponseHook,
+    SchemaProvider,
+    TokenAuthProvider,
+    TransformProvider,
+)
+from .models import (
+    ApiRequest,
+    ApiResponse,
+    AuthResponse,
+    ConfigurableBase,
+    DirectoryEntry,
+    Error,
+    ErrorDetail,
+    GenericResponse,
+    Metadata,
+    QueueMessage,
+)
+from .pagination import paginate
+from .plugins import (
+    ApiPlugin,
+    enable_plugins,
+    get_adapter,
+    get_api_response_hook,
+    get_auth_provider,
+    get_config_provider,
+    get_data_provider,
+    get_error_hook,
+    get_pagination_provider,
+    get_plugin,
+    get_request_hook,
+    get_response_hook,
+    get_schema_provider,
+    get_transform_provider,
+    list_adapters,
+    list_api_response_hooks,
+    list_auth_providers,
+    list_config_providers,
+    list_data_providers,
+    list_error_hooks,
+    list_pagination_providers,
+    list_plugins,
+    list_request_hooks,
+    list_response_hooks,
+    list_schema_providers,
+    list_transform_providers,
+    load_plugins,
+    register_plugin,
+)
+from .schema import SchemaDefinition, SchemaExtractor, SchemaManager
+
+
+# Define DatabaseResult since it's not in models.py
+class DatabaseResult:
+    """Database query result with rows and metadata."""
+
+    def __init__(
+        self,
+        *,
+        success: bool = True,
+        rows: Optional[list[dict[str, Any]]] = None,
+        query: str = "",
+        params: Optional[dict[str, Any]] = None,
+    ):
+        """Initialize with query results.
+
+        Args:
+            success: Whether the query was successful
+            rows: Result rows from the query
+            query: The executed query string
+            params: Parameters used in the query
+        """
+        self.success = success
+        self.rows = rows or []
+        self.query = query
+        self.params = params or {}
+
+    def __repr__(self) -> str:
+        return f"DatabaseResult(success={self.success}, rows={len(self.rows)})"
+
+# Import ApiClient after all dependencies are defined
+from .client import ApiClient  # noqa: E402
+
+__all__ = [
+    # Modules
+    "config",
+    "constants",
+    "exceptions",
+    "models",
+    "pagination",
+    "schema",
+    "utils",
+    # Client
+    "ApiClient",
+    # Models
+    "ApiRequest",
+    "ApiResponse",
+    "AuthResponse",
+    "BaseModel",
+    "ConfigurableBase",
+    "DatabaseResult",
+    "DirectoryEntry",
+    "Error",
+    "ErrorDetail",
+    "GenericResponse",
+    "Metadata",
+    "QueueMessage",
+    # Entity Classes
+    "BaseEntity",
+    "EntityManager",
+    # Schema Classes
+    "SchemaDefinition",
+    "SchemaExtractor",
+    "SchemaManager",
+    # Pagination
+    "paginate",
+    # HTTP Status Codes
+    "HTTP_BAD_REQUEST",
+    "HTTP_CREATED",
+    "HTTP_FORBIDDEN",
+    "HTTP_INTERNAL_SERVER_ERROR",
+    "HTTP_NOT_FOUND",
+    "HTTP_OK",
+    "HTTP_UNAUTHORIZED",
+    # Configuration defaults
+    "CONFIG_DEFAULT_ENV_FILE",
+    "CONFIG_ENV_PREFIX",
+    "CONFIG_FILE_NOT_FOUND_ERROR",
+    "CONFIG_JSON_EXTENSION",
+    "CONFIG_PASSWORD_KEY",
+    "CONFIG_REQUIRED_KEYS",
+    "CONFIG_TIMEOUT_KEY",
+    "CONFIG_URL_KEY",
+    "CONFIG_USERNAME_KEY",
+    "CONFIG_VERIFY_SSL_KEY",
+    "DEFAULT_CACHE_TTL",
+    "DEFAULT_ENCODING",
+    "DEFAULT_JSON_CONTENT_TYPE",
+    "DEFAULT_MAX_RETRIES",
+    "DEFAULT_PAGE_SIZE",
+    "DEFAULT_PAGE",
+    "DEFAULT_RETRY_BACKOFF",
+    "DEFAULT_TIMEOUT",
+    "DEFAULT_VERIFY_SSL",
+    "MAX_PAGE_SIZE",
+    # Error messages
+    "INVALID_JSON_ERROR",
+    "INVALID_JSON_UTF8_ERROR",
+    "INVALID_PROFILE_CONFIG_ERROR",
+    "INVALID_TYPE_ERROR",
+    "PROFILE_ENV_FILE_NOT_FOUND_ERROR",
+    "SCHEMA_ENTITY_NOT_SPECIFIED_ERROR",
+    "SCHEMA_EXTRACTION_FAILED_ERROR",
+    "UNSUPPORTED_FORMAT_ERROR",
+    "URL_EMPTY_ERROR",
+    "URL_FORMAT_ERROR",
+    # Exceptions
+    "AdapterError",
+    "AlreadyExistsError",
+    "ApiConnectionError",
+    "ApiError",
+    "AuthenticationError",
+    "AuthorizationError",
+    "BaseAPIError",
+    "CLIError",
+    "ConfigError",
+    "ConfigurationError",
+    "InvalidCredentialsError",
+    "InvalidOperationError",
+    "NotFoundError",
+    "RateLimitError",
+    "ServerError",
+    "ApiTimeoutError",
+    "ValidationError",
+    # Extension interfaces
+    "ApiResponseHook",
+    "AuthProvider",
+    "BasicAuthProvider",
+    "BatchDataProvider",
+    "CacheAdapter",
+    "ConfigProvider",
+    "DatabaseAdapter",
+    "DataProvider",
+    "DirectoryAdapter",
+    "ErrorHook",
+    "HeadersHook",
+    "HttpAdapter",
+    "LoggingHook",
+    "MessageQueueAdapter",
+    "ProtocolAdapter",
+    "RequestHook",
+    "ResponseHook",
+    "SchemaProvider",
+    "TokenAuthProvider",
+    "TransformProvider",
+    # Plugin management
+    "ApiPlugin",
+    "enable_plugins",
+    "get_adapter",
+    "get_api_response_hook",
+    "get_auth_provider",
+    "get_config_provider",
+    "get_data_provider",
+    "get_error_hook",
+    "get_pagination_provider",
+    "get_plugin",
+    "get_request_hook",
+    "get_response_hook",
+    "get_schema_provider",
+    "get_transform_provider",
+    "list_adapters",
+    "list_api_response_hooks",
+    "list_auth_providers",
+    "list_config_providers",
+    "list_data_providers",
+    "list_error_hooks",
+    "list_pagination_providers",
+    "list_plugins",
+    "list_request_hooks",
+    "list_response_hooks",
+    "list_schema_providers",
+    "list_transform_providers",
+    "load_plugins",
+    "register_plugin",
+]
+
+# Version info
+__version__ = "0.2.0"
+__author__ = "Data Center DC"
+__email__ = "your.email@example.com"
+__license__ = "MIT"

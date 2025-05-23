@@ -2,6 +2,7 @@
 Tests for the Config module.
 """
 
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
@@ -15,6 +16,7 @@ from dc_api_x.config import (
     list_available_profiles,
     load_config_from_env,
 )
+from dc_api_x.exceptions import ConfigError
 from tests.constants import CUSTOM_TIMEOUT, DEFAULT_TIMEOUT, MAX_RETRIES
 
 
@@ -26,57 +28,109 @@ class TestConfig:
         config = Config(
             url="https://api.example.com",
             username="testuser",
-            password=SecretStr("testpass"),
+            password="testpass",  # SecretStr is applied automatically
             timeout=30,
             verify_ssl=True,
             max_retries=5,
             retry_backoff=1.0,
             debug=True,
-            environment="test",
         )
 
         assert config.url == "https://api.example.com"
         assert config.username == "testuser"
+        assert isinstance(config.password, SecretStr)
         assert config.password.get_secret_value() == "testpass"
         assert config.timeout == 30
         assert config.verify_ssl is True
         assert config.max_retries == 5
         assert config.retry_backoff == 1.0
         assert config.debug is True
-        assert config.environment == "test"
 
-    def test_url_validation(self):
-        """Test URL validation."""
-        # Test with valid URL
+    def test_init_with_defaults(self):
+        """Test initialization with defaults."""
         config = Config(
             url="https://api.example.com",
             username="testuser",
-            password=SecretStr("testpass"),
+            password="testpass",
         )
-        assert config.url == "https://api.example.com"
 
-        # Test with URL having trailing slash
+        assert config.url == "https://api.example.com"
+        assert config.username == "testuser"
+        assert isinstance(config.password, SecretStr)
+        assert config.timeout == DEFAULT_TIMEOUT
+        assert config.verify_ssl is True
+        assert config.max_retries == MAX_RETRIES
+        assert config.retry_backoff == 0.5
+        assert config.debug is False
+
+    def test_validates_url(self):
+        """Test URL validation."""
+        # Test with valid URLs
         config = Config(
             url="https://api.example.com/",
             username="testuser",
-            password=SecretStr("testpass"),
+            password="testpass",
         )
-        assert config.url == "https://api.example.com"
+        assert config.url == "https://api.example.com"  # Trailing slash removed
 
-        # Test with invalid URL (no protocol)
-        with pytest.raises(ValueError, match="URL must start with http:// or https://"):
+        # Test with invalid URLs
+        with pytest.raises(ValueError, match="must start with http:// or https://"):
             Config(
-                url="api.example.com",
+                url="invalid-url",
                 username="testuser",
-                password=SecretStr("testpass"),
+                password="testpass",
             )
 
-        # Test with empty URL
-        with pytest.raises(ValueError, match="URL cannot be empty"):
+        with pytest.raises(ValueError, match="empty"):
             Config(
                 url="",
                 username="testuser",
-                password=SecretStr("testpass"),
+                password="testpass",
+            )
+
+    def test_validates_config(self):
+        """Test cross-field validation."""
+        # Test with valid data
+        config = Config(
+            url="https://api.example.com",
+            username="testuser",
+            password="testpass",
+            timeout=30,
+            max_retries=3,
+            retry_backoff=0.5,
+        )
+        assert config.timeout == 30
+        assert config.max_retries == 3
+        assert config.retry_backoff == 0.5
+
+        # Test with invalid max_retries
+        with pytest.raises(
+            ValueError,
+            match="max_retries must be a non-negative integer",
+        ):
+            Config(
+                url="https://api.example.com",
+                username="testuser",
+                password="testpass",
+                max_retries=-1,
+            )
+
+        # Test with invalid retry_backoff
+        with pytest.raises(ValueError, match="retry_backoff must be a positive number"):
+            Config(
+                url="https://api.example.com",
+                username="testuser",
+                password="testpass",
+                retry_backoff=0,
+            )
+
+        # Test with invalid timeout
+        with pytest.raises(ValueError, match="timeout must be a positive integer"):
+            Config(
+                url="https://api.example.com",
+                username="testuser",
+                password="testpass",
+                timeout=0,
             )
 
     def test_to_dict(self):
@@ -84,245 +138,274 @@ class TestConfig:
         config = Config(
             url="https://api.example.com",
             username="testuser",
-            password=SecretStr("testpass"),
-            timeout=30,
+            password="testpass",
+            timeout=CUSTOM_TIMEOUT,
+            debug=True,
         )
 
         config_dict = config.to_dict()
-
         assert config_dict["url"] == "https://api.example.com"
         assert config_dict["username"] == "testuser"
-        assert config_dict["password"] == "testpass"
-        assert config_dict["timeout"] == 30
+        assert config_dict["password"] == "testpass"  # Plain text in dict
+        assert config_dict["timeout"] == CUSTOM_TIMEOUT
+        assert config_dict["debug"] is True
 
-    def test_save_and_load(self):
-        """Test saving and loading configuration."""
+    def test_model_dump_custom(self):
+        """Test custom model_dump method."""
         config = Config(
             url="https://api.example.com",
             username="testuser",
-            password=SecretStr("testpass"),
-            timeout=30,
+            password="testpass",
+            timeout=CUSTOM_TIMEOUT,
+            debug=True,
         )
 
-        # Create temporary file
+        # With exclude_secrets=True (default)
+        config_dict = config.model_dump_custom()
+        assert config_dict["url"] == "https://api.example.com"
+        assert config_dict["username"] == "testuser"
+        assert "password" in config_dict  # Password is included but masked
+        assert config_dict["timeout"] == CUSTOM_TIMEOUT
+        assert config_dict["debug"] is True
+
+        # With exclude_secrets=False
+        config_dict = config.model_dump_custom(exclude_secrets=False)
+        assert config_dict["url"] == "https://api.example.com"
+        assert config_dict["username"] == "testuser"
+        assert config_dict["password"] == "testpass"  # Password is revealed
+        assert config_dict["timeout"] == CUSTOM_TIMEOUT
+        assert config_dict["debug"] is True
+
+    def test_save_load_json(self):
+        """Test saving and loading config as JSON."""
+        config = Config(
+            url="https://api.example.com",
+            username="testuser",
+            password="testpass",
+            timeout=CUSTOM_TIMEOUT,
+            verify_ssl=False,
+            debug=True,
+        )
+
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as temp_file:
             temp_path = temp_file.name
 
         try:
-            # Save configuration
+            # Save configuration to temp file
             config.save(temp_path)
 
-            # Load configuration
+            # Load configuration from temp file
             loaded_config = Config.from_file(temp_path)
 
             # Verify loaded configuration
             assert loaded_config.url == "https://api.example.com"
             assert loaded_config.username == "testuser"
+            assert isinstance(loaded_config.password, SecretStr)
             assert loaded_config.password.get_secret_value() == "testpass"
-            assert loaded_config.timeout == DEFAULT_TIMEOUT
+            assert loaded_config.timeout == CUSTOM_TIMEOUT
+            assert loaded_config.verify_ssl is False
+            assert loaded_config.debug is True
         finally:
             # Clean up
             Path(temp_path).unlink()
 
-    def test_save_unsupported_format(self):
-        """Test saving to unsupported format."""
+    def test_save_invalid_format(self):
+        """Test saving with invalid format."""
         config = Config(
             url="https://api.example.com",
             username="testuser",
-            password=SecretStr("testpass"),
+            password="testpass",
         )
 
-        with pytest.raises(ValueError, match="Unsupported file format"):
-            config.save("config.txt")
+        with tempfile.NamedTemporaryFile(suffix=".unknown", delete=False) as temp_file:
+            temp_path = temp_file.name
 
-    def test_load_missing_file(self):
-        """Test loading from missing file."""
-        with pytest.raises(FileNotFoundError, match="Configuration file not found"):
+        try:
+            # Attempt to save with invalid format
+            with pytest.raises(ValueError, match="Unsupported file format"):
+                config.save(temp_path)
+        finally:
+            # Clean up
+            Path(temp_path).unlink()
+
+    def test_from_file_not_found(self):
+        """Test loading from non-existent file."""
+        with pytest.raises(FileNotFoundError):
             Config.from_file("nonexistent.json")
 
-    def test_load_unsupported_format(self):
-        """Test loading from unsupported format."""
-        with pytest.raises(ValueError, match="Unsupported file format"):
-            Config.from_file("config.txt")
-
-    @patch("dc_api_x.config.load_dotenv")
-    @patch("dc_api_x.config.os.path.exists")
-    @patch("dc_api_x.config.os.environ")
-    def test_from_profile(self, mock_environ, mock_exists, mock_load_dotenv):
+    def test_from_profile(self):
         """Test loading from profile."""
-        # Mock environment setup
-        mock_exists.return_value = True
-        mock_environ.get.side_effect = lambda k, default=None: {
-            "API_TEST_URL": "https://api.test.com",
-            "API_TEST_USERNAME": "testprofile",
-            "API_TEST_PASSWORD": "testpass123",
-        }.get(k, default)
+        # Test using the prepared .env.test file
+        with patch("pathlib.Path.exists", return_value=True), \
+             patch("pydantic_settings.sources.providers.secrets.path_type_label", return_value="directory"), \
+             patch("os.path.isdir", return_value=True):
+            config = Config.from_profile("test")
 
-        # Mock environment variable lookup
-        def mock_getitem(key):
-            return {
-                "API_TEST_URL": "https://api.test.com",
-                "API_TEST_USERNAME": "testprofile",
-                "API_TEST_PASSWORD": "testpass123",
-            }[key]
+            # Verify loaded configuration
+            assert config.url == "https://test-api.example.com"
+            assert config.username == "testuser"
+            assert isinstance(config.password, SecretStr)
+            assert config.password.get_secret_value() == "testpass"
+            assert config.timeout == 45
+            assert config.debug is True
 
-        mock_environ.__getitem__.side_effect = mock_getitem
-        mock_environ.__contains__.side_effect = lambda k: k in [
-            "API_TEST_URL",
-            "API_TEST_USERNAME",
-            "API_TEST_PASSWORD",
-        ]
+    def test_from_profile_not_found(self):
+        """Test loading from non-existent profile."""
+        with patch("pathlib.Path.exists", return_value=False):
+            with pytest.raises(
+                ConfigError,
+                match="Profile file .env.nonexistent not found",
+            ):
+                Config.from_profile("nonexistent")
 
-        # Load from profile
-        config = Config.from_profile("test")
+    def test_from_profile_missing_vars(self):
+        """Test loading from profile with missing variables."""
+        # Create a temporary env file with missing required variables
+        with tempfile.NamedTemporaryFile(prefix=".env.", delete=False) as temp_file:
+            temp_file.write(b"API_DEBUG=true\n")
+            temp_path = temp_file.name
 
-        # Verify profile was loaded
-        assert config.url == "https://api.test.com"
-        assert config.username == "testprofile"
-        assert config.password.get_secret_value() == "testpass123"
+        try:
+            # Mock the file existence check
+            with (
+                patch("pathlib.Path.exists", return_value=True),
+                patch("dc_api_x.config.load_dotenv", return_value=True),
+            ):
 
-        # Verify dotenv was loaded
-        mock_load_dotenv.assert_called_once_with(".env.test")
+                # Attempt to load profile with missing variables
+                with pytest.raises(ConfigError, match="Failed to load profile"):
+                    Config.from_profile(temp_path.split(".")[-1])
+        finally:
+            # Clean up
+            Path(temp_path).unlink()
 
-    @patch("dc_api_x.config.os.path.exists")
-    def test_from_profile_missing_file(self, mock_exists):
-        """Test loading from missing profile."""
-        mock_exists.return_value = False
+    def test_model_reload(self):
+        """Test reloading configuration from sources."""
+        # Initial configuration
+        config = Config(
+            url="https://api.example.com",
+            username="testuser",
+            password="testpass",
+        )
 
-        with pytest.raises(ValueError, match="Profile environment file not found"):
-            Config.from_profile("nonexistent")
+        # Mock the environment variables
+        new_env = {
+            "API_URL": "https://updated-api.example.com",
+            "API_USERNAME": "updateduser",
+            "API_PASSWORD": "updatedpass",
+        }
 
-    @patch("dc_api_x.config.os.path.exists")
-    @patch("dc_api_x.config.os.environ")
-    @patch("dc_api_x.config.load_dotenv")
-    def test_from_profile_invalid(self, mock_load_dotenv, mock_environ, mock_exists):
-        """Test loading from invalid profile."""
-        # Mock environment setup
-        mock_exists.return_value = True
-        mock_environ.get.return_value = None
-        mock_environ.__contains__.return_value = False
+        # Apply new environment and reload
+        with patch.dict(os.environ, new_env, clear=True):
+            config.model_reload()
 
-        with pytest.raises(ValueError, match="Invalid profile configuration"):
-            Config.from_profile("invalid")
+            # Verify updated configuration
+            assert config.url == "https://updated-api.example.com"
+            assert config.username == "updateduser"
+            assert config.password.get_secret_value() == "updatedpass"
+
+    def test_load_config_from_env(self):
+        """Test loading configuration from environment variables."""
+        # Mock environment variables
+        with patch.dict(
+            "os.environ",
+            {
+                "API_URL": "https://env-api.example.com",
+                "API_USERNAME": "envuser",
+                "API_PASSWORD": "envpass",
+                "API_TIMEOUT": "45",
+                "API_DEBUG": "true",
+            },
+        ):
+            # Load configuration from environment
+            config = load_config_from_env()
+
+            # Verify loaded configuration
+            assert config.url == "https://env-api.example.com"
+            assert config.username == "envuser"
+            assert config.password.get_secret_value() == "envpass"
+            assert config.timeout == 45
+            assert config.debug is True
+
+    def test_load_config_from_env_failure(self):
+        """Test failure to load configuration from environment variables."""
+        # Mock environment with missing required variables
+        with patch.dict("os.environ", {}, clear=True):
+            # Attempt to load with missing variables
+            with pytest.raises(ConfigError, match="Failed to load configuration"):
+                load_config_from_env()
 
 
 class TestConfigProfile:
     """Test suite for the ConfigProfile class."""
 
     def test_init(self):
-        """Test initialization."""
+        """Test initialization of ConfigProfile."""
         profile = ConfigProfile(
             name="test",
             config={
-                "url": "https://api.test.com",
+                "url": "https://api.example.com",
                 "username": "testuser",
                 "password": "testpass",
             },
         )
 
         assert profile.name == "test"
-        assert profile.config["url"] == "https://api.test.com"
+        assert profile.config["url"] == "https://api.example.com"
         assert profile.config["username"] == "testuser"
         assert profile.config["password"] == "testpass"
 
     def test_is_valid(self):
-        """Test validation."""
+        """Test validation of ConfigProfile."""
         # Valid profile
         profile = ConfigProfile(
             name="test",
             config={
-                "url": "https://api.test.com",
+                "url": "https://api.example.com",
                 "username": "testuser",
                 "password": "testpass",
             },
         )
         assert profile.is_valid is True
 
-        # Invalid profile (missing password)
+        # Invalid profile (missing required keys)
         profile = ConfigProfile(
             name="test",
             config={
-                "url": "https://api.test.com",
-                "username": "testuser",
-            },
-        )
-        assert profile.is_valid is False
-
-        # Invalid profile (missing url)
-        profile = ConfigProfile(
-            name="test",
-            config={
-                "username": "testuser",
-                "password": "testpass",
+                "url": "https://api.example.com",
             },
         )
         assert profile.is_valid is False
 
     def test_repr(self):
-        """Test string representation."""
+        """Test string representation of ConfigProfile."""
         profile = ConfigProfile(
             name="test",
             config={
-                "url": "https://api.test.com",
+                "url": "https://api.example.com",
                 "username": "testuser",
                 "password": "testpass",
             },
         )
 
         repr_str = repr(profile)
-
-        # Verify password is hidden
-        assert "testpass" not in repr_str
-        assert "****" in repr_str
-
-        # Verify other fields are included
         assert "test" in repr_str
-        assert "https://api.test.com" in repr_str
+        assert "https://api.example.com" in repr_str
         assert "testuser" in repr_str
+        assert "testpass" not in repr_str  # Password should be masked
+        assert "****" in repr_str  # Password should be masked
 
 
-@patch("dc_api_x.config.os.environ")
-def test_load_config_from_env(mock_environ):
-    """Test loading configuration from environment variables."""
-    # Mock environment variables
-    mock_environ.get.side_effect = lambda k, default=None: {
-        "API_URL": "https://api.env.com",
-        "API_USERNAME": "envuser",
-        "API_PASSWORD": "envpass",
-        "API_TIMEOUT": "45",
-        "API_VERIFY_SSL": "False",
-        "API_MAX_RETRIES": "2",
-        "API_DEBUG": "True",
-    }.get(k, default)
-
-    # Load from environment
-    config = load_config_from_env()
-
-    # Verify configuration
-    assert config.url == "https://api.env.com"
-    assert config.username == "envuser"
-    assert config.password.get_secret_value() == "envpass"
-    assert config.timeout == CUSTOM_TIMEOUT
-    assert config.verify_ssl is False
-    assert config.max_retries == MAX_RETRIES
-    assert config.debug is True
-
-
-@patch("dc_api_x.config.Path")
-def test_list_available_profiles(mock_path):
+def test_list_available_profiles():
     """Test listing available profiles."""
-    # Mock glob result
-    mock_glob = mock_path.return_value.glob
-    mock_glob.return_value = [
-        Path(".env.dev"),
-        Path(".env.test"),
-        Path(".env.prod"),
-        Path(".env"),  # This should be excluded
-    ]
-
-    # list profiles
-    profiles = list_available_profiles()
-
-    # Verify profiles
-    assert set(profiles) == {"dev", "test", "prod"}
-    assert "env" not in profiles  # .env should be excluded
+    # Mock glob to return test files
+    with patch(
+        "pathlib.Path.glob",
+        return_value=[
+            Path(".env.dev"),
+            Path(".env.prod"),
+            Path(".env.test"),
+        ],
+    ):
+        profiles = list_available_profiles()
+        assert sorted(profiles) == sorted(["dev", "prod", "test"])

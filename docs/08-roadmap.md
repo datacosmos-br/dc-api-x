@@ -48,7 +48,49 @@ We follow semantic versioning rigorously:
 
 ---
 
-## 4 ▸ Long-Term Vision (1.0+)
+## 4 ▸ Plugin Ecosystem Roadmap
+
+DCApiX is committed to expanding its plugin ecosystem through a phased release strategy.
+For more detailed information on each plugin, see the [Pluggy Guide](15-pluggy.md#future-plugin-roadmap).
+
+### HTTP and API Enhancements (2025)
+
+| Plugin | Description | Target Release |
+|--------|-------------|----------------|
+| **dc-api-x-httpx** | Modern HTTP client supporting HTTP/2, async capabilities | Q3 2025 |
+| **dc-api-x-osquery** | System monitoring via SQL interface | Q4 2025 |
+
+### Database and Directory Services (2025)
+
+| Plugin | Description | Target Release |
+|--------|-------------|----------------|
+| **dc-api-x-sqlalchemy** | Enhanced SQLAlchemy integration with custom types, dialects | Q2 2025 |
+| **dc-api-x-ldaptor** | Asynchronous LDAP operations | Q3 2025 |
+| **dc-api-x-python-ldap** | Advanced LDAP functionality with SASL support | Q3 2025 |
+| **dc-api-x-ldap3** | Comprehensive LDAP operations with connection pooling | Q2 2025 |
+
+### Data Pipeline and ETL (2025-2026)
+
+| Plugin | Description | Target Release |
+|--------|-------------|----------------|
+| **dc-api-x-singer** | Implementation of Singer ETL specification | Q4 2025 |
+| **dc-api-x-meltano** | Integration with Meltano ELT framework | Q4 2025 |
+| **dc-api-x-sdk-meltano** | SDK for building custom extractors/loaders | Q1 2026 |
+
+### Infrastructure and Querying Tools (2026)
+
+| Plugin | Description | Target Release |
+|--------|-------------|----------------|
+| **dc-api-x-steampipe** | SQL querying across cloud services | Q2 2026 |
+| **dc-api-x-powerpipe** | Metrics collection and visualization | Q2 2026 |
+| **dc-api-x-flowpipe** | Infrastructure automation and CI/CD integration | Q3 2026 |
+| **dc-api-x-tailpipe** | Data transformation pipelines | Q3 2026 |
+
+All plugins will adhere to DCApiX's architecture principles and undergo comprehensive testing before release. The development roadmap is subject to adjustment based on community feedback and evolving technology landscapes.
+
+---
+
+## 5 ▸ Long-Term Vision (1.0+)
 
 Our vision for dc-api-x 1.0 and beyond:
 
@@ -61,7 +103,7 @@ The 1.0 release will mark our commitment to API stability and enterprise readine
 
 ---
 
-## 5 ▸ Community Contributions
+## 6 ▸ Community Contributions
 
 We welcome contributions in these areas:
 
@@ -75,7 +117,7 @@ See our [Contributing Guide](07-contributing.md) for details on how to get invol
 
 ---
 
-## 6 ▸ Feedback & Feature Requests
+## 7 ▸ Feedback & Feature Requests
 
 The roadmap is driven by user needs. To influence our priorities:
 

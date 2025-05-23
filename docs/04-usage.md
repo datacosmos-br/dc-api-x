@@ -73,6 +73,30 @@ with ora.transaction():
 
 ## 4  Using Configuration Profiles
 
+### 4.1 Using Pydantic V2.11 Settings
+
+dc-api-x uses Pydantic V2.11 Settings for flexible configuration management. You can set up configuration through environment variables, `.env` files, or JSON/TOML files.
+
+```python
+from dc_api_x.config import Config
+
+# Load from environment variables (API_URL, API_USERNAME, etc.)
+config = Config()
+
+# Load from a specific profile (.env.dev file)
+dev_config = Config.from_profile("dev")
+
+# Save configuration to a file
+config.save("my_config.json")
+
+# Reload configuration after environment changes
+config.model_reload()
+```
+
+See the [Pydantic Guide](11-pydantic_guide.md) for detailed information.
+
+### 4.2 Traditional Profile Format
+
 Create `~/.config/dcapix/profiles.toml`
 
 ```toml
@@ -100,13 +124,48 @@ dcapix request get /users -P url=https://api.example.com -P username=user -P pas
 
 # Extract OpenAPI schemas locally
 dcapix schema extract --all --out ./schemas
+
+# List configuration profiles
+dcapix config list
+
+# Test connection with a specific profile
+dcapix config test --profile dev
 ```
 
 *(run `dcapix --help` for the full command tree).*
 
+For detailed information on the CLI, see the [Typer Guide](13-typer.md).
+
 ---
 
-## 6  Async Preview (roadmap)
+## 6  Structured Logging with Logfire
+
+DCApiX provides powerful structured logging capabilities through Logfire integration:
+
+```python
+import logfire
+from dc_api_x import ApiClient
+
+# Configure Logfire
+logfire.configure(service_name="my-service", environment="dev")
+
+# Create client with automatic request logging
+client = ApiClient(url="https://api.example.com")
+
+# Logs will include structured information about requests and responses
+response = client.get("users")
+
+# Add contextual information to logs
+with logfire.context(operation="user_processing"):
+    for user in response.data:
+        logfire.info("Processing user", user_id=user["id"])
+```
+
+See the [Logfire Guide](12-logfire.md) for comprehensive logging documentation.
+
+---
+
+## 7  Async Preview (roadmap)
 
 ```python
 # Experimental: will be released in v0.3
@@ -122,10 +181,14 @@ asyncio.run(main())
 
 ---
 
-## 7  Where to Go Next?
+## 8  Where to Go Next?
 
 * **`examples/` folder** – complete scripts for GitHub API, Oracle WMS, schema extraction.
 * **Architecture doc** – deep-dive into adapters, hooks and plugin manager.
 * **Contributing guide** – write your own adapter in < 100 LOC and publish it!
+* **Key Guides:**
+  * [Pydantic Guide](11-pydantic_guide.md) – learn about the modern configuration system
+  * [Logfire Guide](12-logfire.md) – master structured logging and observability
+  * [Typer Guide](13-typer.md) – build powerful CLI interfaces with doctyper
 
 Happy hacking 🚀

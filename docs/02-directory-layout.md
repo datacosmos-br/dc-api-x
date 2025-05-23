@@ -22,9 +22,10 @@ surface immediately.
 │       ├── __init__.py    # Re-exports + bootstrap
 │       ├── client.py      # ApiClient façade (sync + async)
 │       ├── cli.py         # Typer-based `dcapix` CLI
-│       ├── config.py      # Profile/ENV config loader
+│       ├── config.py      # Pydantic V2.11 Settings config loader
+│       ├── logging.py     # Logfire integration for structured logging
 │       ├── exceptions.py  # Canonical error hierarchy
-│       ├── models.py      # Core pydantic types
+│       ├── models.py      # Core Pydantic V2.11 types
 │       │
 │       ├── ext/           # Public extension interfaces
 │       │   ├── adapters.py
@@ -118,7 +119,20 @@ All lint/test steps run in GitHub Actions across *Python 3.10 · 3.11 · 3.12*.
 
 ---
 
-## 5  FAQ
+## 5  Key Libraries
+
+| Library           | Purpose                                         | Documentation                    |
+| ----------------- | ----------------------------------------------- | -------------------------------- |
+| **Pydantic V2.11** | Data validation, serialization, configuration  | [Pydantic Guide](11-pydantic_guide.md) |
+| **Logfire**       | Structured logging and observability            | [Logfire Guide](12-logfire.md)   |
+| **Typer/doctyper**| CLI development with rich documentation         | [Typer Guide](13-typer.md)       |
+| **pytest**        | Testing framework for unit and integration tests | [Pytest Guide](14-pytest.md)     |
+| **pluggy**        | Plugin system for extensible architecture       | [Pluggy Guide](15-pluggy.md)     |
+| **httpx**         | Modern HTTP client with HTTP/2 support          | [See Advanced Libraries](09-advanced-libraries.md) |
+
+---
+
+## 6  FAQ
 
 | Question                                    | Answer                                                                                    |
 | ------------------------------------------- | ----------------------------------------------------------------------------------------- |

@@ -10,8 +10,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from dc_api_x import ApiClient, BaseModel, SchemaDefinition, SchemaManager
+import dc_api_x as apix
 from dc_api_x.utils.formatting import format_json
+
+# Enable plugins to access all registered adapters and providers
+apix.enable_plugins()
 
 
 class SchemaNotFoundError(ValueError):
@@ -53,9 +56,12 @@ class SchemaExtractionExample:
         # Create schema directory if it doesn't exist
         self.schema_dir.mkdir(parents=True, exist_ok=True)
 
+        # Check available schema providers
+        print("Available schema providers:", apix.list_schema_providers())
+
         if not offline_mode:
             # Create API client
-            self.client = ApiClient(
+            self.client = apix.ApiClient(
                 url=api_url,
                 username="demo",  # Placeholder
                 password="demo",  # Placeholder - noqa: S106  # noqa: S106
@@ -65,14 +71,14 @@ class SchemaExtractionExample:
             self.client.session.auth = None
 
             # Create schema manager
-            self.schema_manager = SchemaManager(
+            self.schema_manager = apix.SchemaManager(
                 client=self.client,
                 cache_dir=self.schema_dir,
             )
         else:
             # Offline mode - no client, only cached schemas
             self.client = None
-            self.schema_manager = SchemaManager(
+            self.schema_manager = apix.SchemaManager(
                 cache_dir=self.schema_dir,
                 offline_mode=True,
             )
@@ -87,7 +93,7 @@ class SchemaExtractionExample:
         print("Creating sample schemas...")
 
         # User schema
-        user_schema = SchemaDefinition(
+        user_schema = apix.SchemaDefinition(
             name="User",
             description="User entity",
             fields={
@@ -122,7 +128,7 @@ class SchemaExtractionExample:
         )
 
         # Product schema
-        product_schema = SchemaDefinition(
+        product_schema = apix.SchemaDefinition(
             name="Product",
             description="Product entity",
             fields={
@@ -163,7 +169,7 @@ class SchemaExtractionExample:
         )
 
         # Order schema
-        order_schema = SchemaDefinition(
+        order_schema = apix.SchemaDefinition(
             name="Order",
             description="Order entity",
             fields={
@@ -300,7 +306,7 @@ class SchemaExtractionExample:
 
     def demonstrate_model_usage(
         self,
-        model_class: type[BaseModel],
+        model_class: type[apix.BaseModel],
         sample_data: dict[str, Any],
     ):
         """
@@ -329,6 +335,11 @@ class SchemaExtractionExample:
 
 def main():
     """Run the example."""
+    # Print available plugin components
+    print("Available schema providers:", apix.list_schema_providers())
+    print("Available data providers:", apix.list_data_providers())
+    print("Available transform providers:", apix.list_transform_providers())
+
     # Create schema extraction example
     example = SchemaExtractionExample(
         api_url="https://api.example.com",

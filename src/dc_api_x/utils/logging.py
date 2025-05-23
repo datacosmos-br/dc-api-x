@@ -7,13 +7,13 @@ This module provides functions for setting up and configuring logging for the AP
 import logging
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, TextIO, Union
 
 import structlog
 from rich.logging import RichHandler
 
 
-def setup_logger(
+def setup_logger(  # noqa: PLR0913
     name: str = "dc_api_x",
     level: int | str = logging.INFO,
     format_string: str | None = None,
@@ -55,7 +55,9 @@ def setup_logger(
     if console:
         if structured:
             # Set up structured logging with console output
-            console_handler = logging.StreamHandler(sys.stdout)
+            console_handler: Union[logging.StreamHandler[TextIO], RichHandler] = (
+                logging.StreamHandler(sys.stdout)
+            )
         else:
             # Use rich for prettier console output
             console_handler = RichHandler(rich_tracebacks=True, markup=True)

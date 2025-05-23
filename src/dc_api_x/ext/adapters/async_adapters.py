@@ -12,11 +12,7 @@ from types import TracebackType
 from typing import Any, Optional, TypeVar
 
 from ...exceptions import AdapterError
-from .protocol import (
-    AsyncDatabaseAdapter,
-    AsyncDatabaseTransaction,
-    ProtocolAdapter,
-)
+from .protocol import AsyncDatabaseAdapter, AsyncDatabaseTransaction, ProtocolAdapter
 
 T = TypeVar("T")
 
@@ -286,16 +282,18 @@ async def async_transaction(
         yield transaction
     except Exception as e:
         await transaction.rollback_async()  # Use rollback_async instead of rollback
-        raise AdapterError(f"Transaction error: {str(e)}") from e
+        error_msg = f"Transaction error: {str(e)}"
+        raise AdapterError(error_msg) from e
     finally:
         if transaction:
             # Ensure the transaction is closed if it wasn't committed or rolled back
             try:
                 await transaction.rollback_async()  # Use rollback_async instead of rollback
-            except Exception:
+            except (RuntimeError, AttributeError) as e:
                 # Log the error instead of silently passing
                 logging.getLogger(__name__).debug(
-                    "Failed to rollback transaction during cleanup",
+                    "Failed to rollback transaction during cleanup: %s",
+                    str(e),
                 )
 
 

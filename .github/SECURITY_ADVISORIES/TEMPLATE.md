@@ -7,7 +7,7 @@ assignees: ''
 
 ## Security Vulnerability Report
 
-**IMPORTANT: Please do not disclose this vulnerability publicly**
+> **IMPORTANT: Please do not disclose this vulnerability publicly**
 
 ### Vulnerability Description
 

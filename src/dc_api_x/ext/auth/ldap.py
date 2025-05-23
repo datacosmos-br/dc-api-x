@@ -4,9 +4,20 @@ LDAP authentication provider for DCApiX.
 This module defines the LdapAuthProvider class for LDAP authentication.
 """
 
+import contextlib
 from typing import Any, Optional
 
+import ldap3
+from ldap3 import Connection
+from ldap3.core.exceptions import LDAPException
+
 from .provider import AuthProvider
+
+# Error message constants
+BIND_FAILED_MSG = "Failed to bind with provided credentials"
+LDAP_NOT_AVAILABLE_MSG = "LDAP support not available (ldap3 not installed)"
+LDAP_AUTH_FAILED_MSG = "LDAP authentication failed: %s"
+LDAP_ERROR_MSG = "Error during LDAP authentication: %s"
 
 
 class LdapAuthProvider(AuthProvider):
@@ -43,9 +54,9 @@ class LdapAuthProvider(AuthProvider):
             self.port = port
 
         self.authenticated = False
-        self.conn = None
+        self.conn: Optional[Connection] = None
 
-    def authenticate(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def authenticate(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
         """
         Authenticate with LDAP server.
 
@@ -53,9 +64,6 @@ class LdapAuthProvider(AuthProvider):
             Dictionary with authentication result
         """
         try:
-            # Try to import ldap3
-            import ldap3
-
             # Create server object
             server = ldap3.Server(
                 self.ldap_server,
@@ -72,28 +80,34 @@ class LdapAuthProvider(AuthProvider):
             )
 
             # Check if bind was successful
-            if conn.bound:
-                self.conn = conn
-                self.authenticated = True
+            if not conn.bound:
                 return {
-                    "authenticated": True,
-                    "user": self.bind_dn,
+                    "authenticated": False,
+                    "message": BIND_FAILED_MSG,
                 }
-
+            # Store the connection and update authentication state
+            self.conn = conn
+            self.authenticated = True
             return {
-                "authenticated": False,
-                "message": "Failed to bind with provided credentials",
+                "authenticated": True,
+                "user": self.bind_dn,
             }
 
         except ImportError:
             return {
                 "authenticated": False,
-                "message": "LDAP support not available (ldap3 not installed)",
+                "message": LDAP_NOT_AVAILABLE_MSG,
             }
-        except Exception as e:
+        except LDAPException as e:
             return {
                 "authenticated": False,
-                "message": f"LDAP authentication failed: {str(e)}",
+                "message": LDAP_AUTH_FAILED_MSG % str(e),
+            }
+        except (ValueError, TypeError, AttributeError) as e:
+            # Catch more specific exceptions for parameter/connection issues
+            return {
+                "authenticated": False,
+                "message": LDAP_ERROR_MSG % str(e),
             }
 
     def get_auth_header(self) -> dict[str, str]:
@@ -127,12 +141,10 @@ class LdapAuthProvider(AuthProvider):
             Authentication result
         """
         if self.conn:
-            try:
+            # Use contextlib.suppress instead of try-except-pass
+            with contextlib.suppress(Exception):
                 # Close existing connection
                 self.conn.unbind()
-            except Exception:
-                # Ignore errors when closing existing connection
-                pass
 
         # Re-authenticate
         return self.authenticate()
@@ -146,10 +158,11 @@ class LdapAuthProvider(AuthProvider):
         if self.conn and self.authenticated:
             try:
                 self.conn.unbind()
+            except (RuntimeError, AttributeError):
+                return False
+            else:
                 self.authenticated = False
                 self.conn = None
                 return True
-            except Exception:
-                return False
 
         return True  # Already logged out

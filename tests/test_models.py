@@ -4,8 +4,7 @@ Tests for the models module.
 
 import json
 
-from dc_api_x.client import ApiResponse
-from dc_api_x.models import BaseModel
+from dc_api_x.models import ApiResponse, BaseModel
 from tests.constants import (
     HTTP_NOT_FOUND,
     HTTP_OK,
@@ -167,15 +166,17 @@ class TestApiResponse:
         assert response.success is False
         assert response.status_code == HTTP_NOT_FOUND
         assert response.data is None
-        assert response.error == "Not found"
+        assert response.error.detail == "Not found"
 
     def test_bool_representation(self):
         """Test boolean representation of response."""
         # Create success response
-        success_response = ApiResponse(success=True, data={})
+        success_response = ApiResponse(success=True, data={}, status_code=HTTP_OK)
 
         # Create error response
-        error_response = ApiResponse(success=False, error="Error")
+        error_response = ApiResponse(
+            success=False, error="Error", status_code=HTTP_NOT_FOUND
+        )
 
         # Verify boolean representations
         assert bool(success_response) is True

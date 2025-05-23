@@ -23,13 +23,16 @@ class BasicAuthProvider(AuthProvider):
         password: str = "",  # noqa: B107
         token_expiration: int = 3600,
     ):
-        """Initialize the basic auth provider.
+        """
+        Initialize the basic auth provider.
 
         Args:
             username: Default username
             password: Default password
             token_expiration: Token expiration time in seconds
         """
+        self.username = username
+        self.password = password
         self.valid_username = username
         self.valid_password = password
         self.token_expiration = token_expiration
@@ -153,3 +156,19 @@ class BasicAuthProvider(AuthProvider):
         self._token = None
         self._authenticated = False
         return True
+
+    def is_authenticated(self) -> bool:
+        """Check if the provider is authenticated.
+
+        Returns:
+            True if authenticated, False otherwise
+        """
+        return self._authenticated
+
+    def is_token_valid(self) -> bool:
+        """Check if the current token is valid.
+
+        Returns:
+            True if token is valid, False otherwise
+        """
+        return self._token is not None and self._authenticated

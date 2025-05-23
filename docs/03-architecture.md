@@ -105,7 +105,7 @@ Hook **ordering** is controlled by `order: int` attribute (lower → earlier).
 
 | Provider            | Responsibility                                                 |
 | ------------------- | -------------------------------------------------------------- |
-| `SchemaProvider`    | Fetch + cache OpenAPI/JSON-Schema; maps to Pydantic models.    |
+| `SchemaProvider`    | Fetch + cache OpenAPI/JSON-Schema; maps to Pydantic V2.11 models.    |
 | `DataProvider`      | Join/merge heterogeneous datasets; emits Pandas DF (optional). |
 | `TransformProvider` | Convert adapter payloads into domain DTOs / CSV / Parquet.     |
 
@@ -226,7 +226,7 @@ def register_adapters(reg):
 ## 7 ▸ Advanced Type Tricks
 
 * Use **ParamSpec** and **TypeVar** for generic hooks that preserve signatures.
-* Leverage `pydantic.TypeAdapter` to validate 3rd-party objects without copying.
+* Leverage `pydantic.TypeAdapter` from Pydantic V2.11 to validate 3rd-party objects without copying.
 * Adapters returning *lazy* generators should annotate `-> Iterable[T]` and keep
   pagination hidden.
 * Use PEP 585 built-in generic types over their `typing` counterparts:

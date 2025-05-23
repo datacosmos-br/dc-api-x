@@ -9,10 +9,13 @@ using DCApiX classes and utilities.
 import sys
 from typing import Any
 
-from dc_api_x import ApiClient, ApiResponse, BaseModel, Entity, EntityManager, paginate
+import dc_api_x as apix
+
+# Enable plugins to access all registered adapters and providers
+apix.enable_plugins()
 
 
-class Product(BaseModel):
+class Product(apix.BaseModel):
     """Product model."""
 
     id: int
@@ -24,7 +27,7 @@ class Product(BaseModel):
     rating: dict[str, Any] | None = None
 
 
-class User(BaseModel):
+class User(apix.BaseModel):
     """User model."""
 
     id: int
@@ -35,7 +38,7 @@ class User(BaseModel):
     phone: str | None = None
 
 
-class StoreApiClient(ApiClient):
+class StoreApiClient(apix.ApiClient):
     """
     Custom Store API client.
 
@@ -68,7 +71,7 @@ class StoreApiClient(ApiClient):
         # Initialize entity manager
         self.entities = StoreEntityManager(self)
 
-    def get_product_categories(self) -> ApiResponse:
+    def get_product_categories(self) -> apix.ApiResponse:
         """Get all product categories."""
         return self.get("products/categories")
 
@@ -76,7 +79,7 @@ class StoreApiClient(ApiClient):
         self,
         category: str | None = None,
         limit: int | None = None,
-    ) -> ApiResponse:
+    ) -> apix.ApiResponse:
         """
         Search products by category.
 
@@ -97,7 +100,7 @@ class StoreApiClient(ApiClient):
         return self.get("products", params=params)
 
 
-class StoreEntityManager(EntityManager):
+class StoreEntityManager(apix.EntityManager):
     """Entity manager for Store API."""
 
     def __init__(self, client: StoreApiClient):
@@ -112,16 +115,16 @@ class StoreEntityManager(EntityManager):
         self.entities["products"] = self.get_entity("products", Product)
         self.entities["users"] = self.get_entity("users", User)
 
-    def get_product_entity(self) -> Entity:
+    def get_product_entity(self) -> apix.Entity:
         """Get products entity."""
         return self.get_entity("products", Product)
 
-    def get_user_entity(self) -> Entity:
+    def get_user_entity(self) -> apix.Entity:
         """Get users entity."""
         return self.get_entity("users", User)
 
 
-class CartEntity(Entity):
+class CartEntity(apix.Entity):
     """Shopping cart entity with specialized methods."""
 
     def add_product(
@@ -129,7 +132,7 @@ class CartEntity(Entity):
         user_id: int,
         product_id: int,
         quantity: int = 1,
-    ) -> ApiResponse:
+    ) -> apix.ApiResponse:
         """
         Add product to user's cart.
 
@@ -152,7 +155,7 @@ class CartEntity(Entity):
         }
         return self.client.post("carts", json_data=data)
 
-    def get_user_cart(self, user_id: int) -> ApiResponse:
+    def get_user_cart(self, user_id: int) -> apix.ApiResponse:
         """
         Get user's cart.
 
@@ -174,6 +177,12 @@ def print_section(title: str):
 
 def main():
     """Run the example."""
+    # Print available plugins
+    print_section("Available Plugin Components")
+    print("Adapters:", apix.list_adapters())
+    print("Auth Providers:", apix.list_auth_providers())
+    print("Schema Providers:", apix.list_schema_providers())
+
     # Create Store API client
     client = StoreApiClient()
     print("✅ Store API client initialized")
@@ -214,7 +223,7 @@ def main():
 
     # Using pagination
     print_section("Using Pagination")
-    all_products = paginate(
+    all_products = apix.paginate(
         client=client,
         endpoint="products",
         page_param="page",

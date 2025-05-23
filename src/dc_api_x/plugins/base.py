@@ -39,16 +39,16 @@ class ApiPlugin:
 
     def before_request(
         self,
-        method: str,
-        url: str,
+        _method: str,
+        _url: str,
         kwargs: dict[str, Any],
     ) -> dict[str, Any]:
         """
         Called before a request is made.
 
         Args:
-            method: HTTP method
-            url: Request URL
+            _method: HTTP method
+            _url: Request URL
             kwargs: Request kwargs
 
         Returns:
@@ -58,16 +58,16 @@ class ApiPlugin:
 
     def after_request(
         self,
-        method: str,
-        url: str,
+        _method: str,
+        _url: str,
         response: requests.Response,
     ) -> requests.Response:
         """
         Called after a request is made but before it's processed.
 
         Args:
-            method: HTTP method
-            url: Request URL
+            _method: HTTP method
+            _url: Request URL
             response: Response object
 
         Returns:
@@ -77,14 +77,14 @@ class ApiPlugin:
 
     def before_response_processed(
         self,
-        response: requests.Response,
+        _response: requests.Response,
         api_response: ApiResponse,
     ) -> ApiResponse:
         """
         Called after the response is converted to ApiResponse but before returning.
 
         Args:
-            response: Raw requests.Response object
+            _response: Raw requests.Response object
             api_response: Processed ApiResponse object
 
         Returns:
@@ -94,17 +94,17 @@ class ApiPlugin:
 
     def handle_error(
         self,
-        method: str,
-        url: str,
-        error: Exception,
+        _method: str,
+        _url: str,
+        _error: Exception,
     ) -> Optional[ApiResponse]:
         """
         Called when an error occurs during a request.
 
         Args:
-            method: HTTP method
-            url: Request URL
-            error: Exception that occurred
+            _method: HTTP method
+            _url: Request URL
+            _error: Exception that occurred
 
         Returns:
             Optional ApiResponse to return instead of raising the error

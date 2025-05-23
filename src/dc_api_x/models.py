@@ -1,29 +1,64 @@
 """
-Data models for DCApiX.
+Base models for DCApiX.
 
-This module provides base classes for data models with validation.
+This module provides models for request and response data.
 """
 
 from typing import Any, Generic, Optional, TypeVar, Union, cast
 
-from pydantic import BaseModel as PydanticBaseModel
-from pydantic import ConfigDict, Field
+from pydantic import BaseModel as PydanticBaseModel, ConfigDict, Field
+
+import dc_api_x as apix
+
+
+# Exportar PydanticBaseModel como BaseModel para compatibilidade com os testes
+class BaseModel(PydanticBaseModel):
+    """Base model with additional utility methods."""
+
+    def get(self, field_name: str, default: Any = None) -> Any:
+        """Get a field value by name (case-insensitive).
+
+        Args:
+            field_name: Field name to get
+            default: Default value if field is not found
+
+        Returns:
+            Field value or default if not found
+        """
+        # Try exact match first
+        if field_name in self.__dict__:
+            return self.__dict__[field_name]
+
+        # Try case-insensitive match
+        field_name_lower = field_name.lower()
+        for key in self.__dict__:
+            if key.lower() == field_name_lower:
+                return self.__dict__[key]
+
+        return default
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert the model to a dictionary.
+
+        Returns:
+            Dictionary representation of the model
+        """
+        return self.model_dump()
+
+    def to_json(self) -> str:
+        """Convert the model to a JSON string.
+
+        Returns:
+            JSON string representation of the model
+        """
+        import json
+
+        return json.dumps(self.to_dict())
+
 
 T = TypeVar("T")
 K = TypeVar("K")
 V = TypeVar("V")
-
-# HTTP Status Code Constants
-HTTP_OK = 200
-HTTP_CREATED = 201
-HTTP_ACCEPTED = 202
-HTTP_NO_CONTENT = 204
-HTTP_MULTIPLE_CHOICES = 300
-HTTP_BAD_REQUEST = 400
-HTTP_UNAUTHORIZED = 401
-HTTP_FORBIDDEN = 403
-HTTP_NOT_FOUND = 404
-HTTP_SERVER_ERROR = 500
 
 
 class ConfigurableBase(PydanticBaseModel):
@@ -72,7 +107,7 @@ class Error(ConfigurableBase):
 
     type: str = "error"
     title: str = "Error"
-    status: int = HTTP_BAD_REQUEST
+    status: int = apix.HTTP_BAD_REQUEST
     detail: str = ""
     errors: list[ErrorDetail] = Field(default_factory=list)
 
@@ -230,14 +265,21 @@ class AuthResponse(ConfigurableBase):
 class ApiResponse(GenericResponse[dict[str, Any]]):
     """API response model with status code and headers."""
 
-    status_code: int = HTTP_OK
+    status_code: int = apix.HTTP_OK
     headers: dict[str, str] = Field(default_factory=dict)
+
+    def __init__(self, **data: Any):
+        """Initialize the response with the provided data."""
+        # Convert string error to Error object
+        if "error" in data and isinstance(data["error"], str):
+            data["error"] = Error(detail=data["error"])
+        super().__init__(**data)
 
     @classmethod
     def create_success(
         cls,
         data: Any,
-        status_code: int = HTTP_OK,
+        status_code: int = apix.HTTP_OK,
         meta: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
     ) -> "ApiResponse":
@@ -262,7 +304,7 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
     def create_error(
         cls,
         error: Union[str, Error],
-        status_code: int = HTTP_BAD_REQUEST,
+        status_code: int = apix.HTTP_BAD_REQUEST,
         error_code: Optional[str] = None,
         details: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
@@ -308,7 +350,18 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
         Returns:
             True if the response is successful, False otherwise
         """
-        return self.success and HTTP_OK <= self.status_code < HTTP_MULTIPLE_CHOICES
+        return (
+            self.success
+            and apix.HTTP_OK <= self.status_code < apix.HTTP_MULTIPLE_CHOICES
+        )
+
+    def __bool__(self) -> bool:
+        """Boolean representation of the response.
+
+        Returns:
+            True if the response is successful, False otherwise
+        """
+        return self.is_success()
 
     def to_dict(self) -> dict[str, Any]:  # type: ignore[no-any-return]
         """Convert the response to a dictionary.
@@ -387,26 +440,21 @@ class QueueMessage:
         """
         import json
 
-        # Define error messages as constants
-        invalid_json_error = "Content is not valid JSON: {}"
-        invalid_json_utf8_error = "Content is not valid JSON or UTF-8: {}"
-        invalid_type_error = "Cannot convert content of type {} to dict"
-
         if isinstance(self.content, dict):
             return self.content
         if isinstance(self.content, str):
             try:
                 return json.loads(self.content)
             except json.JSONDecodeError as err:
-                raise TypeError(invalid_json_error.format(err)) from err
+                raise TypeError(apix.INVALID_JSON_ERROR.format(err)) from err
         if isinstance(self.content, bytes):
             try:
                 return json.loads(self.content.decode("utf-8"))
             except (json.JSONDecodeError, UnicodeDecodeError) as err:
-                raise TypeError(invalid_json_utf8_error.format(err)) from err
+                raise TypeError(apix.INVALID_JSON_UTF8_ERROR.format(err)) from err
 
         # If we get here, the content type is not supported
-        raise TypeError(invalid_type_error.format(type(self.content)))
+        raise TypeError(apix.INVALID_TYPE_ERROR.format(type(self.content)))
 
     def __str__(self) -> str:
         """Return string representation of the message."""

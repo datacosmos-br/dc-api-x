@@ -88,7 +88,9 @@ def validate_date(
     """
     # Try to parse date
     try:
-        datetime.datetime.strptime(date_str, format_str)
+        # Parse the date string to validate format
+        # Use _ to ignore the result since we don't need it
+        _ = datetime.datetime.strptime(date_str, format_str)  # noqa: DTZ007
     except ValueError:
         return False, f"Invalid date format, expected {format_str}"
     else:

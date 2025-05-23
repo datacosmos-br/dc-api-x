@@ -5,9 +5,10 @@ This module defines the base AuthProvider abstract class that all
 specific authentication providers must inherit from.
 """
 
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 
+@runtime_checkable
 class AuthProvider(Protocol):
     """Abstract base class for authentication providers.
 

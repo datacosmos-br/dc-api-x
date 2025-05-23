@@ -59,11 +59,14 @@ class RequestsHttpAdapter(HttpAdapter):
         self.auth_provider = auth_provider
         self.client = None
 
-    def connect(self) -> None:
+    def connect(self) -> bool:
         """
         Establish a connection and set up the HTTP client.
 
         This method creates and configures a requests.Session with retry and auth.
+
+        Returns:
+            True if connection was successful, False otherwise
         """
         try:
             # Create a new session
@@ -108,37 +111,46 @@ class RequestsHttpAdapter(HttpAdapter):
                     self.client.headers.update(auth_headers)
         except Exception:
             logging.exception("Failed to create HTTP client: %s")
-            raise
+            return False
         else:
             # Connection established successfully
-            return
+            return True
 
-    def disconnect(self) -> None:
+    def disconnect(self) -> bool:
         """
         Close the connection.
 
         This method closes the requests session.
+
+        Returns:
+            True if disconnection was successful, False otherwise
         """
-        if self.client:
-            self.client.close()
-            self.client = None
+        try:
+            if self.client:
+                self.client.close()
+                self.client = None
+        except Exception:
+            logging.exception("Failed to close HTTP client")
+            return False
+        else:
+            return True
 
     def request(
         self,
         method: str,
         url: str,
         **kwargs: Any,
-    ) -> tuple[int, dict[str, str], bytes]:
+    ) -> requests.Response:
         """
         Make an HTTP request.
 
         Args:
-            method: HTTP method (GET, POST, etc.)
-            url: Request URL
+            method: HTTP method
+            url: URL to request
             **kwargs: Additional request parameters
 
         Returns:
-            Tuple of (status_code, headers, body)
+            Response object
         """
         if not self.client:
             self.connect()
@@ -152,11 +164,7 @@ class RequestsHttpAdapter(HttpAdapter):
             kwargs["verify"] = self.verify_ssl
 
         # Make the request
-        response = self.client.request(method.upper(), url, **kwargs)
-
-        # Return status code, headers, and body
-        headers = dict(response.headers)
-        return response.status_code, headers, response.content
+        return self.client.request(method.upper(), url, **kwargs)
 
     def set_option(self, name: str, value: Any) -> None:
         """Set an adapter option."""
@@ -255,7 +263,7 @@ class DatabaseTransactionImpl(DatabaseTransaction):
             self.connection.rollback()
 
 
-class GenericDatabaseAdapter(DatabaseAdapter):
+class GenericDatabaseAdapter(DatabaseAdapter[Any]):
     """
     Generic database adapter implementation.
 
@@ -282,14 +290,17 @@ class GenericDatabaseAdapter(DatabaseAdapter):
         self.driver = driver
         self.auth_provider = auth_provider
         self.connection_params = kwargs
-        self.connection = None
-        self.db_module = None
+        self.connection: Any = None
+        self.db_module: Any = None
 
-    def connect(self) -> None:
+    def connect(self) -> bool:
         """
         Establish a connection to the database.
 
         This method loads the database driver and connects to the database.
+
+        Returns:
+            True if connection was successful, False otherwise
         """
         try:
             # Load the database driver
@@ -324,15 +335,26 @@ class GenericDatabaseAdapter(DatabaseAdapter):
                 return ConnectionError(f"Failed to connect to database: {str(err)}")
 
             raise _connection_error(e) from e
+        else:
+            return True
 
-    def disconnect(self) -> None:
+    def disconnect(self) -> bool:
         """
         Close the database connection.
+
+        Returns:
+            True if disconnection was successful, False otherwise
         """
-        if self.connection:
-            self.connection.close()
-            self.connection = None
-            logger.debug("Disconnected from {self.driver} database")
+        try:
+            if self.connection:
+                self.connection.close()
+                self.connection = None
+                logger.debug("Disconnected from {self.driver} database")
+        except Exception:
+            logger.exception("Failed to close database connection")
+            return False
+        else:
+            return True
 
     def execute(
         self,
@@ -399,11 +421,14 @@ class DirectoryAdapterImpl(DirectoryAdapter):
         self.connection = None
         self.ldap_module = None
 
-    def connect(self) -> None:
+    def connect(self) -> bool:
         """
         Establish a connection to the LDAP directory.
 
         This method loads the python-ldap module and connects to the directory.
+
+        Returns:
+            True if connection was successful, False otherwise
         """
         try:
             # Load the LDAP module
@@ -441,15 +466,26 @@ class DirectoryAdapterImpl(DirectoryAdapter):
                 )
 
             raise _ldap_connection_error(e) from e
+        else:
+            return True
 
-    def disconnect(self) -> None:
+    def disconnect(self) -> bool:
         """
         Close the LDAP connection.
+
+        Returns:
+            True if disconnection was successful, False otherwise
         """
-        if self.connection:
-            self.connection.unbind_s()
-            self.connection = None
-            logger.debug("Disconnected from LDAP directory at {self.url}")
+        try:
+            if self.connection:
+                self.connection.unbind_s()
+                self.connection = None
+                logger.debug("Disconnected from LDAP directory at {self.url}")
+        except Exception:
+            logger.exception("Failed to close LDAP connection")
+            return False
+        else:
+            return True
 
     def search(
         self,
@@ -457,7 +493,7 @@ class DirectoryAdapterImpl(DirectoryAdapter):
         search_filter: str,
         attributes: Optional[list[str]] = None,
         scope: str = "subtree",
-    ) -> list[tuple[str, dict[str, list[bytes]]]]:
+    ) -> list[dict[str, list[bytes]]]:
         """
         Search the LDAP directory.
 
@@ -468,10 +504,13 @@ class DirectoryAdapterImpl(DirectoryAdapter):
             scope: Search scope (base, onelevel, subtree)
 
         Returns:
-            List of (dn, attributes) tuples
+            List of dictionaries with attribute values
         """
         if not self.connection:
             self.connect()
+
+        if self.connection is None or self.ldap_module is None:
+            return []  # Return empty list if connection failed
 
         # Combine with base DN if provided
         if not base_dn:
@@ -486,9 +525,12 @@ class DirectoryAdapterImpl(DirectoryAdapter):
         scope_value = scope_map.get(scope.lower(), self.ldap_module.SCOPE_SUBTREE)
 
         # Perform the search
-        return self.connection.search_s(
+        result = self.connection.search_s(
             base_dn,
             scope_value,
             search_filter,
             attributes,
         )
+
+        # Convert to list of dictionaries
+        return [attrs for _, attrs in result]

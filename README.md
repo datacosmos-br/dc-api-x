@@ -10,6 +10,7 @@
 | 📈 **Observability** | Structured JSON/Rich logs, OpenTelemetry spans, Prom-ready metrics |
 | 🏢 **Enterprise-grade** | PEP 8, `ruff`, `bandit`, ≥ 90 % coverage, ADR workflow |
 | 📜 **MIT & SemVer** | SPDX headers, changelog gated |
+| ⚙️ **Flexible configuration** | Pydantic V2.11 Settings for env vars, files, and profiles |
 
 **PyPI:** `dc-api-x`   **Import:** `import dc_api_x as apix`
 
@@ -33,6 +34,12 @@ import dc_api_x as apix
 | 8 | **[07-Contributing](docs/07-contributing.md)**          | PR flow, ADRs, commit style                  |
 | 9 | **[08-Roadmap](docs/08-roadmap.md)**                    | Version targets & long-term vision           |
 | 10| **[09-Advanced Libraries](docs/09-advanced-libraries.md)** | Library usage patterns & best practices    |
+| 11| **[10-CLI Documentation](docs/10-cli-documentation.md)** | Command-line interface reference with doctyper |
+| 12| **[11-Pydantic Guide](docs/11-pydantic_guide.md)** | Comprehensive guide how to use Pydantic V2.11 in this project |
+| 13| **[12-Logfire Guide](docs/12-logfire.md)** | Comprehensive guide how to use Logfire for structured logging |
+| 14| **[13-Typer Guide](docs/13-typer.md)** | Comprehensive guide how to use Typer and doctyper for CLI development |
+| 15| **[14-Pytest Guide](docs/14-pytest.md)** | Comprehensive guide for testing with pytest in this project |
+| 16| **[15-Pluggy Guide](docs/15-pluggy.md)** | Comprehensive guide for plugin development with pluggy |
 
 > Looking to contribute? Check **[07-Contributing](docs/07-contributing.md)** for our workflow.
 
@@ -45,6 +52,11 @@ import dc_api_x as apix
 * **Schema Toolkit** – Cache OpenAPI/JSON-Schema → generate Pydantic models.
 * **CLI** – `dcapix request`, `dcapix schema`, `dcapix entity`, `dcapix config`.
 * **Robust Extras** – Oracle OIC / WMS connectors, Redis cache hook, Keycloak (roadmap).
+* **Enhanced CLI Documentation** – Google-style docstrings to Typer help text with doctyper.
+* **Flexible Configuration** – Environment variables, files, and profiles using Pydantic V2.11 Settings.
+* **Structured Logging** – Comprehensive logging with Logfire integration for observability.
+* **Plugin System** – Extensible architecture using pluggy for seamless integration of new protocols.
+* **Testing Framework** – Robust testing with pytest for unit, integration, and functional tests.
 
 ---
 
@@ -82,7 +94,38 @@ Run **`make run-example example=rest_api_client`** for a fuller script.
 
 ---
 
-## 🧩 Build Your Own Connector   *(tutorial: [05-Plugin System](/docs/05-plugin-system.md))*
+## ⚙️ Configuration with Pydantic Settings
+
+dc-api-x uses Pydantic Settings for flexible configuration management:
+
+```python
+# Load from environment variables
+from dc_api_x.config import Config
+config = Config()  # Reads API_URL, API_USERNAME, etc.
+
+# Load from a specific profile
+dev_config = Config.from_profile("dev")  # Uses .env.dev file
+
+# Save configuration to a file
+config.save("config.json")
+
+# Load from a file
+config = Config.from_file("config.json")
+```
+
+Key features:
+
+* Environment variables with custom prefixes
+* Multiple configuration profiles for different environments
+* Secure handling of sensitive information with SecretStr
+* Save/load configurations to/from files
+* Validation and conversion of configuration values
+
+See our [Pydantic Guide](docs/11-pydantic_guide.md) for detailed usage.
+
+---
+
+## 🧩 Build Your Own Connector   *(tutorial: [05-Plugin System](/docs/05-plugin-system.md) and [15-Pluggy Guide](/docs/15-pluggy.md))*
 
 ```python
 # dc_api_x_redis/__init__.py
@@ -100,7 +143,36 @@ redis = "dc_api_x_redis"
 
 ---
 
-## 🧪 Test & Lint   *(quality rules: [06-Code-Quality Contract](/docs/06-code-quality.md))*
+## 🖥️ Enhanced CLI with doctyper
+
+dc-api-x features a rich command-line interface (CLI) enhanced with doctyper:
+
+```bash
+# Get overall help
+dcapix --help
+
+# List configuration profiles
+dcapix config list
+
+# Test API connection with specific profile
+dcapix config test --profile dev
+
+# Extract schema for an entity
+dcapix schema extract customer --profile prod
+```
+
+Key benefits of our doctyper enhancement:
+
+* **Google-style docstring parsing** - Documentation written once in code automatically appears in CLI help
+* **Type-aliased identifiers** - Clear type information in help text
+* **Rich formatting** - Beautiful CLI interface with proper help text and argument descriptions
+* **Required vs. optional distinction** - Clear indication of which arguments are required
+
+Learn more in our [CLI Documentation](docs/10-cli-documentation.md) and [Typer Guide](docs/13-typer.md).
+
+---
+
+## 🧪 Test & Lint   *(quality rules: [06-Code-Quality Contract](/docs/06-code-quality.md) and [14-Pytest Guide](/docs/14-pytest.md))*
 
 ```bash
 # Run all tests with coverage
@@ -180,12 +252,29 @@ See [Code Quality Guidelines](docs/06-code-quality.md) for best practices.
 
 ---
 
+## 📦 Future Plugin Ecosystem
+
+DCApiX is expanding its ecosystem with a range of specialized plugins. See the [Pluggy Guide](docs/15-pluggy.md) for detailed information about our plugin system.
+
+### Coming Soon (2025-2026)
+
+| Category | Planned Plugins |
+|----------|----------------|
+| **HTTP & APIs** | HTTPX (HTTP/2, async), OSQuery (system monitoring) |
+| **Databases & Directories** | Enhanced SQLAlchemy, Multiple LDAP libraries (ldap3, python-ldap, Ldaptor) |
+| **Data Pipelines** | Singer spec, Meltano integration, ETL tooling |
+| **Infrastructure** | Steampipe, Powerpipe, Flowpipe, Tailpipe |
+
+Each plugin will follow DCApiX's architecture principles with comprehensive documentation, tests, and examples. These additions will further enhance DCApiX's capabilities as a unified integration hub for diverse protocols and services.
+
+---
+
 ## 🔧 CI/CD Setup
 
 > **Note:** GitHub workflow files (`.github/workflows/*`) need to be added to the repository manually through the GitHub interface. This is because pushing these files requires the `workflow` scope in OAuth permissions. The original workflow files include:
 > 
-> - `bump.yml`: Version bumping and changelog management
-> - `lint.yml`: Code quality checks for PRs
+> * `bump.yml`: Version bumping and changelog management
+> * `lint.yml`: Code quality checks for PRs
 >
 > If you're contributing to this project, please ensure your OAuth token has the appropriate permissions or add the workflow files through the GitHub web interface.
 

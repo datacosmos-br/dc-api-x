@@ -177,10 +177,6 @@ class ApiTimeoutError(BaseAPIError):
         super().__init__(message, "timeout", details)
 
 
-# For backward compatibility
-TimeoutError = ApiTimeoutError  # noqa: A001
-
-
 class RateLimitError(BaseAPIError):
     """Exception raised when rate limit is exceeded."""
 
@@ -247,6 +243,29 @@ class ApiError(Exception):
         return self.message
 
 
+class ResponseError(ApiError):
+    """Exception raised for HTTP response errors."""
+
+    def __init__(
+        self,
+        message: str,
+        status_code: int,
+        response_data: Optional[dict[str, Any]] = None,
+        headers: Optional[dict[str, str]] = None,
+    ):
+        """Initialize the exception.
+
+        Args:
+            message: Exception message
+            status_code: HTTP status code
+            response_data: Optional response data
+            headers: Optional HTTP headers
+        """
+        code = f"http_{status_code}"
+        details = {"response_data": response_data} if response_data else None
+        super().__init__(message, code, details, status_code, headers)
+
+
 class CLIError(BaseAPIError):
     """Exception raised for CLI-specific errors."""
 
@@ -266,3 +285,80 @@ class SchemaError(ApiError):
 
 class EntityError(ApiError):
     """Error raised when an entity operation fails."""
+
+
+class ConnectionTimeoutError(ApiConnectionError):
+    """Raised when a request times out."""
+
+    def __init__(self, timeout: int, details: Optional[dict[str, Any]] = None) -> None:
+        """Initialize the error.
+
+        Args:
+            timeout: The timeout duration in seconds
+            details: Additional error details
+        """
+        super().__init__(f"Request timed out after {timeout} seconds", details=details)
+
+
+class ConnectionFailedError(ApiConnectionError):
+    """Raised when a connection to the API fails."""
+
+    def __init__(
+        self,
+        error: Exception,
+        details: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """Initialize the error.
+
+        Args:
+            error: The underlying error
+            details: Additional error details
+        """
+        super().__init__(f"Failed to connect to API: {str(error)}", details=details)
+
+
+class RequestFailedError(ApiConnectionError):
+    """Raised when an API request fails for any reason."""
+
+    def __init__(
+        self,
+        error: Exception,
+        details: Optional[dict[str, Any]] = None,
+    ) -> None:
+        """Initialize the error.
+
+        Args:
+            error: The underlying error
+            details: Additional error details
+        """
+        super().__init__(f"API request failed: {str(error)}", details=details)
+
+
+class RequestError(ApiError):
+    """Exception raised for HTTP request errors."""
+
+    def __init__(
+        self,
+        message: str,
+        details: Optional[dict[str, Any]] = None,
+        status_code: Optional[int] = None,
+    ):
+        """Initialize the exception.
+
+        Args:
+            message: Exception message
+            details: Optional error details
+            status_code: HTTP status code
+        """
+        code = f"http_{status_code}" if status_code else "request_error"
+        super().__init__(message, code, details, status_code)
+
+    def __str__(self) -> str:
+        """Return string representation of the error.
+
+        Returns:
+            Error message with status code if available
+        """
+        if self.status_code:
+            return f"{self.message} (HTTP {self.status_code})"
+        return self.message

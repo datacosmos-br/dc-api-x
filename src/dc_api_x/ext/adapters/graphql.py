@@ -14,6 +14,20 @@ from .protocol import ProtocolAdapter
 # Use TypeVar for the session type
 SessionType = TypeVar("SessionType")
 
+# Error message constants
+COULD_NOT_IMPORT_REQUESTS = "Could not import 'requests'"
+FAILED_TO_CONNECT = "Failed to connect to GraphQL endpoint: %s"
+NO_CLIENT_AVAILABLE = "No GraphQL client available"
+GRAPHQL_REQUEST_FAILED = "GraphQL request failed: %s"
+GRAPHQL_ERRORS = "GraphQL errors: %s"
+RESPONSE_MISSING_DATA = "Response missing data field"
+HEADERS_MUST_BE_DICT = "Headers must be a dictionary"
+UNKNOWN_OPTION = "Unknown option: %s"
+EMPTY_PARAM_ERROR = "%s cannot be empty"
+MUTATION_MUST_START_WITH = (
+    "Mutation string must start with 'mutation'. Did you mean to use query() instead?"
+)
+
 
 def validate_not_empty(value: str, name: str) -> None:
     """Validate that a string is not empty.
@@ -26,7 +40,7 @@ def validate_not_empty(value: str, name: str) -> None:
         ValueError: If the string is empty or None
     """
     if not value or not value.strip():
-        raise ValueError(f"{name} cannot be empty")
+        raise ValueError(EMPTY_PARAM_ERROR % name)
 
 
 class GraphQLAdapter(ProtocolAdapter):
@@ -137,26 +151,15 @@ class GraphQLAdapter(ProtocolAdapter):
             if self.headers:
                 for header, value in self.headers.items():
                     client.headers[header] = value
-
+        except ImportError as e:
+            raise AdapterError(COULD_NOT_IMPORT_REQUESTS) from e
+        except (ValueError, TypeError, AttributeError) as e:
+            raise AdapterError(FAILED_TO_CONNECT % str(e)) from e
+        else:
             # Assign to self._client after setup
             self._client = client
             self._connected = True
             return True
-
-        except ImportError:
-
-            def _no_requests_error():
-                return AdapterError("Could not import 'requests'")
-
-            raise _no_requests_error()
-        except Exception as e:
-
-            def _connection_error(err):
-                return AdapterError(
-                    f"Failed to connect to GraphQL endpoint: {str(err)}",
-                )
-
-            raise _connection_error(e)
 
     def disconnect(self) -> bool:
         """Disconnect from the GraphQL endpoint.
@@ -190,11 +193,11 @@ class GraphQLAdapter(ProtocolAdapter):
             if isinstance(value, dict):
                 self.headers.update(value)
             else:
-                raise ValueError("Headers must be a dictionary")
+                raise ValueError(HEADERS_MUST_BE_DICT)
         elif name == "url":
             self.url = str(value)
         else:
-            raise ValueError(f"Unknown option: {name}")
+            raise ValueError(UNKNOWN_OPTION % name)
 
     def _make_request(
         self,
@@ -206,7 +209,7 @@ class GraphQLAdapter(ProtocolAdapter):
 
         Args:
             query: GraphQL query or mutation
-            variables: Optional variables for cthe query/mutation
+            variables: Optional variables for the query/mutation
             operation_name: Optional operation name if multiple operations exist in the query
 
         Returns:
@@ -215,6 +218,7 @@ class GraphQLAdapter(ProtocolAdapter):
         Raises:
             AdapterError: If there's an issue making the request
         """
+        # Ensure we're connected
         if not self.is_connected():
             self.connect()
 
@@ -225,45 +229,31 @@ class GraphQLAdapter(ProtocolAdapter):
         if operation_name:
             payload["operationName"] = operation_name
 
+        # Check if client is available
+        if not self._client:
+            raise AdapterError(NO_CLIENT_AVAILABLE)
+
+        # Use custom request handler if provided
+        if self.request_handler:
+            return self.request_handler(self.url, payload)
+
+        # Otherwise use the default HTTP client
         try:
-            # Use custom request handler if provided
-            if self.request_handler:
-                response_data = self.request_handler(self.url, payload)
-                return response_data
-
-            # Otherwise use the default HTTP client
-            if not self._client:
-
-                def _no_client_error():
-                    return AdapterError("No GraphQL client available")
-
-                raise _no_client_error()
-
             response = self._client.post(self.url, json=payload)
             response.raise_for_status()
             response_data = response.json()
+        except (OSError, ValueError, TypeError) as e:
+            raise AdapterError(GRAPHQL_REQUEST_FAILED % str(e)) from e
 
-            # Check for GraphQL errors
-            if "errors" in response_data:
-                error_messages = [
-                    error.get("message", "Unknown error")
-                    for error in response_data["errors"]
-                ]
+        # Check for GraphQL errors
+        if "errors" in response_data:
+            error_messages = [
+                error.get("message", "Unknown error")
+                for error in response_data["errors"]
+            ]
+            raise AdapterError(GRAPHQL_ERRORS % ", ".join(error_messages))
 
-                def _graphql_errors():
-                    return AdapterError(f"GraphQL errors: {', '.join(error_messages)}")
-
-                raise _graphql_errors()
-
-            return response_data
-        except Exception as e:
-            if not isinstance(e, AdapterError):
-
-                def _request_error(err):
-                    return AdapterError(f"GraphQL request failed: {str(err)}")
-
-                raise _request_error(e) from e
-            raise
+        return response_data
 
     def query(
         self,
@@ -288,11 +278,7 @@ class GraphQLAdapter(ProtocolAdapter):
 
         response = self._make_request(query, variables, operation_name)
         if "data" not in response:
-
-            def _missing_data_error():
-                return AdapterError("Response missing data field")
-
-            raise _missing_data_error()
+            raise AdapterError(RESPONSE_MISSING_DATA)
 
         # Get data from response
         data: Any = response["data"]
@@ -314,7 +300,11 @@ class GraphQLAdapter(ProtocolAdapter):
             return data
 
         # Return empty dict if data is neither a valid JSON string nor a dict
-        return {}
+        return (
+            {}
+            if data is None
+            else {str(k): v for k, v in data.items()} if hasattr(data, "items") else {}
+        )
 
     def mutation(
         self,
@@ -339,22 +329,11 @@ class GraphQLAdapter(ProtocolAdapter):
 
         # Ensure this is actually a mutation
         if not mutation.strip().startswith("mutation"):
-
-            def _invalid_mutation_error():
-                return InvalidOperationError(
-                    "Mutation string must start with 'mutation'. "
-                    "Did you mean to use query() instead?",
-                )
-
-            raise _invalid_mutation_error()
+            raise InvalidOperationError(MUTATION_MUST_START_WITH)
 
         response = self._make_request(mutation, variables, operation_name)
         if "data" not in response:
-
-            def _missing_data_error():
-                return AdapterError("Response missing data field")
-
-            raise _missing_data_error()
+            raise AdapterError(RESPONSE_MISSING_DATA)
 
         # Get data from response
         data: Any = response["data"]
@@ -376,4 +355,8 @@ class GraphQLAdapter(ProtocolAdapter):
             return data
 
         # Return empty dict if data is neither a valid JSON string nor a dict
-        return {}
+        return (
+            {}
+            if data is None
+            else {str(k): v for k, v in data.items()} if hasattr(data, "items") else {}
+        )
