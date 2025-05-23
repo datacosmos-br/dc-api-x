@@ -37,7 +37,7 @@ class Adapter(Protocol):
         Returns:
             True if connection was successful, False otherwise
         """
-        ...
+        pass
 
     def disconnect(self) -> bool:
         """Disconnect from the underlying system.
@@ -45,7 +45,7 @@ class Adapter(Protocol):
         Returns:
             True if disconnection was successful, False otherwise
         """
-        ...
+        pass
 
     def is_connected(self) -> bool:
         """Check if the adapter is connected.
@@ -53,7 +53,7 @@ class Adapter(Protocol):
         Returns:
             True if connected, False otherwise
         """
-        ...
+        pass
 
 
 class ProtocolAdapter(Adapter, Protocol):
@@ -66,7 +66,7 @@ class ProtocolAdapter(Adapter, Protocol):
             name: Option name
             value: Option value
         """
-        ...
+        pass
 
 
 class ContextAdapter(Adapter, Protocol):
@@ -78,7 +78,7 @@ class ContextAdapter(Adapter, Protocol):
         Returns:
             Self for use in context manager
         """
-        ...
+        pass
 
     def __exit__(
         self,
@@ -96,7 +96,7 @@ class ContextAdapter(Adapter, Protocol):
         Returns:
             Whether the exception was handled
         """
-        ...
+        pass
 
 
 class AsyncContextAdapter(Adapter, Protocol):
@@ -108,7 +108,7 @@ class AsyncContextAdapter(Adapter, Protocol):
         Returns:
             Self for use in async context manager
         """
-        ...
+        pass
 
     async def __aexit__(
         self,
@@ -126,7 +126,7 @@ class AsyncContextAdapter(Adapter, Protocol):
         Returns:
             Whether the exception was handled
         """
-        ...
+        pass
 
 
 class HttpAdapter(ProtocolAdapter, Protocol):
@@ -157,7 +157,7 @@ class HttpAdapter(ProtocolAdapter, Protocol):
         Returns:
             Response data
         """
-        ...
+        pass
 
     def get(
         self,
@@ -178,7 +178,7 @@ class HttpAdapter(ProtocolAdapter, Protocol):
         Returns:
             Response data
         """
-        ...
+        pass
 
     def post(
         self,
@@ -203,7 +203,7 @@ class HttpAdapter(ProtocolAdapter, Protocol):
         Returns:
             Response data
         """
-        ...
+        pass
 
     def put(
         self,
@@ -228,7 +228,7 @@ class HttpAdapter(ProtocolAdapter, Protocol):
         Returns:
             Response data
         """
-        ...
+        pass
 
     def delete(
         self,
@@ -249,7 +249,7 @@ class HttpAdapter(ProtocolAdapter, Protocol):
         Returns:
             Response data
         """
-        ...
+        pass
 
     def patch(
         self,
@@ -274,7 +274,7 @@ class HttpAdapter(ProtocolAdapter, Protocol):
         Returns:
             Response data
         """
-        ...
+        pass
 
     def head(
         self,
@@ -295,7 +295,7 @@ class HttpAdapter(ProtocolAdapter, Protocol):
         Returns:
             Response data
         """
-        ...
+        pass
 
 
 ConnectionType: TypeAlias = Any  # Connection type
@@ -306,11 +306,11 @@ class Transaction(Protocol):
 
     def commit(self) -> None:
         """Commit the transaction."""
-        ...
+        pass
 
     def rollback(self) -> None:
         """Rollback the transaction."""
-        ...
+        pass
 
 
 class DatabaseTransaction(Transaction, ContextManager["DatabaseTransaction"]):
@@ -341,7 +341,7 @@ class DatabaseAdapter(ProtocolAdapter, Protocol):
         Returns:
             Query results as a list of dictionaries
         """
-        ...
+        pass
 
     def execute_write(
         self,
@@ -357,7 +357,7 @@ class DatabaseAdapter(ProtocolAdapter, Protocol):
         Returns:
             Number of affected rows
         """
-        ...
+        pass
 
     def query_value(
         self,
@@ -373,7 +373,7 @@ class DatabaseAdapter(ProtocolAdapter, Protocol):
         Returns:
             Single value
         """
-        ...
+        pass
 
     def transaction(self) -> DatabaseTransaction:
         """Start a new transaction.
@@ -381,7 +381,7 @@ class DatabaseAdapter(ProtocolAdapter, Protocol):
         Returns:
             Transaction object
         """
-        ...
+        pass
 
 
 class AsyncDatabaseAdapter(DatabaseAdapter, Protocol):
@@ -401,7 +401,7 @@ class AsyncDatabaseAdapter(DatabaseAdapter, Protocol):
         Returns:
             Query results
         """
-        ...
+        pass
 
     async def execute_write_async(
         self,
@@ -417,7 +417,7 @@ class AsyncDatabaseAdapter(DatabaseAdapter, Protocol):
         Returns:
             Number of affected rows
         """
-        ...
+        pass
 
     async def query_value_async(
         self,
@@ -433,7 +433,7 @@ class AsyncDatabaseAdapter(DatabaseAdapter, Protocol):
         Returns:
             Single value
         """
-        ...
+        pass
 
     async def transaction_async(self) -> AsyncDatabaseTransaction:
         """Start a new async transaction.
@@ -441,7 +441,7 @@ class AsyncDatabaseAdapter(DatabaseAdapter, Protocol):
         Returns:
             Async transaction object
         """
-        ...
+        pass
 
 
 class DirectoryAdapter(ProtocolAdapter, Protocol):
@@ -465,7 +465,7 @@ class DirectoryAdapter(ProtocolAdapter, Protocol):
         Returns:
             List of entries
         """
-        ...
+        pass
 
     def add(
         self,
@@ -481,7 +481,7 @@ class DirectoryAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
 
     def modify(
         self,
@@ -497,7 +497,7 @@ class DirectoryAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
 
     def delete(
         self,
@@ -511,7 +511,7 @@ class DirectoryAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
 
 
 class FileSystemAdapter(ProtocolAdapter, Protocol):
@@ -531,7 +531,7 @@ class FileSystemAdapter(ProtocolAdapter, Protocol):
         Returns:
             File contents
         """
-        ...
+        pass
 
     def write_file(
         self,
@@ -549,7 +549,7 @@ class FileSystemAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
 
     def delete_file(
         self,
@@ -563,7 +563,7 @@ class FileSystemAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
 
     def file_exists(
         self,
@@ -577,7 +577,7 @@ class FileSystemAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if file exists, False otherwise
         """
-        ...
+        pass
 
     def list_directory(
         self,
@@ -591,7 +591,7 @@ class FileSystemAdapter(ProtocolAdapter, Protocol):
         Returns:
             List of file/directory names
         """
-        ...
+        pass
 
     def create_directory(
         self,
@@ -605,7 +605,7 @@ class FileSystemAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
 
 
 class MessageQueueAdapter(ProtocolAdapter, Protocol):
@@ -628,7 +628,7 @@ class MessageQueueAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
 
     def receive_message(
         self,
@@ -645,7 +645,7 @@ class MessageQueueAdapter(ProtocolAdapter, Protocol):
         Returns:
             Message or None if no message is available
         """
-        ...
+        pass
 
     def delete_message(
         self,
@@ -661,7 +661,7 @@ class MessageQueueAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
 
 
 class CacheAdapter(ProtocolAdapter, Protocol):
@@ -679,7 +679,7 @@ class CacheAdapter(ProtocolAdapter, Protocol):
         Returns:
             Cached value or None
         """
-        ...
+        pass
 
     def set(
         self,
@@ -697,7 +697,7 @@ class CacheAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
 
     def delete(
         self,
@@ -711,7 +711,7 @@ class CacheAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
 
     def exists(
         self,
@@ -725,7 +725,7 @@ class CacheAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if key exists, False otherwise
         """
-        ...
+        pass
 
 
 class GraphQLAdapter(ProtocolAdapter, Protocol):
@@ -747,7 +747,7 @@ class GraphQLAdapter(ProtocolAdapter, Protocol):
         Returns:
             Query result
         """
-        ...
+        pass
 
     def mutation(
         self,
@@ -765,7 +765,7 @@ class GraphQLAdapter(ProtocolAdapter, Protocol):
         Returns:
             Mutation result
         """
-        ...
+        pass
 
 
 class WebSocketAdapter(ProtocolAdapter, Protocol):
@@ -783,7 +783,7 @@ class WebSocketAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
 
     def receive(
         self,
@@ -797,7 +797,7 @@ class WebSocketAdapter(ProtocolAdapter, Protocol):
         Returns:
             Received message or None if no message is available
         """
-        ...
+        pass
 
     def subscribe(
         self,
@@ -811,7 +811,7 @@ class WebSocketAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
 
     def unsubscribe(
         self,
@@ -825,4 +825,4 @@ class WebSocketAdapter(ProtocolAdapter, Protocol):
         Returns:
             True if successful, False otherwise
         """
-        ...
+        pass
