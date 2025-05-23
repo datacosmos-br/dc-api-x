@@ -6,20 +6,20 @@
 # the repo. Unless a later match takes precedence,
 # these users will be requested for review when someone 
 # opens a pull request.
-*       @datacosmos-br/dc-api-x-maintainers
+*       @datacosmos-br/Datacosmos
 
 # Workflow files
-.github/workflows/   @datacosmos-br/dc-api-x-devops
+.github/workflows/   @datacosmos-br/Datacosmos
 
 # Documentation
-docs/               @datacosmos-br/dc-api-x-docs
-*.md                @datacosmos-br/dc-api-x-docs
+docs/               @datacosmos-br/Datacosmos
+*.md                @datacosmos-br/Datacosmos
 
 # Core API code
-src/dc_api_x/       @datacosmos-br/dc-api-x-core
+src/dc_api_x/       @datacosmos-br/Datacosmos
 
 # Test files
-tests/              @datacosmos-br/dc-api-x-testers
+tests/              @datacosmos-br/Datacosmos
 
 # Replace with actual usernames or team names before using
 # Format: GitHub username or @org/team-name 
