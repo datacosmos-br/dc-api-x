@@ -35,7 +35,7 @@ class PluginState:
         """Initialize the plugin state."""
         self.plugins_loaded = False
 
-    def set_loaded(self, loaded: bool = True) -> None:
+    def set_loaded(self, *, loaded: bool = True) -> None:
         """Set the loaded state of plugins."""
         self.plugins_loaded = loaded
 
