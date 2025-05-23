@@ -1,0 +1,199 @@
+name: Python CI/CD
+
+on:
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "**/*.rst"
+  pull_request:
+    branches: ["main"]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "**/*.rst"
+  schedule:
+    - cron: "0 0 * * 0" # Weekly check on Sunday at midnight
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10"]
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: |
+            pyproject.toml
+            poetry.lock
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install --with dev --no-interaction
+
+      - name: Lint with ruff
+        id: ruff
+        continue-on-error: true
+        run: |
+          poetry run ruff check . --output-format=github
+
+      - name: Check formatting with black
+        id: black
+        continue-on-error: true
+        run: |
+          poetry run black --check --diff .
+
+      - name: Type check with mypy
+        id: mypy
+        continue-on-error: true
+        run: |
+          poetry run mypy src/
+
+      - name: Report lint status
+        if: always()
+        run: |
+          if [[ "${{ steps.ruff.outcome }}" == "failure" || "${{ steps.black.outcome }}" == "failure" || "${{ steps.mypy.outcome }}" == "failure" ]]; then
+            echo "::error::Linting failed. See above for details."
+            exit 1
+          else
+            echo "All linting passed successfully!"
+          fi
+
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    needs: lint
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10"]
+        os: [ubuntu-latest]
+        include:
+          - python-version: "3.9"
+            os: ubuntu-latest
+          - python-version: "3.11"
+            os: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+          cache-dependency-path: |
+            pyproject.toml
+            poetry.lock
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install --with dev --no-interaction
+
+      - name: Test with pytest
+        run: |
+          mkdir -p reports
+          poetry run pytest --cov=dc_api_x tests/ --cov-report=xml:reports/coverage.xml --cov-report=term --junitxml=reports/junit.xml
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.10' && matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: reports/coverage.xml
+          retention-days: 7
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.python-version }}-${{ matrix.os }}
+          path: reports/junit.xml
+          retention-days: 7
+
+  security:
+    name: Security Check
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: "pip"
+          cache-dependency-path: |
+            pyproject.toml
+            poetry.lock
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install poetry
+          poetry install --with dev --no-interaction
+          poetry add --group dev bandit
+
+      - name: Run Bandit security scan
+        id: bandit
+        continue-on-error: true
+        run: |
+          mkdir -p reports
+          poetry run bandit -r src/ -f sarif -o reports/bandit-results.sarif
+
+      - name: Upload security results
+        if: always() && steps.bandit.outcome != 'cancelled'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: reports/bandit-results.sarif
+          category: bandit
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          comment-summary-in-pr: always
+          deny-licenses: GPL-1.0-or-later, LGPL-2.0-or-later
+          fail-on-severity: moderate
