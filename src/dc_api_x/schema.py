@@ -264,16 +264,13 @@ class SchemaManager:
                 field_definitions[field_name] = (Optional[field_type], None)
 
         # Create model dynamically
-        model = cast(
-            Type[BaseModel],
-            create_model(
-                schema_name,
-                __base__=BaseModel,
-                **field_definitions,
-            ),
+        model = create_model(
+            schema_name,
+            __base__=BaseModel,
+            **field_definitions,
         )
 
         # Add docstring
         model.__doc__ = schema.description
 
-        return model
+        return cast(Type[BaseModel], model)
