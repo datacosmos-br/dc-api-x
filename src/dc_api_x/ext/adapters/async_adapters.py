@@ -5,6 +5,7 @@ This module defines abstract classes for asynchronous adapters.
 """
 
 import abc
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from types import TracebackType
@@ -385,4 +386,7 @@ async def async_transaction(
             try:
                 await transaction.rollback()
             except Exception:
-                pass
+                # Log the error instead of silently passing
+                logging.getLogger(__name__).debug(
+                    "Failed to rollback transaction during cleanup"
+                )

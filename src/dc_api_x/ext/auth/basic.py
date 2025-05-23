@@ -20,7 +20,7 @@ class BasicAuthProvider(AuthProvider):
     def __init__(
         self,
         username: str = "",
-        password: str = "",
+        password: str = "",  # noqa: B107
         token_expiration: int = 3600,
     ):
         """Initialize the basic auth provider.

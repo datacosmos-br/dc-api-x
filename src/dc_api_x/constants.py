@@ -62,8 +62,8 @@ DEFAULT_RATE_LIMIT_PERIOD = 60  # Period in seconds
 
 # Authentication
 TOKEN_EXPIRY_MARGIN = 30  # Seconds before token expiry to refresh
-DEFAULT_TOKEN_HEADER = "Authorization"  # noqa: S105
-DEFAULT_TOKEN_TYPE = "Bearer"  # noqa: S105
+DEFAULT_TOKEN_HEADER = "Authorization"  # noqa: S105, B105
+DEFAULT_TOKEN_TYPE = "Bearer"  # noqa: S105, B105
 
 # Logging
 DEFAULT_LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

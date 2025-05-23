@@ -82,7 +82,7 @@ def config_show(profile: str | None) -> None:
         # Convert to dictionary (excluding sensitive fields)
         config_dict = cfg.to_dict()
         if "password" in config_dict:
-            config_dict["password"] = "********"  # noqa: S105
+            config_dict["password"] = "********"  # noqa: S105, B105
 
         # Pretty print configuration
         console.print("[bold]Configuration:[/bold]")

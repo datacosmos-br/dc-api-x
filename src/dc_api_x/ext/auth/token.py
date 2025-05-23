@@ -15,7 +15,7 @@ class TokenAuthProvider(AuthProvider):
     def __init__(
         self,
         token: Optional[str] = None,
-        token_type: str = "Bearer",  # noqa: S107
+        token_type: str = "Bearer",  # noqa: S107, B107
         header_name: str = "Authorization",
     ) -> None:
         """
