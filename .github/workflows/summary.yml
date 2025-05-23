@@ -1,0 +1,61 @@
+name: AI Issue Summarization
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  summarize:
+    name: Generate Issue Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      issues: write
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Run AI inference
+        id: inference
+        uses: actions/ai-inference@v2
+        continue-on-error: true
+        with:
+          model-id: meta/llama-3-8b-instruct
+          prompt: |
+            Summarize the following GitHub issue in one clear and concise paragraph that captures:
+            1. The main problem or request
+            2. Any specific context provided
+            3. The expected outcome if mentioned
+            
+            Title: ${{ github.event.issue.title }}
+            Body: ${{ github.event.issue.body }}
+      
+      - name: Comment with AI summary
+        if: steps.inference.outcome == 'success'
+        run: |
+          echo "Posting summary comment to issue #$ISSUE_NUMBER"
+          gh issue comment $ISSUE_NUMBER --body '### AI-Generated Summary
+          
+          ${{ steps.inference.outputs.response }}
+          
+          ---
+          *This is an automated summary to help maintainers quickly understand the issue.*'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+      
+      - name: Handle AI inference failure
+        if: steps.inference.outcome != 'success'
+        run: |
+          echo "AI summary generation failed, posting generic comment"
+          gh issue comment $ISSUE_NUMBER --body '### Issue Received
+          
+          Thank you for submitting this issue. Our team will review it soon.
+          
+          ---
+          *This is an automated message.*'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
