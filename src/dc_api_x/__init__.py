@@ -18,18 +18,14 @@ Features:
 """
 
 # Standard library imports
-from typing import Any
+from typing import Any, List, Dict, Optional
 
 # Models
 from pydantic import BaseModel  # Use pydantic's BaseModel directly
 
 from . import config, exceptions, models, pagination, schema, utils
-
-# Client
-from .client import ApiClient
-
-# Extension interfaces
-from .ext import (  # Auth; Providers; Adapters; Hooks
+from .client import ApiClient  # Client
+from .ext import (  # Extension interfaces # Auth; Providers; Adapters; Hooks
     ApiResponseHook,
     AuthProvider,
     BasicAuthProvider,
@@ -67,10 +63,18 @@ class DatabaseResult:
     def __init__(
         self,
         success: bool = True,
-        rows: list[dict[str, Any]] = None,
+        rows: Optional[List[Dict[str, Any]]] = None,
         query: str = "",
-        params: dict[str, Any] = None,
+        params: Optional[Dict[str, Any]] = None,
     ):
+        """Initialize with query results.
+
+        Args:
+            success: Whether the query was successful
+            rows: Result rows from the query
+            query: The executed query string
+            params: Parameters used in the query
+        """
         self.success = success
         self.rows = rows or []
         self.query = query

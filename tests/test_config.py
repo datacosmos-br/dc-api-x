@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
+from pydantic import SecretStr
 from dc_api_x.config import (
     Config,
     ConfigProfile,
@@ -25,7 +25,7 @@ class TestConfig:
         config = Config(
             url="https://api.example.com",
             username="testuser",
-            password="testpass",
+            password=SecretStr("testpass"),
             timeout=30,
             verify_ssl=True,
             max_retries=5,
@@ -50,7 +50,7 @@ class TestConfig:
         config = Config(
             url="https://api.example.com",
             username="testuser",
-            password="testpass",
+            password=SecretStr("testpass"),
         )
         assert config.url == "https://api.example.com"
 
@@ -58,7 +58,7 @@ class TestConfig:
         config = Config(
             url="https://api.example.com/",
             username="testuser",
-            password="testpass",
+            password=SecretStr("testpass"),
         )
         assert config.url == "https://api.example.com"
 
@@ -67,7 +67,7 @@ class TestConfig:
             Config(
                 url="api.example.com",
                 username="testuser",
-                password="testpass",
+                password=SecretStr("testpass"),
             )
 
         # Test with empty URL
@@ -75,7 +75,7 @@ class TestConfig:
             Config(
                 url="",
                 username="testuser",
-                password="testpass",
+                password=SecretStr("testpass"),
             )
 
     def test_to_dict(self):
@@ -83,7 +83,7 @@ class TestConfig:
         config = Config(
             url="https://api.example.com",
             username="testuser",
-            password="testpass",
+            password=SecretStr("testpass"),
             timeout=30,
         )
 
@@ -99,7 +99,7 @@ class TestConfig:
         config = Config(
             url="https://api.example.com",
             username="testuser",
-            password="testpass",
+            password=SecretStr("testpass"),
             timeout=30,
         )
 
@@ -128,7 +128,7 @@ class TestConfig:
         config = Config(
             url="https://api.example.com",
             username="testuser",
-            password="testpass",
+            password=SecretStr("testpass"),
         )
 
         with pytest.raises(ValueError, match="Unsupported file format"):

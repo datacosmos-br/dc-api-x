@@ -138,7 +138,7 @@ class Config(BaseSettings):
 
         # Determine file format based on extension
         if file_path.suffix.lower() == ".json":
-            with Path(file_path).open(), "w" as f:
+            with Path(file_path).open("w") as f:
                 json.dump(self.to_dict(), f, indent=2)
         else:
             raise ValueError(UNSUPPORTED_FORMAT_ERROR.format(file_path.suffix))
