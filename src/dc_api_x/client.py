@@ -8,18 +8,17 @@ interact with different types of services.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from http import HTTPStatus
-from typing import Any, Optional, TypeVar, Union, cast, Callable, ClassVar, overload
+from typing import Any, Optional, TypeVar, Union, cast
 
 import requests
 
 from .config import Config, load_config_from_env
 from .exceptions import (
-    AdapterError,
     ApiConnectionError,
     ApiError,
-    ApiTimeoutError,
     AuthenticationError,
     ConfigurationError,
     RequestError,
@@ -86,7 +85,7 @@ class ClientConfig:
     config: Optional[Config] = None
 
     # Extensions
-    plugins: list[type["ApiPlugin"]] = field(default_factory=list)
+    plugins: list[type[ApiPlugin]] = field(default_factory=list)
     adapter: Optional[ProtocolAdapter] = None
     auth_provider: Optional[AuthProvider] = None
 
@@ -123,7 +122,7 @@ class RequestConfig:
         cls,
         config_dict: Optional[dict[str, Any]] = None,
         **kwargs: Any,
-    ) -> "RequestConfig":
+    ) -> RequestConfig:
         """Create a RequestConfig instance from a dictionary and/or keyword arguments.
 
         This factory method helps reduce the parameter count in methods that
@@ -185,7 +184,7 @@ class ApiPlugin:
     the API client.
     """
 
-    def __init__(self, client: "ApiClient") -> None:
+    def __init__(self, client: ApiClient) -> None:
         """
         Initialize the plugin.
 
@@ -386,7 +385,7 @@ class ApiClient:
         cls,
         config_dict: Optional[dict[str, Any]] = None,
         **kwargs: Any,
-    ) -> "ApiClient":
+    ) -> ApiClient:
         """
         Create an API client with configuration parameters.
 
@@ -593,7 +592,7 @@ class ApiClient:
             if request_config.raw_response:
                 return api_response
 
-            # Check for error response
+            # Handle response errors
             if (
                 not api_response.success
                 and api_response.status_code is not None
@@ -606,18 +605,9 @@ class ApiClient:
                 error_details = (
                     api_response.data if isinstance(api_response.data, dict) else None
                 )
-
-                # Handle different error types
-                if api_response.status_code == HTTP_UNAUTHORIZED:
-                    raise AuthenticationError(error_msg, error_details)
-                else:
-                    raise RequestError(
-                        error_msg,
-                        details=error_details,
-                        status_code=api_response.status_code,
-                    )
-
-            return api_response
+                self._handle_error_response(api_response, error_msg, error_details)
+            else:
+                return api_response
 
         except (RequestError, AuthenticationError):
             # Re-raise API exceptions without wrapping
@@ -656,16 +646,15 @@ class ApiClient:
                     f"Request timed out after {self.timeout} seconds",
                     details={"url": url, "method": method},
                 ) from e
-            elif isinstance(e, requests.ConnectionError):
+            if isinstance(e, requests.ConnectionError):
                 raise ApiConnectionError(
                     f"Failed to connect to API: {str(e)}",
                     details={"url": url, "method": method},
                 ) from e
-            else:
-                raise ApiConnectionError(
-                    f"API request failed: {str(e)}",
-                    details={"url": url, "method": method},
-                ) from e
+            raise ApiConnectionError(
+                f"API request failed: {str(e)}",
+                details={"url": url, "method": method},
+            ) from e
 
     def get(
         self,
@@ -803,7 +792,7 @@ class ApiClient:
         plugins: Optional[list[type[ApiPlugin]]] = None,
         adapter: Optional[ProtocolAdapter] = None,
         auth_provider: Optional[AuthProvider] = None,
-    ) -> "ApiClient":
+    ) -> ApiClient:
         """
         Create API client from named profile.
 
@@ -1028,11 +1017,11 @@ class ApiClient:
         """
         if endpoint.startswith(("http://", "https://")):
             return endpoint
-        else:
-            # Normalize URL and endpoint path
-            base_url = self.url.rstrip("/")
-            endpoint_path = endpoint.lstrip("/")
-            return f"{base_url}/{endpoint_path}"
+
+        # Normalize URL and endpoint path
+        base_url = self.url.rstrip("/")
+        endpoint_path = endpoint.lstrip("/")
+        return f"{base_url}/{endpoint_path}"
 
     def _process_response(self, response: requests.Response) -> ApiResponse:
         """
@@ -1091,3 +1080,36 @@ class ApiClient:
             status_code=response.status_code,
             data=data,
         )
+
+    def _handle_error_response(
+        self,
+        api_response: ApiResponse,
+        error_msg: str,
+        error_details: Optional[dict[str, Any]],
+    ) -> None:
+        """
+        Handle error responses from the API by raising appropriate exceptions.
+
+        Args:
+            api_response: The API response
+            error_msg: Error message
+            error_details: Error details dictionary
+
+        Raises:
+            AuthenticationError: If unauthorized
+            RequestError: For other error responses
+        """
+        if (
+            not api_response.success
+            and api_response.status_code is not None
+            and api_response.status_code >= HTTP_BAD_REQUEST
+        ):
+            # Handle different error types
+            if api_response.status_code == HTTP_UNAUTHORIZED:
+                raise AuthenticationError(error_msg, error_details)
+
+            raise RequestError(
+                error_msg,
+                details=error_details,
+                status_code=api_response.status_code,
+            )
