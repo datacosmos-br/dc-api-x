@@ -293,7 +293,7 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
             error_obj = error
 
         # Create and return the response
-        response = cls(
+        return cls(
             data=None,
             meta=Metadata(),
             success=False,
@@ -301,7 +301,6 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
             status_code=status_code,
             headers=headers or {},
         )
-        return response
 
     def is_success(self) -> bool:
         """Check if the response is successful.
@@ -376,7 +375,7 @@ class QueueMessage:
         self.timestamp = timestamp
         self.headers = headers or {}
 
-    def get_content_as_dict(self) -> dict[str, Any]:
+    def get_content_as_dict(self) -> dict[str, Any]:  # type: ignore[no-any-return]
         """
         Get message content as a dictionary.
 
@@ -388,23 +387,26 @@ class QueueMessage:
         """
         import json
 
+        # Define error messages as constants
+        invalid_json_error = "Content is not valid JSON: {}"
+        invalid_json_utf8_error = "Content is not valid JSON or UTF-8: {}"
+        invalid_type_error = "Cannot convert content of type {} to dict"
+
         if isinstance(self.content, dict):
             return self.content
         if isinstance(self.content, str):
             try:
                 return json.loads(self.content)
             except json.JSONDecodeError as err:
-                raise TypeError(f"Content is not valid JSON: {err}") from err
+                raise TypeError(invalid_json_error.format(err)) from err
         if isinstance(self.content, bytes):
             try:
                 return json.loads(self.content.decode("utf-8"))
             except (json.JSONDecodeError, UnicodeDecodeError) as err:
-                raise TypeError(f"Content is not valid JSON or UTF-8: {err}") from err
+                raise TypeError(invalid_json_utf8_error.format(err)) from err
 
         # If we get here, the content type is not supported
-        raise TypeError(
-            f"Cannot convert content of type {type(self.content)} to dict",
-        )
+        raise TypeError(invalid_type_error.format(type(self.content)))
 
     def __str__(self) -> str:
         """Return string representation of the message."""

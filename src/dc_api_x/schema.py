@@ -6,7 +6,7 @@ This module provides classes for working with API schemas.
 
 import json
 from pathlib import Path
-from typing import Any, Optional, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel, create_model
 
@@ -221,12 +221,11 @@ class SchemaManager:
             "array": list,
             "object": dict,
         }
-        
+
         # Get the type from mapping or use Any for unknown types
         if json_type in type_mapping:
             return type_mapping[json_type]
-        else:
-            return Any  # type: ignore
+        return Any  # type: ignore[return-value]
 
     def get_model(self, schema_name: str) -> type[BaseModel] | None:
         """
@@ -260,7 +259,7 @@ class SchemaManager:
         # Create model dynamically using keyword arguments
         try:
             # Create the model with the field definitions
-            model = create_model(  # type: ignore
+            model = create_model(  # type: ignore[call-overload]
                 schema_name,
                 __base__=BaseModel,
                 **field_definitions,
@@ -272,6 +271,6 @@ class SchemaManager:
             model.__doc__ += f"\n{schema.description}"
 
             return cast(type[BaseModel], model)
-        except Exception as err:
+        except (TypeError, ValueError, AttributeError) as err:
             print(f"Error creating model for schema {schema_name}: {err}")
             return None
