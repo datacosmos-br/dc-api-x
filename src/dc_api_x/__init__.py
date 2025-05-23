@@ -17,20 +17,12 @@ Features:
 - Logging and monitoring hooks
 """
 
-# Standard library imports
 from typing import Any, Optional
 
-# Models
-from pydantic import BaseModel  # Use pydantic's BaseModel directly
+from pydantic import BaseModel
 
-# Plugin management
-from .plugin_manager import enable_plugins, get_adapter, list_adapters
-
-# Base modules
 from . import config, exceptions, models, pagination, schema, utils
-from .client import ApiClient  # Client
-
-# Extension interfaces
+from .client import ApiClient
 from .ext import (
     ApiResponseHook,
     AuthProvider,
@@ -53,15 +45,14 @@ from .ext import (
     TokenAuthProvider,
     TransformProvider,
 )
-
-# Models
 from .models import (
     ApiResponse,
-    ConfigurableBase,  # ConfigurableBase instead of BaseModel
+    ConfigurableBase,
     DirectoryEntry,
     GenericResponse,
     QueueMessage,
 )
+from .plugin_manager import enable_plugins, get_adapter, list_adapters
 
 
 # Define DatabaseResult since it's not in models.py

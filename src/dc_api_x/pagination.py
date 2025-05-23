@@ -5,6 +5,7 @@ This module provides utilities for handling paginated API responses.
 """
 
 from collections.abc import Generator
+from dataclasses import dataclass
 from typing import Any, TypeVar
 
 from pydantic import BaseModel
@@ -20,16 +21,23 @@ MISSING_DATA_KEY = "Response does not contain '{}' key"
 NOT_A_LIST_ERROR = "Response data is not a list"
 
 
-def paginate(
+@dataclass
+class PaginationConfig:
+    """Configuration for paginating API results."""
+
+    page_param: str = "page"
+    page_size_param: str = "per_page"
+    page_size: int = 100
+    max_pages: int | None = None
+    data_key: str | None = None
+    params: dict[str, Any] | None = None
+
+
+def paginate(  # noqa: PLR0912
     client: ApiClient,
     endpoint: str,
     model_class: type[BaseModel] | None = None,
-    page_param: str = "page",
-    page_size_param: str = "per_page",
-    page_size: int = 100,
-    max_pages: int | None = None,
-    data_key: str | None = None,
-    params: dict[str, Any] | None = None,
+    config: PaginationConfig | None = None,
 ) -> Generator[dict[str, Any] | BaseModel, None, None]:
     """
     Paginate through API results.
@@ -41,24 +49,22 @@ def paginate(
         client: API client
         endpoint: API endpoint
         model_class: Optional model class for response items
-        page_param: Name of the page parameter
-        page_size_param: Name of the page size parameter
-        page_size: Number of items per page
-        max_pages: Maximum number of pages to retrieve
-        data_key: Key for data in response (None if response is array)
-        params: Additional query parameters
+        config: Pagination configuration
 
     Yields:
         Each item in the paginated response
     """
+    # Use default config if none provided
+    cfg = config or PaginationConfig()
+
     # Initialize parameters
-    query_params = params.copy() if params else {}
-    query_params[page_size_param] = page_size
+    query_params = cfg.params.copy() if cfg.params else {}
+    query_params[cfg.page_size_param] = cfg.page_size
     page = 1
 
     while True:
         # Set current page
-        query_params[page_param] = page
+        query_params[cfg.page_param] = page
 
         # Make request
         response = client.get(endpoint, params=query_params)
@@ -70,12 +76,12 @@ def paginate(
 
         # Extract data
         response_data = response.data or {}
-        
-        if data_key:
+
+        if cfg.data_key:
             # Data is nested under a key
-            if not isinstance(response_data, dict) or data_key not in response_data:
-                raise ValueError(MISSING_DATA_KEY.format(data_key))
-            items = response_data[data_key]
+            if not isinstance(response_data, dict) or cfg.data_key not in response_data:
+                raise ValueError(MISSING_DATA_KEY.format(cfg.data_key))
+            items = response_data[cfg.data_key]
         else:
             # Data is directly in response
             items = response_data
@@ -107,11 +113,11 @@ def paginate(
                 yield item
 
         # Check if we've reached max pages
-        if max_pages and page >= max_pages:
+        if cfg.max_pages and page >= cfg.max_pages:
             break
 
         # Check if we've reached the last page
-        if len(items) < page_size:
+        if len(items) < cfg.page_size:
             break
 
         # Move to next page
