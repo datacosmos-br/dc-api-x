@@ -9,7 +9,6 @@ import logging
 from typing import Any, Optional, TypeVar, Union, cast
 
 import requests
-
 from dc_api_x.constants import (
     DEFAULT_MAX_RETRIES,
     DEFAULT_RETRY_BACKOFF,
@@ -245,11 +244,25 @@ class ApiClient:
 
         # Validate configuration
         if not self.url:
-            raise ConfigurationError(ConfigurationError.URL_REQUIRED)
+
+            def _url_required_error():
+                return ConfigurationError("API URL is required")
+
+            raise _url_required_error()
+
         if not self.username:
-            raise ConfigurationError(ConfigurationError.USERNAME_REQUIRED)
+
+            def _username_required_error():
+                return ConfigurationError("API username is required")
+
+            raise _username_required_error()
+
         if not self.password:
-            raise ConfigurationError(ConfigurationError.PASSWORD_REQUIRED)
+
+            def _password_required_error():
+                return ConfigurationError("API password is required")
+
+            raise _password_required_error()
 
         # Initialize hooks
         self._request_hooks = request_hooks or []
@@ -420,7 +433,11 @@ class ApiClient:
 
             # Process response
             if response.status_code == HTTP_UNAUTHORIZED:
-                raise AuthenticationError("Authentication failed")
+
+                def _auth_failed_error():
+                    return AuthenticationError("Authentication failed")
+
+                raise _auth_failed_error()
 
             # Convert response to ApiResponse
             api_response = self._process_response(response)
@@ -479,7 +496,9 @@ class ApiClient:
 
             # Convert to appropriate error type
             if isinstance(e, requests.RequestException):
-                raise RequestError(f"Request error: {str(e)}") from e
+                def _request_error(err):
+                    return RequestError(f"Request error: {str(err)}")
+                raise _request_error(e) from e
 
     def _process_response(self, response: requests.Response) -> ApiResponse:
         """
@@ -776,7 +795,11 @@ class ApiClient:
             GenericResponse with query results
         """
         if not isinstance(self.adapter, DatabaseAdapter):
-            raise AdapterTypeError(AdapterTypeError.DATABASE_REQUIRED)
+
+            def _db_adapter_required_error():
+                return AdapterTypeError(AdapterTypeError.DATABASE_REQUIRED)
+
+            raise _db_adapter_required_error()
 
         try:
             results = self.adapter.execute(query, params)
@@ -827,7 +850,12 @@ class ApiClient:
             GenericResponse with search results
         """
         if not isinstance(self.adapter, DirectoryAdapter):
-            raise AdapterTypeError(AdapterTypeError.DIRECTORY_REQUIRED)
+
+            def _dir_adapter_required_error():
+                return AdapterTypeError(AdapterTypeError.DIRECTORY_REQUIRED)
+
+            raise _dir_adapter_required_error()
+
         try:
             results = self.adapter.search(base_dn, search_filter, attributes, scope)
             entries = [DirectoryEntry(dn, attrs) for dn, attrs in results]
@@ -869,7 +897,12 @@ class ApiClient:
             GenericResponse indicating success or failure
         """
         if not isinstance(self.adapter, MessageQueueAdapter):
-            raise AdapterTypeError(AdapterTypeError.MESSAGE_QUEUE_REQUIRED)
+
+            def _mq_adapter_required_error():
+                return AdapterTypeError(AdapterTypeError.MESSAGE_QUEUE_REQUIRED)
+
+            raise _mq_adapter_required_error()
+
         try:
             self.adapter.publish(topic, message, **kwargs)
             return GenericResponse.success({"topic": topic})
