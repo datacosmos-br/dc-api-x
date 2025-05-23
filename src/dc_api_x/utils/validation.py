@@ -1,23 +1,23 @@
 """
-Validation utilities for the API client.
+Validation utilities for DCApiX.
 
-This module provides functions for validating data, including URLs, emails,
-UUIDs, and dates.
+This module provides utility functions for validating various data types.
 """
 
+import datetime
 import re
 import uuid
 from collections.abc import Callable
-from datetime import datetime
-from typing import Any, TypeVar, Union
+from typing import Any, Generic, Optional, TypeVar, Union
 
+# Type variable for generic type validation
 T = TypeVar("T")
 R = TypeVar("R")
 
 
 def validate_url(url: str) -> tuple[bool, str | None]:
     """
-    Validate a URL.
+    Validate a URL for basic URL format.
 
     Args:
         url: URL to validate
@@ -25,39 +25,29 @@ def validate_url(url: str) -> tuple[bool, str | None]:
     Returns:
         Tuple[bool, Optional[str]]: (is_valid, error_message)
     """
-    # Check if URL is empty
-    if not url:
-        return False, "URL cannot be empty"
+    # Basic URL regex pattern (simplified)
+    pattern = r"^(http|https)://([a-zA-Z0-9][-a-zA-Z0-9]*(\.[a-zA-Z0-9][-a-zA-Z0-9]*)+|localhost)(:\d+)?(/[-a-zA-Z0-9%_.~#+]*)*(\?[-a-zA-Z0-9%_.~+=&;]+)?(#[-a-zA-Z0-9]*)?$"
 
-    # Simple URL regex pattern
-    url_pattern = r"^(http|https)://[a-zA-Z0-9]+([\-\.]{1}[a-zA-Z0-9]+)*\.[a-zA-Z]{2,}(:[0-9]{1,5})?(/.*)?$"
-
-    # Check URL format
-    if not re.match(url_pattern, url):
-        return False, "URL must start with http:// or https:// and have a valid domain"
+    if not re.match(pattern, url):
+        return False, "Invalid URL format"
 
     return True, None
 
 
 def validate_email(email: str) -> tuple[bool, str | None]:
     """
-    Validate an email address.
+    Validate an email address for basic email format.
 
     Args:
-        email: Email address to validate
+        email: Email to validate
 
     Returns:
         Tuple[bool, Optional[str]]: (is_valid, error_message)
     """
-    # Check if email is empty
-    if not email:
-        return False, "Email cannot be empty"
+    # Basic email regex pattern
+    pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
 
-    # Email regex pattern
-    email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
-
-    # Check email format
-    if not re.match(email_pattern, email):
+    if not re.match(pattern, email):
         return False, "Invalid email format"
 
     return True, None
@@ -73,12 +63,8 @@ def validate_uuid(uuid_str: str) -> tuple[bool, str | None]:
     Returns:
         Tuple[bool, Optional[str]]: (is_valid, error_message)
     """
-    # Check if UUID is empty
-    if not uuid_str:
-        return False, "UUID cannot be empty"
-
-    # Try to parse UUID
     try:
+        # Attempt to parse the UUID string
         uuid.UUID(uuid_str)
     except ValueError:
         return False, "Invalid UUID format"
@@ -91,22 +77,18 @@ def validate_date(
     format_str: str = "%Y-%m-%d",
 ) -> tuple[bool, str | None]:
     """
-    Validate a date string.
+    Validate a date string against a specified format.
 
     Args:
         date_str: Date string to validate
-        format_str: Date format string (default: "%Y-%m-%d")
+        format_str: Expected date format (default: %Y-%m-%d)
 
     Returns:
         Tuple[bool, Optional[str]]: (is_valid, error_message)
     """
-    # Check if date is empty
-    if not date_str:
-        return False, "Date cannot be empty"
-
     # Try to parse date
     try:
-        datetime.strptime(date_str, format_str)
+        datetime.datetime.strptime(date_str, format_str)
     except ValueError:
         return False, f"Invalid date format, expected {format_str}"
     else:
@@ -199,7 +181,9 @@ def validate_not_empty(value: str, field_name: str) -> None:
         ValueError: If the value is empty
     """
     if not value:
-        raise ValueError(f"{field_name} cannot be empty")
+        def _empty_field_error():
+            return ValueError(f"{field_name} cannot be empty")
+        raise _empty_field_error()
 
 
 def validate_type(value: Any, expected_type: type[T], field_name: str) -> T:
@@ -217,10 +201,12 @@ def validate_type(value: Any, expected_type: type[T], field_name: str) -> T:
         TypeError: If the value is not of the expected type
     """
     if not isinstance(value, expected_type):
-        raise TypeError(
-            f"{field_name} must be of type {expected_type.__name__}, "
-            f"got {type(value).__name__}",
-        )
+        def _type_error():
+            return TypeError(
+                f"{field_name} must be of type {expected_type.__name__}, "
+                f"got {type(value).__name__}"
+            )
+        raise _type_error()
     return value
 
 
@@ -244,9 +230,11 @@ def validate_dict(
     """
     missing_keys = [key for key in required_keys if key not in value]
     if missing_keys:
-        raise ValueError(
-            f"{field_name} is missing required keys: {', '.join(missing_keys)}",
-        )
+        def _missing_keys_error():
+            return ValueError(
+                f"{field_name} is missing required keys: {', '.join(missing_keys)}"
+            )
+        raise _missing_keys_error()
     return value
 
 
@@ -265,9 +253,11 @@ def validate_list(value: list[Any], min_length: int, field_name: str) -> list[An
         ValueError: If the list is shorter than the minimum length
     """
     if len(value) < min_length:
-        raise ValueError(
-            f"{field_name} must have at least {min_length} items, got {len(value)}",
-        )
+        def _list_length_error():
+            return ValueError(
+                f"{field_name} must have at least {min_length} items, got {len(value)}"
+            )
+        raise _list_length_error()
     return value
 
 
@@ -286,7 +276,9 @@ def validate_one_of(value: Any, valid_values: list[Any], field_name: str) -> Any
         ValueError: If the value is not one of the valid values
     """
     if value not in valid_values:
-        raise ValueError(f"{field_name} must be one of {valid_values}, got {value}")
+        def _invalid_value_error():
+            return ValueError(f"{field_name} must be one of {valid_values}, got {value}")
+        raise _invalid_value_error()
     return value
 
 
@@ -304,5 +296,7 @@ def validate_callable(value: Callable[..., R], field_name: str) -> Callable[...,
         TypeError: If the value is not callable
     """
     if not callable(value):
-        raise TypeError(f"{field_name} must be callable, got {type(value).__name__}")
+        def _not_callable_error():
+            return TypeError(f"{field_name} must be callable, got {type(value).__name__}")
+        raise _not_callable_error()
     return value

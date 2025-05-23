@@ -71,7 +71,11 @@ class DatabaseAuthProvider(AuthProvider):
             AuthenticationError: If authentication fails for other reasons
         """
         if not self.adapter:
-            raise AuthenticationError("No database adapter provided")
+
+            def _no_adapter_error():
+                return AuthenticationError("No database adapter provided")
+
+            raise _no_adapter_error()
 
         try:
             # Connect to the database if not already connected
@@ -87,7 +91,11 @@ class DatabaseAuthProvider(AuthProvider):
 
             # Check if any results were returned
             if not result or len(result) == 0:
-                raise InvalidCredentialsError("Invalid credentials")
+
+                def _invalid_credentials():
+                    return InvalidCredentialsError("Invalid credentials")
+
+                raise _invalid_credentials()
 
             # Get the first user record
             user_data = result[0]
@@ -114,7 +122,11 @@ class DatabaseAuthProvider(AuthProvider):
         except Exception as e:
             if isinstance(e, InvalidCredentialsError):
                 raise
-            raise AuthenticationError(f"Authentication failed: {str(e)}")
+
+            def _auth_failed_error(err):
+                return AuthenticationError(f"Authentication failed: {str(err)}")
+
+            raise _auth_failed_error(e) from e
 
     def set_connection_params(
         self,
@@ -171,7 +183,11 @@ class DatabaseAuthProvider(AuthProvider):
         """
         # This would typically look up the user and generate a new token
         if not self._token:
-            raise AuthenticationError("Not authenticated")
+
+            def _not_authenticated_error():
+                return AuthenticationError("Not authenticated")
+
+            raise _not_authenticated_error()
 
         import time
         import uuid

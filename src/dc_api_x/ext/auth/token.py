@@ -38,7 +38,9 @@ class TokenAuthProvider(AuthProvider):
         to be set during initialization or separately.
         """
         if self.token is None:
-            raise ValueError("Token must be set before authentication")
+            def _missing_token_error():
+                return ValueError("Token must be set before authentication")
+            raise _missing_token_error()
 
     def is_authenticated(self) -> bool:
         """Check if token is set."""

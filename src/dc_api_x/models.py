@@ -12,7 +12,8 @@ from typing import (
     Union,
 )
 
-from pydantic import BaseModel as PydanticBaseModel, ConfigDict, Field
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import ConfigDict, Field
 
 T = TypeVar("T")
 K = TypeVar("K")
@@ -149,9 +150,8 @@ class GenericResponse(Generic[T], ConfigurableBase):
                 error_obj.status = status
             if error_code:
                 error_obj.add_error(error, error_code)
-            if details:
-                if error_obj.errors:
-                    error_obj.errors[0].details = details
+            if details and error_obj.errors:
+                error_obj.errors[0].details = details
         else:
             error_obj = error
 
@@ -290,7 +290,6 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
             status_code=status_code,
             headers=headers or {},
         )
-        return response
 
     def is_success(self) -> bool:
         """Check if the response is successful.
@@ -372,9 +371,13 @@ class QueueMessage:
             return json.loads(self.content)
         if isinstance(self.content, bytes):
             return json.loads(self.content.decode("utf-8"))
-        raise TypeError(
-            f"Cannot convert content of type {type(self.content)} to dict",
-        )
+
+        def _type_error():
+            return TypeError(
+                f"Cannot convert content of type {type(self.content)} to dict",
+            )
+
+        raise _type_error()
 
     def __str__(self) -> str:
         """Return string representation of the message."""

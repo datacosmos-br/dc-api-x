@@ -1,18 +1,20 @@
 """
 Adapter implementations for DCApiX.
 
-This module provides concrete implementations of the adapter interfaces.
+This module provides concrete adapter implementations that can be used out of the box,
+including HTTP, database, and directory adapters.
 """
 
 import importlib
+import json
 import logging
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
 
 import requests
 from requests.adapters import HTTPAdapter
-from requests.auth import HTTPBasicAuth
 from urllib3.util.retry import Retry
 
+from ..exceptions import AdapterError
 from ..ext.adapters import (
     DatabaseAdapter,
     DatabaseTransaction,
@@ -23,13 +25,14 @@ from ..ext.auth import AuthProvider, BasicAuthProvider
 
 logger = logging.getLogger(__name__)
 
+T = TypeVar("T")
+
 
 class RequestsHttpAdapter(HttpAdapter):
     """
     HTTP adapter implementation using the requests library.
 
-    This adapter serves as the default HTTP implementation when no
-    other adapter is specified.
+    This class implements the HttpAdapter interface using the requests library.
     """
 
     def __init__(
@@ -47,8 +50,8 @@ class RequestsHttpAdapter(HttpAdapter):
         Args:
             timeout: Request timeout in seconds
             verify_ssl: Whether to verify SSL certificates
-            max_retries: Maximum number of retry attempts
-            retry_backoff: Exponential backoff factor for retries
+            max_retries: Maximum number of retries for failed requests
+            retry_backoff: Backoff factor for retries
             auth_provider: Authentication provider
         """
         self.timeout = timeout
@@ -56,49 +59,49 @@ class RequestsHttpAdapter(HttpAdapter):
         self.max_retries = max_retries
         self.retry_backoff = retry_backoff
         self.auth_provider = auth_provider
-        self.session = None
+        self.client = None
 
     def connect(self) -> None:
         """
-        Establish a connection to the resource.
+        Establish a connection and set up the HTTP client.
 
-        This method initializes the requests session with the appropriate
-        configuration and authenticates if necessary.
+        This method creates and configures a requests.Session with retry and auth.
         """
-        self.session = requests.Session()
+        try:
+            # Create a new session
+            self.client = requests.Session()
 
-        # Configure retries
-        retry_strategy = Retry(
-            total=self.max_retries,
-            backoff_factor=self.retry_backoff,
-            status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
+            # Configure retries
+            retry_strategy = Retry(
+                total=self.max_retries,
+                backoff_factor=self.retry_backoff,
+                status_forcelist=[429, 500, 502, 503, 504],
+                allowed_methods=["HEAD", "GET", "OPTIONS", "POST", "PUT", "DELETE", "PATCH"],
+            )
 
-        # Configure default headers
-        self.session.headers.update(
-            {
-                "Content-type": "application/json",
-                "Accept": "application/json",
-                "User-Agent": "DCApiX/0.1.0",
-            },
-        )
+            # Add retry handler to session
+            adapter = HTTPAdapter(max_retries=retry_strategy)
+            self.client.mount("http://", adapter)
+            self.client.mount("https://", adapter)
 
-        # Configure authentication if provided
-        if self.auth_provider:
-            self.auth_provider.authenticate()
-            if isinstance(self.auth_provider, BasicAuthProvider):
-                self.session.auth = HTTPBasicAuth(
-                    self.auth_provider.username,
-                    self.auth_provider.password,
-                )
-            elif hasattr(self.auth_provider, "get_auth_headers"):
-                auth_headers = self.auth_provider.get_auth_headers()
-                if auth_headers:
-                    self.session.headers.update(auth_headers)
+            # Set default headers
+            self.client.headers.update({"User-Agent": "DCApiX/1.0"})
+
+            # Configure authentication
+            if self.auth_provider:
+                if isinstance(self.auth_provider, BasicAuthProvider):
+                    self.client.auth = (
+                        self.auth_provider.username,
+                        self.auth_provider.password,
+                    )
+                elif self.auth_provider.is_authenticated():
+                    if self.auth_provider.is_token_valid():
+                        auth_headers = self.auth_provider.get_auth_header()
+                        self.client.headers.update(auth_headers)
+            return
+        except Exception as e:
+            logger.error(f"Failed to create HTTP client: {str(e)}")
+            raise
 
     def disconnect(self) -> None:
         """
@@ -106,9 +109,9 @@ class RequestsHttpAdapter(HttpAdapter):
 
         This method closes the requests session.
         """
-        if self.session:
-            self.session.close()
-            self.session = None
+        if self.client:
+            self.client.close()
+            self.client = None
 
     def request(
         self,
@@ -120,52 +123,42 @@ class RequestsHttpAdapter(HttpAdapter):
         Make an HTTP request.
 
         Args:
-            method: HTTP method (GET, POST, PUT, DELETE, etc.)
+            method: HTTP method (GET, POST, etc.)
             url: Request URL
-            **kwargs: Additional arguments to pass to requests
+            **kwargs: Additional request parameters
 
         Returns:
-            Tuple of (status_code, headers, content)
-
-        Raises:
-            ConnectionError: If connection fails
-            TimeoutError: If request times out
-            RequestError: If request fails
+            Tuple of (status_code, headers, body)
         """
-        if not self.session:
+        if not self.client:
             self.connect()
 
-        # Refresh authentication if needed
-        if (
-            self.auth_provider
-            and self.auth_provider.is_authenticated()
-            and not self.auth_provider.is_token_valid()
-        ):
-            self.auth_provider.authenticate()
-            if hasattr(self.auth_provider, "get_auth_headers"):
-                auth_headers = self.auth_provider.get_auth_headers()
-                if auth_headers:
-                    self.session.headers.update(auth_headers)
+        # Handle timeout
+        if "timeout" not in kwargs:
+            kwargs["timeout"] = self.timeout
 
-        # Add timeout and SSL verification
-        kwargs.setdefault("timeout", self.timeout)
-        kwargs.setdefault("verify", self.verify_ssl)
+        # Handle SSL verification
+        if "verify" not in kwargs:
+            kwargs["verify"] = self.verify_ssl
 
         # Make the request
-        response = self.session.request(method, url, **kwargs)
+        response = self.client.request(method.upper(), url, **kwargs)
 
-        # Return status code, headers, and content
-        return (
-            response.status_code,
-            dict(response.headers),
-            response.content,
-        )
+        # Return status code, headers, and body
+        headers = dict(response.headers)
+        return response.status_code, headers, response.content
+
+    def set_option(self, name: str, value: Any) -> None:
+        """Set an adapter option."""
+        pass  # Implement if needed
+
+    def is_connected(self) -> bool:
+        """Check if the adapter is connected."""
+        return self.client is not None
 
 
 class DatabaseTransactionImpl(DatabaseTransaction):
-    """
-    Implementation of a database transaction using a connection.
-    """
+    """Database transaction implementation."""
 
     def __init__(self, connection: Any, *, autocommit: bool = False):
         """
@@ -180,43 +173,39 @@ class DatabaseTransactionImpl(DatabaseTransaction):
         self.cursor = None
 
     def __enter__(self) -> "DatabaseTransactionImpl":
-        """
-        Enter the transaction context.
+        """Enter the context manager."""
+        if not self.autocommit:
+            # Start the transaction
+            if hasattr(self.connection, "begin"):
+                self.connection.begin()
 
-        Returns:
-            Transaction object
-        """
+        # Create a cursor
         self.cursor = self.connection.cursor()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """
-        Exit the transaction context.
-
-        Args:
-            exc_type: Exception type
-            exc_val: Exception value
-            exc_tb: Exception traceback
-        """
+        """Exit the context manager."""
         if self.cursor:
             self.cursor.close()
             self.cursor = None
 
-        if exc_type is None and self.autocommit:
-            self.connection.commit()
-        elif exc_type is not None:
-            self.connection.rollback()
+        if exc_type is None and not self.autocommit:
+            # Commit the transaction on success
+            self.commit()
+        elif exc_type is not None and not self.autocommit:
+            # Rollback on exception
+            self.rollback()
 
     def execute(self, query: str, params: Optional[dict[str, Any]] = None) -> Any:
         """
-        Execute a query within the transaction.
+        Execute a query.
 
         Args:
             query: SQL query
             params: Query parameters
 
         Returns:
-            Cursor object
+            Query result
         """
         if params:
             return self.cursor.execute(query, params)
@@ -224,46 +213,44 @@ class DatabaseTransactionImpl(DatabaseTransaction):
 
     def fetchall(self) -> list[dict[str, Any]]:
         """
-        Fetch all rows from the last query.
+        Fetch all rows.
 
         Returns:
             List of rows as dictionaries
         """
-        columns = [col[0] for col in self.cursor.description]
-        return [dict(zip(columns, row, strict=False)) for row in self.cursor.fetchall()]
+        rows = self.cursor.fetchall()
+        columns = [desc[0] for desc in self.cursor.description]
+        return [dict(zip(columns, row)) for row in rows]
 
     def fetchone(self) -> Optional[dict[str, Any]]:
         """
-        Fetch one row from the last query.
+        Fetch one row.
 
         Returns:
             Row as dictionary or None
         """
         row = self.cursor.fetchone()
-        if row:
-            columns = [col[0] for col in self.cursor.description]
-            return dict(zip(columns, row, strict=False))
-        return None
+        if row is None:
+            return None
+        columns = [desc[0] for desc in self.cursor.description]
+        return dict(zip(columns, row))
 
     def commit(self) -> None:
-        """
-        Commit the transaction.
-        """
-        self.connection.commit()
+        """Commit the transaction."""
+        if hasattr(self.connection, "commit"):
+            self.connection.commit()
 
     def rollback(self) -> None:
-        """
-        Rollback the transaction.
-        """
-        self.connection.rollback()
+        """Rollback the transaction."""
+        if hasattr(self.connection, "rollback"):
+            self.connection.rollback()
 
 
 class GenericDatabaseAdapter(DatabaseAdapter):
     """
-    Generic database adapter that can work with various database libraries.
+    Generic database adapter implementation.
 
-    This adapter dynamically loads the appropriate database library
-    based on the connection string.
+    This adapter works with various SQL database engines.
     """
 
     def __init__(
@@ -278,7 +265,7 @@ class GenericDatabaseAdapter(DatabaseAdapter):
 
         Args:
             connection_string: Database connection string
-            driver: Database driver to use (default: sqlite3)
+            driver: Database driver module (default: sqlite3)
             auth_provider: Authentication provider
             **kwargs: Additional connection parameters
         """
@@ -317,9 +304,13 @@ class GenericDatabaseAdapter(DatabaseAdapter):
 
             logger.debug("Connected to {self.driver} database")
         except ImportError as err:
-            raise ImportError(f"Database driver {self.driver} not found") from err
+            def _driver_not_found_error():
+                return ImportError(f"Database driver {self.driver} not found")
+            raise _driver_not_found_error() from err
         except Exception as e:
-            raise ConnectionError(f"Failed to connect to database: {str(e)}") from e
+            def _connection_error(err):
+                return ConnectionError(f"Failed to connect to database: {str(err)}")
+            raise _connection_error(e) from e
 
     def disconnect(self) -> None:
         """
@@ -424,11 +415,15 @@ class DirectoryAdapterImpl(DirectoryAdapter):
 
             logger.debug("Connected to LDAP directory at {self.url}")
         except ImportError as err:
-            raise ImportError("python-ldap module not found") from err
+            def _ldap_not_found_error():
+                return ImportError("python-ldap module not found")
+            raise _ldap_not_found_error() from err
         except Exception as e:
-            raise ConnectionError(
-                f"Failed to connect to LDAP directory: {str(e)}",
-            ) from e
+            def _ldap_connection_error(err):
+                return ConnectionError(
+                    f"Failed to connect to LDAP directory: {str(err)}"
+                )
+            raise _ldap_connection_error(e) from e
 
     def disconnect(self) -> None:
         """

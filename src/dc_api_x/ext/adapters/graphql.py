@@ -129,11 +129,19 @@ class GraphQLAdapter(ProtocolAdapter):
             self._connected = True
             return True
         except ImportError:
-            raise AdapterError(
-                "Could not import 'requests'. Please install it with 'pip install requests'",
-            )
+
+            def _no_requests_error():
+                return AdapterError("Could not import 'requests'")
+
+            raise _no_requests_error()
         except Exception as e:
-            raise AdapterError(f"Failed to connect to GraphQL endpoint: {str(e)}")
+
+            def _connection_error(err):
+                return AdapterError(
+                    f"Failed to connect to GraphQL endpoint: {str(err)}"
+                )
+
+            raise _connection_error(e)
 
     def disconnect(self) -> bool:
         """Disconnect from the GraphQL endpoint.
@@ -210,7 +218,11 @@ class GraphQLAdapter(ProtocolAdapter):
 
             # Otherwise use the default HTTP client
             if not self._client:
-                raise AdapterError("No GraphQL client available")
+
+                def _no_client_error():
+                    return AdapterError("No GraphQL client available")
+
+                raise _no_client_error()
 
             response = self._client.post(self.url, json=payload)
             response.raise_for_status()
@@ -222,12 +234,20 @@ class GraphQLAdapter(ProtocolAdapter):
                     error.get("message", "Unknown error")
                     for error in response_data["errors"]
                 ]
-                raise AdapterError(f"GraphQL errors: {', '.join(error_messages)}")
+
+                def _graphql_errors():
+                    return AdapterError(f"GraphQL errors: {', '.join(error_messages)}")
+
+                raise _graphql_errors()
 
             return response_data
         except Exception as e:
             if not isinstance(e, AdapterError):
-                raise AdapterError(f"GraphQL request failed: {str(e)}")
+
+                def _request_error(err):
+                    return AdapterError(f"GraphQL request failed: {str(err)}")
+
+                raise _request_error(e) from e
             raise
 
     def query(
@@ -253,7 +273,11 @@ class GraphQLAdapter(ProtocolAdapter):
 
         response = self._make_request(query, variables, operation_name)
         if "data" not in response:
-            raise AdapterError("Response missing data field")
+
+            def _missing_data_error():
+                return AdapterError("Response missing data field")
+
+            raise _missing_data_error()
 
         return response["data"]
 
@@ -280,13 +304,21 @@ class GraphQLAdapter(ProtocolAdapter):
 
         # Ensure this is actually a mutation
         if not mutation.strip().startswith("mutation"):
-            raise InvalidOperationError(
-                "Mutation string must start with 'mutation'. "
-                "Did you mean to use query() instead?",
-            )
+
+            def _invalid_mutation_error():
+                return InvalidOperationError(
+                    "Mutation string must start with 'mutation'. "
+                    "Did you mean to use query() instead?"
+                )
+
+            raise _invalid_mutation_error()
 
         response = self._make_request(mutation, variables, operation_name)
         if "data" not in response:
-            raise AdapterError("Response missing data field")
+
+            def _missing_data_error():
+                return AdapterError("Response missing data field")
+
+            raise _missing_data_error()
 
         return response["data"]

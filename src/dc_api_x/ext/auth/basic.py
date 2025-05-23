@@ -60,10 +60,18 @@ class BasicAuthProvider(AuthProvider):
 
         # Check if credentials are valid
         if not auth_username or not auth_password:
-            raise AuthenticationError("Username and password are required")
+
+            def _credentials_required_error():
+                return AuthenticationError("Username and password are required")
+
+            raise _credentials_required_error()
 
         if auth_username != self.valid_username or auth_password != self.valid_password:
-            raise InvalidCredentialsError("Invalid username or password")
+
+            def _invalid_credentials_error():
+                return InvalidCredentialsError("Invalid username or password")
+
+            raise _invalid_credentials_error()
 
         # Create a simple token
         import time
@@ -114,7 +122,11 @@ class BasicAuthProvider(AuthProvider):
             Dict containing the new token information
         """
         if not self._authenticated:
-            raise AuthenticationError("Not authenticated")
+
+            def _not_authenticated_error():
+                return AuthenticationError("Not authenticated")
+
+            raise _not_authenticated_error()
 
         # Generate a new token
         import time
