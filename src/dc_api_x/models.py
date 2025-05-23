@@ -266,7 +266,7 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
         error_code: Optional[str] = None,
         details: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
-    ) -> "ApiResponse":
+    ) -> "ApiResponse":  # type: ignore[return]
         """Create an error response.
 
         Args:
@@ -279,6 +279,7 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
         Returns:
             An error API response
         """
+        # Create error object from string or use provided Error object
         if isinstance(error, str):
             error_obj = Error(
                 detail=error,
@@ -291,7 +292,8 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
         else:
             error_obj = error
 
-        return cls(
+        # Create and return the response
+        response = cls(
             data=None,
             meta=Metadata(),
             success=False,
@@ -299,6 +301,7 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
             status_code=status_code,
             headers=headers or {},
         )
+        return response
 
     def is_success(self) -> bool:
         """Check if the response is successful.
@@ -308,22 +311,30 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
         """
         return self.success and HTTP_OK <= self.status_code < HTTP_MULTIPLE_CHOICES
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:  # type: ignore[no-any-return]
         """Convert the response to a dictionary.
 
         Returns:
             Dictionary representation of the response
         """
-        error_dict = None
+        # Create error dictionary if error exists
+        error_dict: Optional[dict[str, Any]] = None
         if self.error:
             error_dict = self.error.model_dump()
 
-        return {
+        # Create meta dictionary
+        meta_dict: dict[str, Any] = {}
+        if self.meta:
+            meta_dict = self.meta.model_dump()
+
+        # Create the result dictionary with proper typing
+        result: dict[str, Any] = {
             "data": self.data,
-            "meta": self.meta or {},
-            "success": self.success,
+            "meta": meta_dict,
+            "success": bool(self.success),
             "error": error_dict,
         }
+        return result
 
     def to_json(self) -> str:
         """Convert the response to a JSON string.
@@ -371,22 +382,29 @@ class QueueMessage:
 
         Returns:
             Message content as dictionary
+
+        Raises:
+            TypeError: If content cannot be converted to a dictionary
         """
         import json
 
         if isinstance(self.content, dict):
             return self.content
         if isinstance(self.content, str):
-            return json.loads(self.content)
+            try:
+                return json.loads(self.content)
+            except json.JSONDecodeError as err:
+                raise TypeError(f"Content is not valid JSON: {err}") from err
         if isinstance(self.content, bytes):
-            return json.loads(self.content.decode("utf-8"))
+            try:
+                return json.loads(self.content.decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError) as err:
+                raise TypeError(f"Content is not valid JSON or UTF-8: {err}") from err
 
-        def _type_error():
-            return TypeError(
-                f"Cannot convert content of type {type(self.content)} to dict",
-            )
-
-        raise _type_error()
+        # If we get here, the content type is not supported
+        raise TypeError(
+            f"Cannot convert content of type {type(self.content)} to dict",
+        )
 
     def __str__(self) -> str:
         """Return string representation of the message."""

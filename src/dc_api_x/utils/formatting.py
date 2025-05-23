@@ -18,7 +18,7 @@ from rich.console import Console
 from rich.table import Table as RichTable
 
 
-def format_json(data: Any, indent: int = 2) -> str:
+def format_json(data: Any, indent: int = 2) -> str:  # type: ignore[return]
     """
     Format JSON data with proper indentation.
 
@@ -29,21 +29,27 @@ def format_json(data: Any, indent: int = 2) -> str:
     Returns:
         Formatted JSON string
     """
+    # Handle string input
     if isinstance(data, str):
-        # If data is already a string, try to parse it first
         try:
-            data = json.loads(data)
+            # If parsing succeeds, use the parsed object
+            return json.dumps(
+                json.loads(data),
+                indent=indent,
+                ensure_ascii=False,
+                sort_keys=True,
+            )
         except json.JSONDecodeError:
+            # If it's not valid JSON, return the string as is
             return data
 
+    # Handle dict, list, or other JSON-serializable types
     try:
+        # Format the data as JSON
         return json.dumps(data, indent=indent, ensure_ascii=False, sort_keys=True)
     except TypeError as err:
-
-        def _json_serialization_error(err):
-            return TypeError(f"Failed to serialize data to JSON: {err}")
-
-        raise _json_serialization_error(err) from err
+        # Raise a helpful error message
+        raise TypeError(f"Failed to serialize data to JSON: {err}") from err
 
 
 @dataclass
@@ -312,7 +318,7 @@ def format_datetime(dt: datetime.datetime) -> str:
     return dt.isoformat()
 
 
-def format_value(value: Any) -> str:
+def format_value(value: Any) -> str:  # type: ignore[return]
     """Format any value as a string.
 
     Args:
@@ -323,10 +329,14 @@ def format_value(value: Any) -> str:
     """
     if value is None:
         return ""
-    if isinstance(value | (dict, list)):
+
+    # Handle different types appropriately
+    if isinstance(value, dict) or isinstance(value, list):
         return format_json(value)
     if isinstance(value, datetime.datetime):
         return format_datetime(value)
+
+    # Default to string representation
     return str(value)
 
 

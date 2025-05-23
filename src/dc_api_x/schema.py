@@ -202,7 +202,7 @@ class SchemaManager:
     def _python_type_from_json_type(
         self,
         json_type: str,
-    ) -> type[Any]:
+    ) -> type[Any]:  # type: ignore[return]
         """
         Get Python type from JSON Schema type.
 
@@ -212,7 +212,7 @@ class SchemaManager:
         Returns:
             Python type
         """
-        # Use a mapping dictionary for all types
+        # Define a map of JSON types to Python types
         type_mapping: dict[str, type[Any]] = {
             "string": str,
             "integer": int,
@@ -222,8 +222,11 @@ class SchemaManager:
             "object": dict,
         }
         
-        # Return the mapped type or Any as fallback
-        return type_mapping.get(json_type, Any)
+        # Get the type from mapping or use Any for unknown types
+        if json_type in type_mapping:
+            return type_mapping[json_type]
+        else:
+            return Any  # type: ignore
 
     def get_model(self, schema_name: str) -> type[BaseModel] | None:
         """
@@ -240,7 +243,7 @@ class SchemaManager:
             return None
 
         # Define field types and defaults
-        field_definitions: dict[str, tuple[type[Any], Any]] = {}
+        field_definitions: dict[str, tuple[type, Any]] = {}
 
         for field_name, field_def in schema.fields.items():
             json_type = field_def.get("type", "string")
@@ -251,18 +254,22 @@ class SchemaManager:
                 field_definitions[field_name] = (field_type, ...)
             else:
                 # Set optional fields with None as default
-                field_definitions[field_name] = (Optional[field_type], None)
+                # Create the proper type annotation for Optional fields
+                field_definitions[field_name] = (field_type, None)
 
         # Create model dynamically using keyword arguments
         try:
-            model = create_model(
+            # Create the model with the field definitions
+            model = create_model(  # type: ignore
                 schema_name,
                 __base__=BaseModel,
                 **field_definitions,
             )
 
             # Add docstring
-            model.__doc__ = schema.description
+            if model.__doc__ is None:
+                model.__doc__ = ""
+            model.__doc__ += f"\n{schema.description}"
 
             return cast(type[BaseModel], model)
         except Exception as err:
