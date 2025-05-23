@@ -8,10 +8,9 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
-from pydantic import create_model
-
 from dc_api_x.client import ApiClient
 from dc_api_x.models import BaseModel
+from pydantic import create_model
 
 
 class SchemaDefinition:
@@ -80,7 +79,7 @@ class SchemaDefinition:
         file_path = directory / filename
 
         # Write schema to file
-        with Path(file_path).open(), "w" as f:
+        with Path(file_path).open("w") as f:
             json.dump(self.to_json_schema(), f, indent=2)
 
         return file_path
@@ -96,15 +95,24 @@ class SchemaDefinition:
         Returns:
             Schema definition
         """
-        with Path(file_path).open() as f:
-            schema = json.load(f)
+        try:
+            with open(file_path) as f:
+                schema = json.load(f)
 
-        return cls(
-            name=schema.get("title", Path(file_path).name.split(".")[0]),
-            description=schema.get("description", ""),
-            fields=schema.get("properties", {}),
-            required_fields=schema.get("required", []),
-        )
+            return cls(
+                name=schema.get("title", Path(file_path).name.split(".")[0]),
+                description=schema.get("description", ""),
+                fields=schema.get("properties", {}),
+                required_fields=schema.get("required", []),
+            )
+        except FileNotFoundError:
+            def _schema_file_not_found_error():
+                return FileNotFoundError(f"Schema file not found: {file_path}")
+            raise _schema_file_not_found_error()
+        except json.JSONDecodeError as e:
+            def _invalid_schema_error(err):
+                return ValueError(f"Invalid schema format: {err}")
+            raise _invalid_schema_error(e)
 
 
 class SchemaManager:

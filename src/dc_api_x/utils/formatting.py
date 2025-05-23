@@ -35,10 +35,15 @@ def format_json(data: Any, indent: int = 2) -> str:
         except json.JSONDecodeError:
             return data
 
-    return cast(
-        str,
-        json.dumps(data, indent=indent, ensure_ascii=False, sort_keys=True),
-    )
+    try:
+        return cast(
+            str,
+            json.dumps(data, indent=indent, ensure_ascii=False, sort_keys=True),
+        )
+    except TypeError as e:
+        def _json_serialization_error(err):
+            return TypeError(f"Failed to serialize data to JSON: {err}")
+        raise _json_serialization_error(e)
 
 
 def format_table(
@@ -100,10 +105,20 @@ def format_table(
     # Write to file if requested
     if output_file is not None:
         if isinstance(output_file, str):
-            with Path(output_file).open("w") as f:
-                f.write(table_str)
+            try:
+                with open(output_file, "w") as f:
+                    f.write(table_str)
+            except IOError as e:
+                def _file_write_error(err):
+                    return IOError(f"Failed to write table to file {output_file}: {err}")
+                raise _file_write_error(e)
         else:
-            output_file.write(table_str)
+            try:
+                output_file.write(table_str)
+            except IOError as e:
+                def _file_write_error(err):
+                    return IOError(f"Failed to write table to output file: {err}")
+                raise _file_write_error(e)
 
     return table_str
 
@@ -141,16 +156,21 @@ def format_csv(
 
     # Create CSV
     output = io.StringIO()
-    writer = csv.writer(output, delimiter=delimiter)
+    try:
+        writer = csv.writer(output, delimiter=delimiter)
 
-    # Write header row
-    header_row = [headers.get(field, field) for field in fields]
-    writer.writerow(header_row)
+        # Write header row
+        header_row = [headers.get(field, field) for field in fields]
+        writer.writerow(header_row)
 
-    # Write data rows
-    for item in data:
-        row = [item.get(field, "") for field in fields]
-        writer.writerow(row)
+        # Write data rows
+        for item in data:
+            row = [item.get(field, "") for field in fields]
+            writer.writerow(row)
+    except csv.Error as e:
+        def _csv_format_error(err):
+            return ValueError(f"Failed to format data as CSV: {err}")
+        raise _csv_format_error(e)
 
     # Get string representation
     csv_str = output.getvalue()
@@ -158,10 +178,20 @@ def format_csv(
     # Write to file if requested
     if output_file is not None:
         if isinstance(output_file, str):
-            with Path(output_file).open("w") as f:
-                f.write(csv_str)
+            try:
+                with open(output_file, "w") as f:
+                    f.write(csv_str)
+            except IOError as e:
+                def _file_write_error(err):
+                    return IOError(f"Failed to write CSV to file {output_file}: {err}")
+                raise _file_write_error(e)
         else:
-            output_file.write(csv_str)
+            try:
+                output_file.write(csv_str)
+            except IOError as e:
+                def _file_write_error(err):
+                    return IOError(f"Failed to write CSV to output file: {err}")
+                raise _file_write_error(e)
 
     return csv_str
 
@@ -200,9 +230,13 @@ def format_text(
         try:
             line = template.format(**context)
             lines.append(line)
-        except KeyError:
+        except KeyError as e:
             # Skip items that don't have all template fields
             pass
+        except ValueError as e:
+            def _template_format_error(err):
+                return ValueError(f"Failed to format template with context: {err}")
+            raise _template_format_error(e)
 
     # Join lines
     text = "\n".join(lines)
@@ -210,10 +244,20 @@ def format_text(
     # Write to file if requested
     if output_file is not None:
         if isinstance(output_file, str):
-            with Path(output_file).open("w") as f:
-                f.write(text)
+            try:
+                with open(output_file, "w") as f:
+                    f.write(text)
+            except IOError as e:
+                def _file_write_error(err):
+                    return IOError(f"Failed to write to file {output_file}: {err}")
+                raise _file_write_error(e)
         else:
-            output_file.write(text)
+            try:
+                output_file.write(text)
+            except IOError as e:
+                def _file_write_error(err):
+                    return IOError(f"Failed to write to output file: {err}")
+                raise _file_write_error(e)
 
     return text
 
@@ -249,22 +293,19 @@ def format_value(value: Any) -> str:
         value: Value to format
 
     Returns:
-        Formatted string representation
+        Formatted value string
     """
     if value is None:
         return ""
-    if isinstance(value, (str, int, float, bool)):
-        return str(value)
+    if isinstance(value, (dict, list)):
+        return format_json(value)
     if isinstance(value, datetime.datetime):
         return format_datetime(value)
-    if isinstance(value, (dict, list)):
-        return json.dumps(value)
-    # For any other type, ensure we return a string
     return str(value)
 
 
 def format_response_data(data: dict[str, Any]) -> dict[str, Any]:
-    """Format response data for consistent output.
+    """Format response data for consistent key naming.
 
     Args:
         data: Response data to format
@@ -275,6 +316,7 @@ def format_response_data(data: dict[str, Any]) -> dict[str, Any]:
     result = {}
     for key, value in data.items():
         normalized_key = normalize_key(key)
+        
         if isinstance(value, dict):
             result[normalized_key] = format_response_data(value)
         elif isinstance(value, list) and value and isinstance(value[0], dict):
