@@ -293,7 +293,7 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
             status_code=status_code,
             headers=headers or {},
         )
-        
+
         return response
 
     def is_success(self) -> bool:

@@ -17,6 +17,9 @@ Features:
 - Logging and monitoring hooks
 """
 
+# Standard library imports
+from typing import Any
+
 # Models
 from pydantic import BaseModel  # Use pydantic's BaseModel directly
 
@@ -64,9 +67,9 @@ class DatabaseResult:
     def __init__(
         self,
         success: bool = True,
-        rows: list[dict[str, any]] = None,
+        rows: list[dict[str, Any]] = None,
         query: str = "",
-        params: dict[str, any] = None,
+        params: dict[str, Any] = None,
     ):
         self.success = success
         self.rows = rows or []

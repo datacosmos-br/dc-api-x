@@ -8,8 +8,9 @@ import json
 from pathlib import Path
 from typing import Any, Optional, Type, TypeVar, cast
 
-from dc_api_x.client import ApiClient
 from pydantic import BaseModel, ConfigDict, create_model
+
+from dc_api_x.client import ApiClient
 
 # Define a generic type for models
 ModelT = TypeVar("ModelT", bound=BaseModel)
