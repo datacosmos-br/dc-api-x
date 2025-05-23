@@ -1,0 +1,42 @@
+name: "DC-API-X Advanced CodeQL Configuration"
+
+disable-default-queries: true
+
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+query-filters:
+  - exclude:
+      problem.severity:
+        - note
+        - recommendation
+
+paths-ignore:
+  - "**/test/**"
+  - "**/tests/**"
+  - "**/.pytest_cache/**"
+  - "**/venv/**"
+  - "**/.venv/**"
+  - "**/docs/**"
+  - "**/examples/**"
+
+paths:
+  - src
+  - scripts
+
+security-severity-overrides:
+  - security-severity:
+      - 8.0 # High severity
+    tags:
+      - security
+      - sql-injection
+      - xss
+  - security-severity:
+      - 7.0 # High-Medium severity
+    tags:
+      - security
+      - command-injection
+      - path-injection
+
+trap-caching: true
