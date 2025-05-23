@@ -1,25 +1,34 @@
-# This is a CODEOWNERS file to define individuals or teams responsible for code in this repository
+# DC-API-X Code Ownership Configuration
+# This file defines individuals or teams responsible for code review in this repository.
 # Each line is a file pattern followed by one or more owners.
 # Order is important; the last matching pattern takes precedence.
 
-# These owners will be the default owners for everything in
-# the repo. Unless a later match takes precedence,
-# these users will be requested for review when someone 
-# opens a pull request.
-*       @datacosmos-br/Datacosmos
+# Default owners for everything
+*                             @datacosmos-br/Datacosmos
 
-# Workflow files
-.github/workflows/   @datacosmos-br/Datacosmos
+# Infrastructure and CI/CD configuration
+.github/workflows/            @datacosmos-br/Datacosmos
+.github/codeql/               @datacosmos-br/Datacosmos
+.github/dependabot.yml        @datacosmos-br/Datacosmos
+pyproject.toml                @datacosmos-br/Datacosmos
+Makefile                      @datacosmos-br/Datacosmos
 
 # Documentation
-docs/               @datacosmos-br/Datacosmos
-*.md                @datacosmos-br/Datacosmos
+docs/                         @datacosmos-br/Datacosmos
+*.md                          @datacosmos-br/Datacosmos
+.github/profile/README.md     @datacosmos-br/Datacosmos
+
+# Security related files
+SECURITY.md                   @datacosmos-br/Datacosmos
 
 # Core API code
-src/dc_api_x/       @datacosmos-br/Datacosmos
+src/dc_api_x/                 @datacosmos-br/Datacosmos
 
 # Test files
-tests/              @datacosmos-br/Datacosmos
+tests/                        @datacosmos-br/Datacosmos
+
+# Examples
+examples/                     @datacosmos-br/Datacosmos
 
 # Replace with actual usernames or team names before using
 # Format: GitHub username or @org/team-name 

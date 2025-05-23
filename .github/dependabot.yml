@@ -5,11 +5,17 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
     open-pull-requests-limit: 10
     target-branch: "main"
     labels:
       - "dependencies"
       - "security"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
     ignore:
       # Ignore patch updates for non-security dependencies
       - dependency-name: "*"
@@ -24,23 +30,26 @@ updates:
           - "flake8*"
         exclude-patterns:
           - "pytest-cov"
-
-  # Docker dependencies
-  - package-ecosystem: "docker"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "docker"
+      security-dependencies:
+        patterns:
+          - "cryptography"
+          - "pyjwt"
+          - "requests"
+          - "urllib3"
+          - "pydantic"
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/Sao_Paulo"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "github-actions"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

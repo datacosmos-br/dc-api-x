@@ -1,8 +1,8 @@
 ## Description
 
-Please include a summary of the change and which issue it fixes. Please also include relevant motivation and context.
+Include a summary of the change and which issue it resolves. Also include relevant motivation and context.
 
-Fixes # (issue number)
+Resolves # (issue number)
 
 ## Type of change
 
@@ -15,7 +15,7 @@ Fixes # (issue number)
 
 ## How Has This Been Tested?
 
-Please describe the tests that you ran to verify your changes. Provide instructions so we can reproduce.
+Describe the tests that you ran to verify your changes:
 
 - [ ] Unit tests
 - [ ] Integration tests
@@ -30,5 +30,3 @@ Please describe the tests that you ran to verify your changes. Provide instructi
 - [ ] My changes generate no new warnings
 - [ ] I have added tests that prove my fix is effective or that my feature works
 - [ ] New and existing unit tests pass locally with my changes
-- [ ] Any dependent changes have been merged and published in downstream modules
-- [ ] I have checked my code and corrected any misspellings 
