@@ -7,7 +7,7 @@ This module defines all exception classes used by the DCApiX library.
 from typing import Any, Optional
 
 
-class BaseAPIException(Exception):
+class BaseAPIError(Exception):
     """Base exception for all API exceptions."""
 
     def __init__(
@@ -29,7 +29,7 @@ class BaseAPIException(Exception):
         self.details = details or {}
 
 
-class ConfigurationError(BaseAPIException):
+class ConfigurationError(BaseAPIError):
     """Exception raised for configuration errors."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -42,7 +42,7 @@ class ConfigurationError(BaseAPIException):
         super().__init__(message, "configuration_error", details)
 
 
-class ValidationError(BaseAPIException):
+class ValidationError(BaseAPIError):
     """Exception raised for validation errors."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -55,7 +55,7 @@ class ValidationError(BaseAPIException):
         super().__init__(message, "validation_error", details)
 
 
-class AuthenticationError(BaseAPIException):
+class AuthenticationError(BaseAPIError):
     """Exception raised for authentication errors."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -68,7 +68,7 @@ class AuthenticationError(BaseAPIException):
         super().__init__(message, "authentication_error", details)
 
 
-class AuthorizationError(BaseAPIException):
+class AuthorizationError(BaseAPIError):
     """Exception raised for authorization errors."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -99,7 +99,7 @@ class InvalidCredentialsError(AuthenticationError):
         self.code = "invalid_credentials"
 
 
-class ApiConnectionError(BaseAPIException):
+class ApiConnectionError(BaseAPIError):
     """Exception raised for API connection errors."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -112,7 +112,7 @@ class ApiConnectionError(BaseAPIException):
         super().__init__(message, "connection_error", details)
 
 
-class AdapterError(BaseAPIException):
+class AdapterError(BaseAPIError):
     """Exception raised for adapter errors."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -125,7 +125,7 @@ class AdapterError(BaseAPIException):
         super().__init__(message, "adapter_error", details)
 
 
-class InvalidOperationError(BaseAPIException):
+class InvalidOperationError(BaseAPIError):
     """Exception raised for invalid operations."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -138,7 +138,7 @@ class InvalidOperationError(BaseAPIException):
         super().__init__(message, "invalid_operation", details)
 
 
-class NotFoundError(BaseAPIException):
+class NotFoundError(BaseAPIError):
     """Exception raised when a resource is not found."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -151,7 +151,7 @@ class NotFoundError(BaseAPIException):
         super().__init__(message, "not_found", details)
 
 
-class AlreadyExistsError(BaseAPIException):
+class AlreadyExistsError(BaseAPIError):
     """Exception raised when a resource already exists."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -164,7 +164,7 @@ class AlreadyExistsError(BaseAPIException):
         super().__init__(message, "already_exists", details)
 
 
-class TimeoutError(BaseAPIException):
+class TimeoutError(BaseAPIError):
     """Exception raised when an operation times out."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -177,7 +177,7 @@ class TimeoutError(BaseAPIException):
         super().__init__(message, "timeout", details)
 
 
-class RateLimitError(BaseAPIException):
+class RateLimitError(BaseAPIError):
     """Exception raised when rate limit is exceeded."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -190,7 +190,7 @@ class RateLimitError(BaseAPIException):
         super().__init__(message, "rate_limit", details)
 
 
-class ServerError(BaseAPIException):
+class ServerError(BaseAPIError):
     """Exception raised for server errors."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -203,7 +203,7 @@ class ServerError(BaseAPIException):
         super().__init__(message, "server_error", details)
 
 
-class UnknownError(BaseAPIException):
+class UnknownError(BaseAPIError):
     """Exception raised for unknown errors."""
 
     def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
@@ -241,6 +241,19 @@ class ApiError(Exception):
 
     def __str__(self) -> str:
         return self.message
+
+
+class CLIError(BaseAPIError):
+    """Exception raised for CLI-specific errors."""
+
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+        """Initialize the exception.
+
+        Args:
+            message: Exception message
+            details: Optional error details
+        """
+        super().__init__(message, "cli_error", details)
 
 
 class SchemaError(ApiError):

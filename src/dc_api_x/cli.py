@@ -9,7 +9,9 @@ import json
 import logging
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Optional
 
 import click
 from rich.console import Console
@@ -17,6 +19,15 @@ from rich.console import Console
 from .client import ApiClient
 from .config import Config, list_available_profiles
 from .entity import EntityManager
+from .exceptions import (
+    ApiConnectionError,
+    AuthenticationError,
+    BaseAPIError,
+    CLIError,
+    ConfigurationError,
+    NotFoundError,
+    ValidationError,
+)
 from .schema import SchemaManager
 from .utils.formatting import format_json, format_table
 from .utils.logging import setup_logger
@@ -82,14 +93,20 @@ def config_show(profile: str | None) -> None:
         # Convert to dictionary (excluding sensitive fields)
         config_dict = cfg.to_dict()
         if "password" in config_dict:
-            config_dict["password"] = "********"  # noqa: S105
+            config_dict["password"] = "********"  # noqa: S105, B105
 
         # Pretty print configuration
         console.print("[bold]Configuration:[/bold]")
         console.print(json.dumps(config_dict, indent=2))
 
-    except Exception as e:
-        console.print(f"[red]Error: {str(e)}[/red]")
+    except ConfigurationError as e:
+        console.print(f"[red]Configuration error: {str(e)}[/red]")
+        sys.exit(1)
+    except OSError as e:
+        console.print(f"[red]File error: {str(e)}[/red]")
+        sys.exit(1)
+    except BaseAPIError as e:
+        console.print(f"[red]API error: {str(e)}[/red]")
         sys.exit(1)
 
 
@@ -116,8 +133,14 @@ def config_test(profile: str | None) -> None:
             console.print(f"[red]Connection failed: {message}[/red]")
             sys.exit(1)
 
-    except Exception as e:
-        console.print(f"[red]Error: {str(e)}[/red]")
+    except ConfigurationError as e:
+        console.print(f"[red]Configuration error: {str(e)}[/red]")
+        sys.exit(1)
+    except ApiConnectionError as e:
+        console.print(f"[red]Connection error: {str(e)}[/red]")
+        sys.exit(1)
+    except BaseAPIError as e:
+        console.print(f"[red]API error: {str(e)}[/red]")
         sys.exit(1)
 
 
@@ -206,9 +229,36 @@ def request_get(
             )
             sys.exit(1)
 
-    except Exception as e:
-        console.print(f"[red]Error: {str(e)}[/red]")
+    except ConfigurationError as e:
+        console.print(f"[red]Configuration error: {str(e)}[/red]")
         sys.exit(1)
+    except ApiConnectionError as e:
+        console.print(f"[red]Connection error: {str(e)}[/red]")
+        sys.exit(1)
+    except (IOError, OSError) as e:
+        console.print(f"[red]File error: {str(e)}[/red]")
+        sys.exit(1)
+    except BaseAPIError as e:
+        console.print(f"[red]API error: {str(e)}[/red]")
+        sys.exit(1)
+
+
+@dataclass
+class RequestPostParams:
+    """Parameters for post request command."""
+
+    endpoint: str
+    profile: Optional[str] = None
+    param: list[str] = None
+    data: Optional[str] = None
+    data_file: Optional[str] = None
+    output_format: str = "json"
+    output: Optional[str] = None
+
+    def __post_init__(self):
+        """Initialize default values."""
+        if self.param is None:
+            self.param = []
 
 
 @request.command("post")
@@ -233,20 +283,36 @@ def request_post(
     param: list[str],
     data: str | None,
     data_file: str | None,
-    output_format: str,
+    format: str,
     output: str | None,
 ) -> None:
     """Make POST request to API endpoint."""
+    params = RequestPostParams(
+        endpoint=endpoint,
+        profile=profile,
+        param=list(param),
+        data=data,
+        data_file=data_file,
+        output_format=format,
+        output=output,
+    )
+    _handle_post_request(params)
+
+
+def _handle_post_request(params: RequestPostParams) -> None:
+    """Handle POST request with given parameters."""
     try:
         # Create client
-        client = ApiClient.from_profile(profile) if profile else ApiClient()
+        client = (
+            ApiClient.from_profile(params.profile) if params.profile else ApiClient()
+        )
 
         # Parse parameters
-        params = {}
-        for p in param:
+        request_params = {}
+        for p in params.param:
             try:
                 name, value = p.split("=", 1)
-                params[name] = value
+                request_params[name] = value
             except ValueError:
                 console.print(
                     f"[yellow]Warning: Ignoring invalid parameter format: {p}[/yellow]",
@@ -254,18 +320,26 @@ def request_post(
 
         # Get data
         json_data = None
-        if data_file:
-            with Path(data_file).open() as f:
-                json_data = json.load(f)
-        elif data:
-            json_data = json.loads(data)
+        if params.data_file:
+            try:
+                with Path(params.data_file).open() as f:
+                    json_data = json.load(f)
+            except json.JSONDecodeError as e:
+                raise ValidationError(f"Invalid JSON in data file: {e}")
+        elif params.data:
+            try:
+                json_data = json.loads(params.data)
+            except json.JSONDecodeError as e:
+                raise ValidationError(f"Invalid JSON data: {e}")
 
         # Make request
-        console.print(f"Making POST request to: [bold]{endpoint}[/bold]")
-        if params:
-            console.print(f"Parameters: {params}")
+        console.print(f"Making POST request to: [bold]{params.endpoint}[/bold]")
+        if request_params:
+            console.print(f"Parameters: {request_params}")
 
-        response = client.post(endpoint, params=params, json_data=json_data)
+        response = client.post(
+            params.endpoint, params=request_params, json_data=json_data
+        )
 
         # Handle response
         if response.success:
@@ -274,7 +348,7 @@ def request_post(
             )
 
             # Format output
-            if output_format == "json":
+            if params.output_format == "json":
                 formatted_output = format_json(response.data, indent=2)
             elif isinstance(response.data, list):
                 formatted_output = format_table(response.data)
@@ -291,10 +365,10 @@ def request_post(
                 formatted_output = format_json(response.data, indent=2)
 
             # Output result
-            if output:
-                with Path(output).open("w") as f:
+            if params.output:
+                with Path(params.output).open("w") as f:
                     f.write(formatted_output)
-                console.print(f"Output written to: [bold]{output}[/bold]")
+                console.print(f"Output written to: [bold]{params.output}[/bold]")
             else:
                 console.print(formatted_output)
         else:
@@ -303,8 +377,23 @@ def request_post(
             )
             sys.exit(1)
 
-    except Exception as e:
-        console.print(f"[red]Error: {str(e)}[/red]")
+    except ConfigurationError as e:
+        console.print(f"[red]Configuration error: {str(e)}[/red]")
+        sys.exit(1)
+    except ApiConnectionError as e:
+        console.print(f"[red]Connection error: {str(e)}[/red]")
+        sys.exit(1)
+    except ValidationError as e:
+        console.print(f"[red]Validation error: {str(e)}[/red]")
+        sys.exit(1)
+    except (IOError, OSError) as e:
+        console.print(f"[red]File error: {str(e)}[/red]")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        console.print(f"[red]JSON error: {str(e)}[/red]")
+        sys.exit(1)
+    except BaseAPIError as e:
+        console.print(f"[red]API error: {str(e)}[/red]")
         sys.exit(1)
 
 
@@ -386,8 +475,17 @@ def schema_extract(
             )
             sys.exit(1)
 
-    except Exception as e:
-        console.print(f"[red]Error: {str(e)}[/red]")
+    except ConfigurationError as e:
+        console.print(f"[red]Configuration error: {str(e)}[/red]")
+        sys.exit(1)
+    except ApiConnectionError as e:
+        console.print(f"[red]Connection error: {str(e)}[/red]")
+        sys.exit(1)
+    except (IOError, OSError) as e:
+        console.print(f"[red]File error: {str(e)}[/red]")
+        sys.exit(1)
+    except BaseAPIError as e:
+        console.print(f"[red]API error: {str(e)}[/red]")
         sys.exit(1)
 
 
@@ -430,8 +528,11 @@ def schema_list(
                 name = name[:-7]
             console.print(f"  • [green]{name}[/green]")
 
-    except Exception as e:
-        console.print(f"[red]Error: {str(e)}[/red]")
+    except OSError as e:
+        console.print(f"[red]File error: {str(e)}[/red]")
+        sys.exit(1)
+    except BaseAPIError as e:
+        console.print(f"[red]API error: {str(e)}[/red]")
         sys.exit(1)
 
 
@@ -485,12 +586,18 @@ def schema_show(
                 console.print(f"[bold]Schema for {entity}:[/bold]")
                 console.print(formatted_output)
 
-        except Exception as e:
-            console.print(f"[red]Error loading schema: {str(e)}[/red]")
+        except ValidationError as e:
+            console.print(f"[red]Schema validation error: {str(e)}[/red]")
             sys.exit(1)
 
-    except Exception as e:
-        console.print(f"[red]Error: {str(e)}[/red]")
+    except OSError as e:
+        console.print(f"[red]File error: {str(e)}[/red]")
+        sys.exit(1)
+    except ValidationError as e:
+        console.print(f"[red]Validation error: {str(e)}[/red]")
+        sys.exit(1)
+    except BaseAPIError as e:
+        console.print(f"[red]API error: {str(e)}[/red]")
         sys.exit(1)
 
 
@@ -527,14 +634,41 @@ def entity_list(
         for name in sorted(entities):
             console.print(f"  • [green]{name}[/green]")
 
-    except Exception as e:
-        console.print(f"[red]Error: {str(e)}[/red]")
+    except ConfigurationError as e:
+        console.print(f"[red]Configuration error: {str(e)}[/red]")
         sys.exit(1)
+    except ApiConnectionError as e:
+        console.print(f"[red]Connection error: {str(e)}[/red]")
+        sys.exit(1)
+    except BaseAPIError as e:
+        console.print(f"[red]API error: {str(e)}[/red]")
+        sys.exit(1)
+
+
+@dataclass
+class EntityGetParams:
+    """Parameters for entity get command."""
+
+    entity: str
+    entity_id: Optional[str] = None
+    profile: Optional[str] = None
+    filter_params: list[str] = None
+    sort: Optional[str] = None
+    order: str = "asc"
+    limit: Optional[int] = None
+    offset: Optional[int] = None
+    output_format: str = "json"
+    output: Optional[str] = None
+
+    def __post_init__(self):
+        """Initialize default values."""
+        if self.filter_params is None:
+            self.filter_params = []
 
 
 @entity.command("get")
 @click.argument("entity")
-@click.argument("id", required=False)
+@click.argument("entity_id", required=False)
 @click.option("--profile", help="Configuration profile to use")
 @click.option(
     "--filter",
@@ -554,9 +688,11 @@ def entity_list(
 @click.option("--offset", type=int, help="Starting position for pagination")
 @click.option(
     "--format",
+    "-f",
     type=click.Choice(["json", "table"]),
     default="json",
     help="Output format",
+    name="output_format",
 )
 @click.option("--output", "-o", type=click.Path(), help="Output file")
 @click.pass_context
@@ -574,19 +710,38 @@ def entity_get(
     output: str | None,
 ) -> None:
     """Get entity data."""
+    params = EntityGetParams(
+        entity=entity,
+        entity_id=entity_id,
+        profile=profile,
+        filter_params=list(filter_params),
+        sort=sort,
+        order=order,
+        limit=limit,
+        offset=offset,
+        output_format=output_format,
+        output=output,
+    )
+    _handle_entity_get(params)
+
+
+def _handle_entity_get(params: EntityGetParams) -> None:
+    """Handle entity get with given parameters."""
     try:
         # Create client
-        client = ApiClient.from_profile(profile) if profile else ApiClient()
+        client = (
+            ApiClient.from_profile(params.profile) if params.profile else ApiClient()
+        )
 
         # Create entity manager
         entity_manager = EntityManager(client)
 
         # Get entity
-        entity_obj = entity_manager.get_entity(entity)
+        entity_obj = entity_manager.get_entity(params.entity)
 
         # Parse filters
         filters = {}
-        for f in filter_params:
+        for f in params.filter_params:
             try:
                 name, value = f.split("=", 1)
                 filters[name] = value
@@ -596,22 +751,24 @@ def entity_get(
                 )
 
         # Make request
-        if entity_id:
+        if params.entity_id:
             # Get single resource
-            console.print(f"Getting {entity} with ID: [bold]{entity_id}[/bold]")
-            response = entity_obj.get(entity_id)
+            console.print(
+                f"Getting {params.entity} with ID: [bold]{params.entity_id}[/bold]",
+            )
+            response = entity_obj.get(params.entity_id)
         else:
             # list resources
-            console.print(f"Listing {entity} resources")
+            console.print(f"Listing {params.entity} resources")
             if filters:
                 console.print(f"Filters: {filters}")
 
             response = entity_obj.list(
                 filters=filters,
-                sort_by=sort,
-                sort_order=order,
-                limit=limit,
-                offset=offset,
+                sort_by=params.sort,
+                sort_order=params.order,
+                limit=params.limit,
+                offset=params.offset,
             )
 
         # Handle response
@@ -621,7 +778,7 @@ def entity_get(
             )
 
             # Format output
-            if output_format == "json":
+            if params.output_format == "json":
                 formatted_output = format_json(response.data, indent=2)
             elif isinstance(response.data, list):
                 formatted_output = format_table(response.data)
@@ -638,10 +795,10 @@ def entity_get(
                 formatted_output = format_json(response.data, indent=2)
 
             # Output result
-            if output:
-                with Path(output).open("w") as f:
+            if params.output:
+                with Path(params.output).open("w") as f:
                     f.write(formatted_output)
-                console.print(f"Output written to: [bold]{output}[/bold]")
+                console.print(f"Output written to: [bold]{params.output}[/bold]")
             else:
                 console.print(formatted_output)
         else:
@@ -650,8 +807,23 @@ def entity_get(
             )
             sys.exit(1)
 
-    except Exception as e:
-        console.print(f"[red]Error: {str(e)}[/red]")
+    except ConfigurationError as e:
+        console.print(f"[red]Configuration error: {str(e)}[/red]")
+        sys.exit(1)
+    except ApiConnectionError as e:
+        console.print(f"[red]Connection error: {str(e)}[/red]")
+        sys.exit(1)
+    except ValidationError as e:
+        console.print(f"[red]Validation error: {str(e)}[/red]")
+        sys.exit(1)
+    except NotFoundError as e:
+        console.print(f"[red]Not found: {str(e)}[/red]")
+        sys.exit(1)
+    except OSError as e:
+        console.print(f"[red]File error: {str(e)}[/red]")
+        sys.exit(1)
+    except BaseAPIError as e:
+        console.print(f"[red]API error: {str(e)}[/red]")
         sys.exit(1)
 
 
@@ -659,7 +831,17 @@ def main() -> None:
     """Run the CLI application."""
     try:
         cli()
-    except Exception as e:
+    except CLIError as e:
+        console.print(f"[red]CLI error: {str(e)}[/red]")
+        sys.exit(1)
+    except ApiConnectionError as e:
+        console.print(f"[red]Connection error: {str(e)}[/red]")
+        sys.exit(1)
+    except BaseAPIError as e:
+        console.print(f"[red]API error: {str(e)}[/red]")
+        sys.exit(1)
+    except Exception as e:  # noqa: BLE001
+        # Keep broad exception handler for top-level function to catch all unexpected errors
         console.print(f"[red]Unexpected error: {str(e)}[/red]")
         if os.environ.get("PYAPIX_DEBUG", "").lower() in ("1", "true", "yes"):
             import traceback
