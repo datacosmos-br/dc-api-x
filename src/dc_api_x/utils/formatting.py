@@ -12,7 +12,7 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, TextIO, cast
+from typing import Any, Optional, TextIO, Union
 
 from rich.console import Console
 from rich.table import Table as RichTable
@@ -323,7 +323,7 @@ def format_value(value: Any) -> str:
     """
     if value is None:
         return ""
-    if isinstance(value, dict | list):
+    if isinstance(value, (dict, list)):
         return format_json(value)
     if isinstance(value, datetime.datetime):
         return format_datetime(value)

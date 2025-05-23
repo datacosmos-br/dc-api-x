@@ -10,6 +10,7 @@ from typing import (
     Optional,
     TypeVar,
     Union,
+    cast,
 )
 
 from pydantic import BaseModel as PydanticBaseModel
@@ -18,6 +19,18 @@ from pydantic import ConfigDict, Field
 T = TypeVar("T")
 K = TypeVar("K")
 V = TypeVar("V")
+
+# HTTP Status Code Constants
+HTTP_OK = 200
+HTTP_CREATED = 201
+HTTP_ACCEPTED = 202
+HTTP_NO_CONTENT = 204
+HTTP_MULTIPLE_CHOICES = 300
+HTTP_BAD_REQUEST = 400
+HTTP_UNAUTHORIZED = 401
+HTTP_FORBIDDEN = 403
+HTTP_NOT_FOUND = 404
+HTTP_SERVER_ERROR = 500
 
 
 class ConfigurableBase(PydanticBaseModel):
@@ -66,7 +79,7 @@ class Error(ConfigurableBase):
 
     type: str = "error"
     title: str = "Error"
-    status: int = 400
+    status: int = HTTP_BAD_REQUEST
     detail: str = ""
     errors: list[ErrorDetail] = Field(default_factory=list)
 
@@ -224,14 +237,14 @@ class AuthResponse(ConfigurableBase):
 class ApiResponse(GenericResponse[dict[str, Any]]):
     """API response model with status code and headers."""
 
-    status_code: int = 200
+    status_code: int = HTTP_OK
     headers: dict[str, str] = Field(default_factory=dict)
 
     @classmethod
     def create_success(
         cls,
         data: Any,
-        status_code: int = 200,
+        status_code: int = HTTP_OK,
         meta: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
     ) -> "ApiResponse":
@@ -246,7 +259,7 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
         Returns:
             A successful API response
         """
-        response = cls.from_data(data, meta)
+        response = cast(ApiResponse, cls.from_data(data, meta))
         response.status_code = status_code
         if headers:
             response.headers = headers
@@ -256,7 +269,7 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
     def create_error(
         cls,
         error: Union[str, Error],
-        status_code: int = 400,
+        status_code: int = HTTP_BAD_REQUEST,
         error_code: Optional[str] = None,
         details: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
@@ -285,16 +298,14 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
         else:
             error_obj = error
 
-        response = cls(
+        response = cast(ApiResponse, cls(
             data=None,
             meta=Metadata(),
             success=False,
             error=error_obj,
             status_code=status_code,
             headers=headers or {},
-        )
-
-        return response
+        ))
 
     def is_success(self) -> bool:
         """Check if the response is successful.
@@ -302,7 +313,7 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
         Returns:
             True if the response is successful, False otherwise
         """
-        return self.success and 200 <= self.status_code < 300
+        return self.success and HTTP_OK <= self.status_code < HTTP_MULTIPLE_CHOICES
 
     def to_dict(self) -> dict[str, Any]:
         """Convert the response to a dictionary.

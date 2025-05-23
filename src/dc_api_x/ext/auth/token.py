@@ -15,7 +15,7 @@ class TokenAuthProvider(AuthProvider):
     def __init__(
         self,
         token: Optional[str] = None,
-        token_type: str = "Bearer",
+        token_type: str = "Bearer",  # noqa: S107
         header_name: str = "Authorization",
     ) -> None:
         """
@@ -30,7 +30,7 @@ class TokenAuthProvider(AuthProvider):
         self.token_type = token_type
         self.header_name = header_name
 
-    def authenticate(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+    def authenticate(self, **kwargs: Any) -> dict[str, Any]:  # noqa: ARG002
         """
         Token auth requires token to be set externally.
 

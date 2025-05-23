@@ -6,9 +6,9 @@ This module provides classes for working with API schemas.
 
 import json
 from pathlib import Path
-from typing import Any, Optional, Type, TypeVar, cast
+from typing import Any, Optional, TypeVar, cast
 
-from pydantic import BaseModel, ConfigDict, create_model
+from pydantic import BaseModel, create_model
 
 from dc_api_x.client import ApiClient
 
@@ -203,7 +203,7 @@ class SchemaManager:
         self,
         json_type: str,
         format_type: str | None = None,
-    ) -> Type[Any]:
+    ) -> type[Any]:
         """
         Get Python type from JSON Schema type.
 
@@ -214,8 +214,9 @@ class SchemaManager:
         Returns:
             Python type
         """
-        # Use a mapping dictionary for basic types
-        type_mapping: dict[str, Type[Any]] = {
+        # Use a mapping dictionary for all types
+        type_mapping: dict[str, type[Any]] = {
+            "string": str,
             "integer": int,
             "number": float,
             "boolean": bool,
@@ -223,17 +224,10 @@ class SchemaManager:
             "object": dict,
         }
 
-        # Handle string types with different formats
-        if json_type == "string":
-            if format_type in {"uuid", "email", "date-time"}:
-                # Using str for all string formats for consistency
-                return str
-            return str
-
         # Return the mapped type or Any as fallback
         return type_mapping.get(json_type, Any)
 
-    def get_model(self, schema_name: str) -> Type[BaseModel] | None:
+    def get_model(self, schema_name: str) -> type[BaseModel] | None:
         """
         Get model class for schema.
 
@@ -248,7 +242,7 @@ class SchemaManager:
             return None
 
         # Define field types and defaults
-        field_definitions: dict[str, tuple[Type[Any], Any]] = {}
+        field_definitions: dict[str, tuple[type[Any], Any]] = {}
 
         for field_name, field_def in schema.fields.items():
             field_type = self._python_type_from_json_type(
@@ -273,4 +267,4 @@ class SchemaManager:
         # Add docstring
         model.__doc__ = schema.description
 
-        return cast(Type[BaseModel], model)
+        return cast(type[BaseModel], model)

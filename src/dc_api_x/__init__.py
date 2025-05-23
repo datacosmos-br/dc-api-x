@@ -18,14 +18,20 @@ Features:
 """
 
 # Standard library imports
-from typing import Any, List, Dict, Optional
+from typing import Any, Optional
 
 # Models
 from pydantic import BaseModel  # Use pydantic's BaseModel directly
 
+# Plugin management
+from .plugin_manager import enable_plugins, get_adapter, list_adapters
+
+# Base modules
 from . import config, exceptions, models, pagination, schema, utils
 from .client import ApiClient  # Client
-from .ext import (  # Extension interfaces # Auth; Providers; Adapters; Hooks
+
+# Extension interfaces
+from .ext import (
     ApiResponseHook,
     AuthProvider,
     BasicAuthProvider,
@@ -47,9 +53,11 @@ from .ext import (  # Extension interfaces # Auth; Providers; Adapters; Hooks
     TokenAuthProvider,
     TransformProvider,
 )
-from .models import ConfigurableBase  # ConfigurableBase instead of BaseModel
+
+# Models
 from .models import (
     ApiResponse,
+    ConfigurableBase,  # ConfigurableBase instead of BaseModel
     DirectoryEntry,
     GenericResponse,
     QueueMessage,
@@ -62,10 +70,11 @@ class DatabaseResult:
 
     def __init__(
         self,
+        *,
         success: bool = True,
-        rows: Optional[List[Dict[str, Any]]] = None,
+        rows: Optional[list[dict[str, Any]]] = None,
         query: str = "",
-        params: Optional[Dict[str, Any]] = None,
+        params: Optional[dict[str, Any]] = None,
     ):
         """Initialize with query results.
 
@@ -83,9 +92,6 @@ class DatabaseResult:
     def __repr__(self) -> str:
         return f"DatabaseResult(success={self.success}, rows={len(self.rows)})"
 
-
-# Plugin management
-from .plugin_manager import enable_plugins, get_adapter, list_adapters
 
 __all__ = [
     # Modules

@@ -5,7 +5,7 @@ This module provides utilities for handling paginated API responses.
 """
 
 from collections.abc import Generator
-from typing import Any, Type, TypeVar, cast
+from typing import Any, TypeVar, cast
 
 from pydantic import BaseModel
 
@@ -23,7 +23,7 @@ NOT_A_LIST_ERROR = "Response data is not a list"
 def paginate(
     client: ApiClient,
     endpoint: str,
-    model_class: Type[BaseModel] | None = None,
+    model_class: type[BaseModel] | None = None,
     page_param: str = "page",
     page_size_param: str = "per_page",
     page_size: int = 100,
@@ -91,12 +91,17 @@ def paginate(
         # Yield each item
         for item in items:
             if model_class:
-                # Convert to model (handle model_validate and model_construct for different pydantic versions)
-                if hasattr(model_class, "model_validate"):
-                    yield model_class.model_validate(item)
-                else:
-                    # Fallback for older pydantic versions
-                    yield model_class(**item)
+                # Try to use model_validate if available (Pydantic v2)
+                try:
+                    if hasattr(model_class, "model_validate"):
+                        yield model_class.model_validate(item)
+                    else:
+                        # Fallback for older pydantic versions or model constructor
+                        yield model_class(**item)
+                except Exception as e:
+                    # If instantiation fails, return the raw item as fallback
+                    print(f"Warning: Failed to instantiate model: {e}")
+                    yield item
             else:
                 # Yield raw item
                 yield item
