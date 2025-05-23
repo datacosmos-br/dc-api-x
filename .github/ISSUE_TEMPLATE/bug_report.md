@@ -1,7 +1,7 @@
 ---
 name: Bug report
 about: Create a report to help us improve
-title: '[BUG] '
+title: "[BUG] "
 labels: bug
 assignees: ''
 ---
@@ -33,9 +33,9 @@ If applicable, add screenshots to help explain your problem.
 
 ## Environment
 
-- OS: [e.g. Ubuntu 22.04, Windows 11]
-- Python Version: [e.g. 3.10.0]
-- Package Version: [e.g. 1.0.0]
+- OS: [e.g. Ubuntu 22.04]
+- Python Version: [e.g. 3.10.4]
+- Package Version: [e.g. 0.2.0]
 - Browser (if applicable): [e.g. chrome, safari]
 
 ## Additional Context

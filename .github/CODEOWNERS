@@ -2,24 +2,24 @@
 # Each line is a file pattern followed by one or more owners.
 # Order is important; the last matching pattern takes precedence.
 
-# Default owners for everything in the repo
-* @your-username
+# These owners will be the default owners for everything in
+# the repo. Unless a later match takes precedence,
+# these users will be requested for review when someone 
+# opens a pull request.
+*       @datacosmos-br/Datacosmos
 
-# Core files and documentation
-/docs/ @your-username @docs-reviewer
-/README.md @your-username @docs-reviewer
+# Workflow files
+.github/workflows/   @datacosmos-br/Datacosmos
 
-# GitHub Actions workflows
-/.github/workflows/ @your-username @devops-team
+# Documentation
+docs/               @datacosmos-br/Datacosmos
+*.md                @datacosmos-br/Datacosmos
 
-# Core codebase 
-/src/dc_api_x/ @your-username @core-team
-
-# Plugins directory
-/src/dc_api_x/plugins/ @plugins-team @your-username
+# Core API code
+src/dc_api_x/       @datacosmos-br/Datacosmos
 
 # Test files
-/tests/ @testing-team @your-username
+tests/              @datacosmos-br/Datacosmos
 
 # Replace with actual usernames or team names before using
 # Format: GitHub username or @org/team-name 
