@@ -10,8 +10,9 @@ import datetime
 import io
 import json
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TextIO, cast
+from typing import Any, Optional, TextIO, cast
 
 from rich.console import Console
 from rich.table import Table as RichTable
@@ -40,55 +41,65 @@ def format_json(data: Any, indent: int = 2) -> str:
             str,
             json.dumps(data, indent=indent, ensure_ascii=False, sort_keys=True),
         )
-    except TypeError as e:
+    except TypeError as err:
+
         def _json_serialization_error(err):
             return TypeError(f"Failed to serialize data to JSON: {err}")
-        raise _json_serialization_error(e)
+
+        raise _json_serialization_error(err) from err
+
+
+@dataclass
+class TableFormatConfig:
+    """Configuration for table formatting."""
+
+    fields: Optional[list[str]] = None
+    headers: Optional[dict[str, str]] = None
+    title: Optional[str] = None
+    console: Optional[Console] = None
+    output_file: Optional[str | TextIO] = None
 
 
 def format_table(
     data: list[dict[str, Any]],
-    fields: list[str] | None = None,
-    headers: dict[str, str] | None = None,
-    title: str | None = None,
-    console: Console | None = None,
-    output_file: str | TextIO | None = None,
+    *,
+    config: Optional[TableFormatConfig] = None,
 ) -> str:
     """
     Format data as a table.
 
     Args:
         data: Data to format
-        fields: Fields to include (optional)
-        headers: Field header mapping (optional)
-        title: Table title (optional)
-        console: Rich console instance (optional)
-        output_file: Output file path or file object (optional)
+        config: Table formatting configuration
 
     Returns:
         str: Formatted table string
     """
+    # Use default config if not provided
+    if config is None:
+        config = TableFormatConfig()
+
     # Create console if not provided
-    if console is None:
-        console = Console(record=True)
+    if config.console is None:
+        config.console = Console(record=True)
 
     # Determine fields if not provided
-    if fields is None and data:
-        fields = list(data[0].keys())
+    if config.fields is None and data:
+        config.fields = list(data[0].keys())
 
     # Default to empty list if fields is None
-    fields = fields or []
+    fields = config.fields or []
 
     # Create header mapping if not provided
-    if headers is None:
-        headers = {field: field.replace("_", " ").title() for field in fields}
+    if config.headers is None:
+        config.headers = {field: field.replace("_", " ").title() for field in fields}
 
     # Create table
-    table = RichTable(title=title)
+    table = RichTable(title=config.title)
 
     # Add columns
     for field in fields:
-        header = headers.get(field, field)
+        header = config.headers.get(field, field)
         table.add_column(header)
 
     # Add rows
@@ -97,28 +108,34 @@ def format_table(
         table.add_row(*row)
 
     # Output table
-    console.print(table)
+    config.console.print(table)
 
     # Get string representation
-    table_str = console.export_text()
+    table_str = config.console.export_text()
 
     # Write to file if requested
-    if output_file is not None:
-        if isinstance(output_file, str):
+    if config.output_file is not None:
+        if isinstance(config.output_file, str):
             try:
-                with open(output_file, "w") as f:
+                with Path(config.output_file).open("w") as f:
                     f.write(table_str)
-            except IOError as e:
+            except OSError as err:
+
                 def _file_write_error(err):
-                    return IOError(f"Failed to write table to file {output_file}: {err}")
-                raise _file_write_error(e)
+                    return OSError(
+                        f"Failed to write table to file {config.output_file}: {err}",
+                    )
+
+                raise _file_write_error(err) from err
         else:
             try:
-                output_file.write(table_str)
-            except IOError as e:
+                config.output_file.write(table_str)
+            except OSError as err:
+
                 def _file_write_error(err):
-                    return IOError(f"Failed to write table to output file: {err}")
-                raise _file_write_error(e)
+                    return OSError(f"Failed to write table to output file: {err}")
+
+                raise _file_write_error(err) from err
 
     return table_str
 
@@ -167,10 +184,12 @@ def format_csv(
         for item in data:
             row = [item.get(field, "") for field in fields]
             writer.writerow(row)
-    except csv.Error as e:
+    except csv.Error as err:
+
         def _csv_format_error(err):
             return ValueError(f"Failed to format data as CSV: {err}")
-        raise _csv_format_error(e)
+
+        raise _csv_format_error(err) from err
 
     # Get string representation
     csv_str = output.getvalue()
@@ -179,19 +198,23 @@ def format_csv(
     if output_file is not None:
         if isinstance(output_file, str):
             try:
-                with open(output_file, "w") as f:
+                with Path(output_file).open("w") as f:
                     f.write(csv_str)
-            except IOError as e:
+            except OSError as err:
+
                 def _file_write_error(err):
-                    return IOError(f"Failed to write CSV to file {output_file}: {err}")
-                raise _file_write_error(e)
+                    return OSError(f"Failed to write CSV to file {output_file}: {err}")
+
+                raise _file_write_error(err) from err
         else:
             try:
                 output_file.write(csv_str)
-            except IOError as e:
+            except OSError as err:
+
                 def _file_write_error(err):
-                    return IOError(f"Failed to write CSV to output file: {err}")
-                raise _file_write_error(e)
+                    return OSError(f"Failed to write CSV to output file: {err}")
+
+                raise _file_write_error(err) from err
 
     return csv_str
 
@@ -230,13 +253,15 @@ def format_text(
         try:
             line = template.format(**context)
             lines.append(line)
-        except KeyError as e:
+        except KeyError:
             # Skip items that don't have all template fields
             pass
-        except ValueError as e:
+        except ValueError as err:
+
             def _template_format_error(err):
                 return ValueError(f"Failed to format template with context: {err}")
-            raise _template_format_error(e)
+
+            raise _template_format_error(err) from err
 
     # Join lines
     text = "\n".join(lines)
@@ -245,19 +270,23 @@ def format_text(
     if output_file is not None:
         if isinstance(output_file, str):
             try:
-                with open(output_file, "w") as f:
+                with Path(output_file).open("w") as f:
                     f.write(text)
-            except IOError as e:
+            except OSError as err:
+
                 def _file_write_error(err):
-                    return IOError(f"Failed to write to file {output_file}: {err}")
-                raise _file_write_error(e)
+                    return OSError(f"Failed to write to file {output_file}: {err}")
+
+                raise _file_write_error(err) from err
         else:
             try:
                 output_file.write(text)
-            except IOError as e:
+            except OSError as err:
+
                 def _file_write_error(err):
-                    return IOError(f"Failed to write to output file: {err}")
-                raise _file_write_error(e)
+                    return OSError(f"Failed to write to output file: {err}")
+
+                raise _file_write_error(err) from err
 
     return text
 
@@ -297,7 +326,7 @@ def format_value(value: Any) -> str:
     """
     if value is None:
         return ""
-    if isinstance(value, (dict, list)):
+    if isinstance(value, dict | list):
         return format_json(value)
     if isinstance(value, datetime.datetime):
         return format_datetime(value)
@@ -316,7 +345,7 @@ def format_response_data(data: dict[str, Any]) -> dict[str, Any]:
     result = {}
     for key, value in data.items():
         normalized_key = normalize_key(key)
-        
+
         if isinstance(value, dict):
             result[normalized_key] = format_response_data(value)
         elif isinstance(value, list) and value and isinstance(value[0], dict):

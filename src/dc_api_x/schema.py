@@ -8,9 +8,10 @@ import json
 from pathlib import Path
 from typing import Any, Optional
 
+from pydantic import create_model
+
 from dc_api_x.client import ApiClient
 from dc_api_x.models import BaseModel
-from pydantic import create_model
 
 
 class SchemaDefinition:
@@ -96,7 +97,7 @@ class SchemaDefinition:
             Schema definition
         """
         try:
-            with open(file_path) as f:
+            with Path(file_path).open() as f:
                 schema = json.load(f)
 
             return cls(
@@ -105,14 +106,18 @@ class SchemaDefinition:
                 fields=schema.get("properties", {}),
                 required_fields=schema.get("required", []),
             )
-        except FileNotFoundError:
+        except FileNotFoundError as err:
+
             def _schema_file_not_found_error():
                 return FileNotFoundError(f"Schema file not found: {file_path}")
-            raise _schema_file_not_found_error()
-        except json.JSONDecodeError as e:
+
+            raise _schema_file_not_found_error() from err
+        except json.JSONDecodeError as err:
+
             def _invalid_schema_error(err):
                 return ValueError(f"Invalid schema format: {err}")
-            raise _invalid_schema_error(e)
+
+            raise _invalid_schema_error(err) from err
 
 
 class SchemaManager:
@@ -161,8 +166,8 @@ class SchemaManager:
 
                 schema = SchemaDefinition.load(file_path)
                 self.schemas[schema_name] = schema
-            except Exception as e:
-                print(f"Error loading schema {file_path}: {e}")
+            except (FileNotFoundError, json.JSONDecodeError, ValueError) as err:
+                print(f"Error loading schema {file_path}: {err}")
 
     def get_schema(self, name: str) -> SchemaDefinition | None:
         """
@@ -207,23 +212,24 @@ class SchemaManager:
         Returns:
             Python type
         """
+        # Use a mapping dictionary for basic types
+        type_mapping = {
+            "integer": int,
+            "number": float,
+            "boolean": bool,
+            "array": list,
+            "object": dict,
+        }
+
+        # Handle string types with different formats
         if json_type == "string":
-            if format_type == "date-time":
-                return str  # Could use datetime, but str is more flexible
-            if format_type in {"uuid", "email"}:
+            if format_type in {"uuid", "email", "date-time"}:
+                # Using str for all string formats for consistency
                 return str
             return str
-        if json_type == "integer":
-            return int
-        if json_type == "number":
-            return float
-        if json_type == "boolean":
-            return bool
-        if json_type == "array":
-            return list
-        if json_type == "object":
-            return dict
-        return Any
+
+        # Return the mapped type or Any as fallback
+        return type_mapping.get(json_type, Any)
 
     def get_model(self, schema_name: str) -> type[BaseModel] | None:
         """
