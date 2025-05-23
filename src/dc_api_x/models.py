@@ -4,14 +4,7 @@ Data models for DCApiX.
 This module provides base classes for data models with validation.
 """
 
-from typing import (
-    Any,
-    Generic,
-    Optional,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import Any, Generic, Optional, TypeVar, Union, cast
 
 from pydantic import BaseModel as PydanticBaseModel
 from pydantic import ConfigDict, Field
@@ -298,14 +291,14 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
         else:
             error_obj = error
 
-        response = cast(ApiResponse, cls(
+        return cls(
             data=None,
             meta=Metadata(),
             success=False,
             error=error_obj,
             status_code=status_code,
             headers=headers or {},
-        ))
+        )
 
     def is_success(self) -> bool:
         """Check if the response is successful.

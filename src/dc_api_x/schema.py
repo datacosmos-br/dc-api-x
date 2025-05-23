@@ -243,9 +243,8 @@ class SchemaManager:
         field_definitions: dict[str, tuple[type[Any], Any]] = {}
 
         for field_name, field_def in schema.fields.items():
-            field_type = self._python_type_from_json_type(
-                field_def.get("type", "string"),
-            )
+            json_type = field_def.get("type", "string")
+            field_type = self._python_type_from_json_type(json_type)
 
             # Set required fields without default values
             if field_name in schema.required_fields:
@@ -254,14 +253,18 @@ class SchemaManager:
                 # Set optional fields with None as default
                 field_definitions[field_name] = (Optional[field_type], None)
 
-        # Create model dynamically
-        model = create_model(
-            schema_name,
-            __base__=BaseModel,
-            **field_definitions,
-        )
+        # Create model dynamically using keyword arguments
+        try:
+            model = create_model(
+                schema_name,
+                __base__=BaseModel,
+                **field_definitions,
+            )
 
-        # Add docstring
-        model.__doc__ = schema.description
+            # Add docstring
+            model.__doc__ = schema.description
 
-        return cast(type[BaseModel], model)
+            return cast(type[BaseModel], model)
+        except Exception as err:
+            print(f"Error creating model for schema {schema_name}: {err}")
+            return None
