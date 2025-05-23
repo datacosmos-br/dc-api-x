@@ -93,7 +93,7 @@ def config_show(profile: str | None) -> None:
         # Convert to dictionary (excluding sensitive fields)
         config_dict = cfg.to_dict()
         if "password" in config_dict:
-            config_dict["password"] = "********"  # noqa: S105, B105
+            config_dict["password"] = "********"  # noqa: S105, B105 - placeholder password
 
         # Pretty print configuration
         console.print("[bold]Configuration:[/bold]")
@@ -338,7 +338,7 @@ def _handle_post_request(params: RequestPostParams) -> None:
             console.print(f"Parameters: {request_params}")
 
         response = client.post(
-            params.endpoint, params=request_params, json_data=json_data
+            params.endpoint, params=request_params, json_data=json_data,
         )
 
         # Handle response
