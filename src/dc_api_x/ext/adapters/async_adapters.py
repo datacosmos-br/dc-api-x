@@ -9,7 +9,7 @@ import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Optional, TypeVar
 
 from ...exceptions import AdapterError
 from .protocol import (
@@ -130,125 +130,6 @@ class AsyncHttpAdapter(AsyncAdapter):
         """
         raise NotImplementedError(
             "Cannot call request() on AsyncHttpAdapter. Use await adapter.arequest() instead.",
-        )
-
-
-class AsyncDatabaseTransaction(abc.ABC):
-    """Asynchronous database transaction interface."""
-
-    @abc.abstractmethod
-    async def commit(self) -> None:
-        """Commit the transaction asynchronously."""
-
-    @abc.abstractmethod
-    async def rollback(self) -> None:
-        """Roll back the transaction asynchronously."""
-
-    async def __aenter__(self) -> "AsyncDatabaseTransaction":
-        """Enter async context manager."""
-        return self
-
-    async def __aexit__(
-        self,
-        exc_type: Optional[type[BaseException]],
-        exc_val: Optional[BaseException],
-        exc_tb: Optional[Any],
-    ) -> None:
-        """Exit async context manager."""
-        if exc_type is not None:
-            await self.rollback()
-        else:
-            await self.commit()
-
-
-class AsyncDatabaseAdapter(AsyncAdapter, Generic[T]):
-    """Base interface for asynchronous database adapters."""
-
-    @abc.abstractmethod
-    async def aexecute(
-        self,
-        query: str,
-        params: Optional[dict[str, Any]] = None,
-    ) -> list[T]:
-        """
-        Execute a database query asynchronously.
-
-        Args:
-            query: Query to execute
-            params: Query parameters
-
-        Returns:
-            Query results
-        """
-
-    @abc.abstractmethod
-    async def aexecute_write(
-        self,
-        query: str,
-        params: Optional[dict[str, Any]] = None,
-    ) -> int:
-        """
-        Execute a write operation asynchronously.
-
-        Args:
-            query: Query to execute
-            params: Query parameters
-
-        Returns:
-            Number of affected rows
-        """
-
-    @abc.abstractmethod
-    async def atransaction(self) -> AsyncDatabaseTransaction:
-        """
-        Start a transaction asynchronously.
-
-        Returns:
-            Async transaction object
-        """
-
-    def execute(
-        self,
-        query: str,
-        params: Optional[dict[str, Any]] = None,
-    ) -> list[T]:
-        """
-        Sync wrapper for aexecute.
-
-        Raises:
-            NotImplementedError: This method should not be called directly
-                on async adapters.
-        """
-        raise NotImplementedError(
-            "Cannot call execute() on AsyncDatabaseAdapter. Use await adapter.aexecute() instead.",
-        )
-
-    def execute_write(
-        self,
-        query: str,
-        params: Optional[dict[str, Any]] = None,
-    ) -> int:
-        """
-        Sync wrapper for aexecute_write.
-
-        Raises:
-            NotImplementedError: This method should not be called directly
-                on async adapters.
-        """
-        raise NotImplementedError(
-            "Cannot call execute_write() on AsyncDatabaseAdapter. Use await adapter.aexecute_write() instead.",
-        )
-
-    def transaction(self) -> "AsyncDatabaseTransaction":
-        """
-        Sync wrapper for atransaction.
-
-        Raises:
-            NotImplementedError: This method should not be called directly
-                on async adapters.
-        """
-        raise NotImplementedError(
-            "Cannot call transaction() on AsyncDatabaseAdapter. Use await adapter.atransaction() instead.",
         )
 
 
@@ -388,5 +269,5 @@ async def async_transaction(
             except Exception:
                 # Log the error instead of silently passing
                 logging.getLogger(__name__).debug(
-                    "Failed to rollback transaction during cleanup"
+                    "Failed to rollback transaction during cleanup",
                 )
