@@ -300,6 +300,12 @@ class AsyncDatabaseTransaction(
 ):
     """Async database transaction with async context manager support."""
 
+    async def commit_async(self) -> None:
+        """Commit the transaction asynchronously."""
+
+    async def rollback_async(self) -> None:
+        """Rollback the transaction asynchronously."""
+
 
 class DatabaseAdapter(ProtocolAdapter, Protocol):
     """Database adapter protocol."""
@@ -359,6 +365,27 @@ class DatabaseAdapter(ProtocolAdapter, Protocol):
 
 class AsyncDatabaseAdapter(DatabaseAdapter, Protocol):
     """Async database adapter protocol."""
+
+    async def connect_async(self) -> bool:
+        """Connect to the database asynchronously.
+
+        Returns:
+            True if connection was successful, False otherwise
+        """
+
+    async def disconnect_async(self) -> bool:
+        """Disconnect from the database asynchronously.
+
+        Returns:
+            True if disconnection was successful, False otherwise
+        """
+
+    async def is_connected_async(self) -> bool:
+        """Check if connected to the database asynchronously.
+
+        Returns:
+            True if connected, False otherwise
+        """
 
     async def execute_query_async(
         self,

@@ -1,8 +1,7 @@
 """
-Command-line interface for DCApiX.
+Command-line interface for API X.
 
-This module provides a command-line interface for working with API clients,
-including commands for testing connections, making requests, and managing schemas.
+This module provides CLI commands for interacting with the API.
 """
 
 import json
@@ -21,22 +20,47 @@ from .config import Config, list_available_profiles
 from .entity import EntityManager
 from .exceptions import (
     ApiConnectionError,
-    AuthenticationError,
-    BaseAPIError,
     CLIError,
     ConfigurationError,
     NotFoundError,
     ValidationError,
+)
+from .exceptions import (
+    ApiError as BaseAPIError,
 )
 from .schema import SchemaManager
 from .utils.formatting import format_json, format_table
 from .utils.logging import setup_logger
 
 # Set up logger
-logger = setup_logger("dc_api_x.cli", level=logging.INFO)
+logger = setup_logger(__name__)
 
-# Create console for rich output
+# Set up console for rich output
 console = Console()
+
+
+class SchemaEntityNotSpecifiedError(CLIError):
+    """Raised when an entity name is required but not provided."""
+
+    def __init__(self):
+        super().__init__("Please specify an entity name or use --all flag.")
+
+
+class SchemaExtractionFailedError(CLIError):
+    """Raised when schema extraction fails for an entity."""
+
+    def __init__(self, entity: str):
+        super().__init__(f"Failed to extract schema for entity: {entity}")
+
+
+class JsonValidationError(ValidationError):
+    """Raised when JSON validation fails."""
+
+    DATA_FILE = "data file"
+    DATA_STRING = "data string"
+
+    def __init__(self, source: str, error: Exception):
+        super().__init__(f"Invalid JSON in {source}: {error}")
 
 
 @click.group()
@@ -48,18 +72,15 @@ console = Console()
 )
 @click.pass_context
 def cli(ctx: click.Context, *, debug: bool = False) -> None:
-    """
-    DCApiX - Python API Extensions CLI.
-
-    A tool for working with API clients created with DCApiX.
-    """
-    # Initialize context
+    """Command-line interface for API X."""
+    # Store debug flag in context
     ctx.ensure_object(dict)
     ctx.obj["DEBUG"] = debug
 
     # Configure logging
     if debug:
-        setup_logger("dc_api_x", level=logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
+        logger.debug("Debug mode enabled")
 
 
 @cli.group()
@@ -93,7 +114,9 @@ def config_show(profile: str | None) -> None:
         # Convert to dictionary (excluding sensitive fields)
         config_dict = cfg.to_dict()
         if "password" in config_dict:
-            config_dict["password"] = "********"  # noqa: S105, B105 - placeholder password
+            config_dict["password"] = (
+                "********"  # noqa: S105, B105 - placeholder password
+            )
 
         # Pretty print configuration
         console.print("[bold]Configuration:[/bold]")
@@ -162,12 +185,12 @@ def request() -> None:
 )
 @click.option("--output", "-o", type=click.Path(), help="Output file")
 @click.pass_context
-def request_get(
+def request_get(  # noqa: PLR0912
     _: click.Context,  # Unused context parameter
     endpoint: str,
     profile: str | None,
     param: list[str],
-    output_format: str,
+    output_format: str,  # Renamed from format
     output: str | None,
 ) -> None:
     """Make GET request to API endpoint."""
@@ -199,7 +222,7 @@ def request_get(
                 f"[green]Request successful (status: {response.status_code})[/green]",
             )
 
-            # Format output
+            # Format output based on specified format
             if output_format == "json":
                 formatted_output = format_json(response.data, indent=2)
             elif isinstance(response.data, list):
@@ -235,7 +258,7 @@ def request_get(
     except ApiConnectionError as e:
         console.print(f"[red]Connection error: {str(e)}[/red]")
         sys.exit(1)
-    except (IOError, OSError) as e:
+    except OSError as e:
         console.print(f"[red]File error: {str(e)}[/red]")
         sys.exit(1)
     except BaseAPIError as e:
@@ -273,17 +296,18 @@ class RequestPostParams:
     type=click.Choice(["json", "table"]),
     default="json",
     help="Output format",
+    name="output_format",  # Rename the parameter to avoid shadowing built-in
 )
 @click.option("--output", "-o", type=click.Path(), help="Output file")
 @click.pass_context
-def request_post(
+def request_post(  # noqa: PLR0913
     _: click.Context,  # Unused context parameter
     endpoint: str,
     profile: str | None,
     param: list[str],
     data: str | None,
     data_file: str | None,
-    format: str,
+    output_format: str,  # Renamed parameter to avoid A002
     output: str | None,
 ) -> None:
     """Make POST request to API endpoint."""
@@ -293,13 +317,13 @@ def request_post(
         param=list(param),
         data=data,
         data_file=data_file,
-        output_format=format,
+        output_format=output_format,  # Use the renamed parameter
         output=output,
     )
     _handle_post_request(params)
 
 
-def _handle_post_request(params: RequestPostParams) -> None:
+def _handle_post_request(params: RequestPostParams) -> None:  # noqa: PLR0912, PLR0915
     """Handle POST request with given parameters."""
     try:
         # Create client
@@ -325,12 +349,12 @@ def _handle_post_request(params: RequestPostParams) -> None:
                 with Path(params.data_file).open() as f:
                     json_data = json.load(f)
             except json.JSONDecodeError as e:
-                raise ValidationError(f"Invalid JSON in data file: {e}")
+                raise JsonValidationError(JsonValidationError.DATA_FILE, e) from e
         elif params.data:
             try:
                 json_data = json.loads(params.data)
             except json.JSONDecodeError as e:
-                raise ValidationError(f"Invalid JSON data: {e}")
+                raise JsonValidationError(JsonValidationError.DATA_STRING, e) from e
 
         # Make request
         console.print(f"Making POST request to: [bold]{params.endpoint}[/bold]")
@@ -338,7 +362,9 @@ def _handle_post_request(params: RequestPostParams) -> None:
             console.print(f"Parameters: {request_params}")
 
         response = client.post(
-            params.endpoint, params=request_params, json_data=json_data,
+            params.endpoint,
+            params=request_params,
+            json_data=json_data,
         )
 
         # Handle response
@@ -386,7 +412,7 @@ def _handle_post_request(params: RequestPostParams) -> None:
     except ValidationError as e:
         console.print(f"[red]Validation error: {str(e)}[/red]")
         sys.exit(1)
-    except (IOError, OSError) as e:
+    except OSError as e:
         console.print(f"[red]File error: {str(e)}[/red]")
         sys.exit(1)
     except json.JSONDecodeError as e:
@@ -400,6 +426,16 @@ def _handle_post_request(params: RequestPostParams) -> None:
 @cli.group()
 def schema() -> None:
     """Manage API schemas."""
+
+
+def _get_extraction_error(entity: str) -> SchemaExtractionFailedError:
+    """Create a schema extraction error for an entity."""
+    return SchemaExtractionFailedError(entity)
+
+
+def _get_entity_not_specified_error() -> SchemaEntityNotSpecifiedError:
+    """Create entity not specified error."""
+    return SchemaEntityNotSpecifiedError()
 
 
 @schema.command("extract")
@@ -418,7 +454,7 @@ def schema() -> None:
     name="extract_all",
 )
 @click.pass_context
-def schema_extract(
+def schema_extract(  # noqa: PLR0912
     _: click.Context,  # Unused context parameter
     entity: str | None,
     profile: str | None,
@@ -464,24 +500,28 @@ def schema_extract(
                 file_path = schema.save(output_dir)
                 console.print(f"[green]Schema saved to: {file_path}[/green]")
             else:
-                console.print(
-                    f"[red]Failed to extract schema for entity: {entity}[/red]",
-                )
-                sys.exit(1)
+                # Create the error and raise it
+                error = _get_extraction_error(entity)
+                raise error
 
         else:
-            console.print(
-                "[yellow]Please specify an entity name or use --all flag.[/yellow]",
-            )
-            sys.exit(1)
+            # Create the error and raise it
+            error = _get_entity_not_specified_error()
+            raise error
 
+    except SchemaEntityNotSpecifiedError as e:
+        console.print(f"[yellow]{str(e)}[/yellow]")
+        sys.exit(1)
+    except SchemaExtractionFailedError as e:
+        console.print(f"[red]{str(e)}[/red]")
+        sys.exit(1)
     except ConfigurationError as e:
         console.print(f"[red]Configuration error: {str(e)}[/red]")
         sys.exit(1)
     except ApiConnectionError as e:
         console.print(f"[red]Connection error: {str(e)}[/red]")
         sys.exit(1)
-    except (IOError, OSError) as e:
+    except OSError as e:
         console.print(f"[red]File error: {str(e)}[/red]")
         sys.exit(1)
     except BaseAPIError as e:
@@ -536,6 +576,15 @@ def schema_list(
         sys.exit(1)
 
 
+@dataclass
+class SchemaShowParams:
+    """Parameters for schema show command."""
+
+    entity: str
+    cache_dir: str = "./schemas"
+    output: Optional[str] = None
+
+
 @schema.command("show")
 @click.argument("entity")
 @click.option(
@@ -553,21 +602,33 @@ def schema_show(
     output: str | None,
 ) -> None:
     """Show schema for an entity."""
+    params = SchemaShowParams(
+        entity=entity,
+        cache_dir=cache_dir,
+        output=output,
+    )
+    _handle_schema_show(params)
+
+
+def _handle_schema_show(params: SchemaShowParams) -> None:  # noqa: PLR0912
+    """Handle schema show command with the given parameters."""
     try:
         # Check cache directory
-        cache_path = Path(cache_dir)
+        cache_path = Path(params.cache_dir)
         if not cache_path.exists():
             console.print(
-                f"[yellow]Cache directory does not exist: {cache_dir}[/yellow]",
+                f"[yellow]Cache directory does not exist: {params.cache_dir}[/yellow]",
             )
             console.print("Run 'schema extract --all' to download schemas.")
             sys.exit(1)
 
         # Find schema file
-        schema_file = cache_path / f"{entity.lower()}.schema.json"
+        schema_file = cache_path / f"{params.entity.lower()}.schema.json"
         if not schema_file.exists():
             console.print(f"[red]Schema file not found: {schema_file}[/red]")
-            console.print(f"Run 'schema extract {entity}' to download the schema.")
+            console.print(
+                f"Run 'schema extract {params.entity}' to download the schema.",
+            )
             sys.exit(1)
 
         # Load and display schema
@@ -578,12 +639,12 @@ def schema_show(
             formatted_output = format_json(schema.to_json_schema(), indent=2)
 
             # Output result
-            if output:
-                with Path(output).open("w") as f:
+            if params.output:
+                with Path(params.output).open("w") as f:
                     f.write(formatted_output)
-                console.print(f"Output written to: [bold]{output}[/bold]")
+                console.print(f"Output written to: [bold]{params.output}[/bold]")
             else:
-                console.print(f"[bold]Schema for {entity}:[/bold]")
+                console.print(f"[bold]Schema for {params.entity}:[/bold]")
                 console.print(formatted_output)
 
         except ValidationError as e:
@@ -595,9 +656,6 @@ def schema_show(
         sys.exit(1)
     except ValidationError as e:
         console.print(f"[red]Validation error: {str(e)}[/red]")
-        sys.exit(1)
-    except BaseAPIError as e:
-        console.print(f"[red]API error: {str(e)}[/red]")
         sys.exit(1)
 
 
@@ -696,7 +754,7 @@ class EntityGetParams:
 )
 @click.option("--output", "-o", type=click.Path(), help="Output file")
 @click.pass_context
-def entity_get(
+def entity_get(  # noqa: PLR0913
     _: click.Context,  # Unused context parameter
     entity: str,
     entity_id: str | None,
@@ -725,7 +783,7 @@ def entity_get(
     _handle_entity_get(params)
 
 
-def _handle_entity_get(params: EntityGetParams) -> None:
+def _handle_entity_get(params: EntityGetParams) -> None:  # noqa: PLR0912, PLR0915
     """Handle entity get with given parameters."""
     try:
         # Create client

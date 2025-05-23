@@ -8,7 +8,7 @@ import datetime
 import re
 import uuid
 from collections.abc import Callable
-from typing import Any, Generic, Optional, TypeVar, Union
+from typing import Any, TypeVar, Union
 
 # Type variable for generic type validation
 T = TypeVar("T")
@@ -181,8 +181,10 @@ def validate_not_empty(value: str, field_name: str) -> None:
         ValueError: If the value is empty
     """
     if not value:
+
         def _empty_field_error():
             return ValueError(f"{field_name} cannot be empty")
+
         raise _empty_field_error()
 
 
@@ -201,11 +203,13 @@ def validate_type(value: Any, expected_type: type[T], field_name: str) -> T:
         TypeError: If the value is not of the expected type
     """
     if not isinstance(value, expected_type):
+
         def _type_error():
             return TypeError(
                 f"{field_name} must be of type {expected_type.__name__}, "
-                f"got {type(value).__name__}"
+                f"got {type(value).__name__}",
             )
+
         raise _type_error()
     return value
 
@@ -230,10 +234,12 @@ def validate_dict(
     """
     missing_keys = [key for key in required_keys if key not in value]
     if missing_keys:
+
         def _missing_keys_error():
             return ValueError(
-                f"{field_name} is missing required keys: {', '.join(missing_keys)}"
+                f"{field_name} is missing required keys: {', '.join(missing_keys)}",
             )
+
         raise _missing_keys_error()
     return value
 
@@ -253,10 +259,12 @@ def validate_list(value: list[Any], min_length: int, field_name: str) -> list[An
         ValueError: If the list is shorter than the minimum length
     """
     if len(value) < min_length:
+
         def _list_length_error():
             return ValueError(
-                f"{field_name} must have at least {min_length} items, got {len(value)}"
+                f"{field_name} must have at least {min_length} items, got {len(value)}",
             )
+
         raise _list_length_error()
     return value
 
@@ -276,8 +284,12 @@ def validate_one_of(value: Any, valid_values: list[Any], field_name: str) -> Any
         ValueError: If the value is not one of the valid values
     """
     if value not in valid_values:
+
         def _invalid_value_error():
-            return ValueError(f"{field_name} must be one of {valid_values}, got {value}")
+            return ValueError(
+                f"{field_name} must be one of {valid_values}, got {value}",
+            )
+
         raise _invalid_value_error()
     return value
 
@@ -296,7 +308,11 @@ def validate_callable(value: Callable[..., R], field_name: str) -> Callable[...,
         TypeError: If the value is not callable
     """
     if not callable(value):
+
         def _not_callable_error():
-            return TypeError(f"{field_name} must be callable, got {type(value).__name__}")
+            return TypeError(
+                f"{field_name} must be callable, got {type(value).__name__}",
+            )
+
         raise _not_callable_error()
     return value

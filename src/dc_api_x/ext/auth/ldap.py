@@ -35,36 +35,121 @@ class LdapAuthProvider(AuthProvider):
         self.password = password
         self.ldap_server = ldap_server
         self.use_ssl = use_ssl
-        self.port = port or (636 if use_ssl else 389)
+
+        # Set default port based on SSL setting if not provided
+        if port is None:
+            self.port = 636 if use_ssl else 389
+        else:
+            self.port = port
+
         self.authenticated = False
+        self.conn = None
 
-    def authenticate(self) -> None:
+    def authenticate(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         """
-        Mark as authenticated (actual auth happens at connection time).
+        Authenticate with LDAP server.
 
-        LDAP authentication typically happens during connection establishment,
-        so this just marks the provider as authenticated for tracking.
+        Returns:
+            Dictionary with authentication result
         """
-        self.authenticated = True
+        try:
+            # Try to import ldap3
+            import ldap3
 
-    def is_authenticated(self) -> bool:
-        """Return authentication status."""
-        return self.authenticated
+            # Create server object
+            server = ldap3.Server(
+                self.ldap_server,
+                port=self.port,
+                use_ssl=self.use_ssl,
+            )
 
-    def get_auth_headers(self) -> dict[str, str]:
-        """Return empty dict as LDAP doesn't use headers."""
+            # Create connection
+            conn = ldap3.Connection(
+                server,
+                user=self.bind_dn,
+                password=self.password,
+                auto_bind=True,
+            )
+
+            # Check if bind was successful
+            if conn.bound:
+                self.conn = conn
+                self.authenticated = True
+                return {
+                    "authenticated": True,
+                    "user": self.bind_dn,
+                }
+
+            return {
+                "authenticated": False,
+                "message": "Failed to bind with provided credentials",
+            }
+
+        except ImportError:
+            return {
+                "authenticated": False,
+                "message": "LDAP support not available (ldap3 not installed)",
+            }
+        except Exception as e:
+            return {
+                "authenticated": False,
+                "message": f"LDAP authentication failed: {str(e)}",
+            }
+
+    def get_auth_header(self) -> dict[str, str]:
+        """Get authentication header for making authenticated requests.
+
+        Not typically used for LDAP but included for protocol compatibility.
+
+        Returns:
+            Empty dictionary as LDAP doesn't use auth headers in the same way
+        """
         return {}
 
-    def get_auth_params(self) -> dict[str, Any]:
-        """Return LDAP connection parameters."""
-        return {
-            "bind_dn": self.bind_dn,
-            "password": self.password,
-            "server": self.ldap_server,
-            "use_ssl": self.use_ssl,
-            "port": self.port,
-        }
+    def validate_token(self, token: str) -> bool:
+        """Validate an authentication token.
 
-    def clear_auth(self) -> None:
-        """Clear authentication status."""
-        self.authenticated = False
+        LDAP doesn't use tokens in the same way as OAuth/JWT, but we check
+        if the token matches the bind_dn for compatibility.
+
+        Args:
+            token: Token to validate
+
+        Returns:
+            True if authenticated and token matches bind_dn
+        """
+        return self.authenticated and token == self.bind_dn
+
+    def refresh_token(self) -> dict[str, Any]:
+        """Refresh the authentication by reconnecting to LDAP.
+
+        Returns:
+            Authentication result
+        """
+        if self.conn:
+            try:
+                # Close existing connection
+                self.conn.unbind()
+            except Exception:
+                # Ignore errors when closing existing connection
+                pass
+
+        # Re-authenticate
+        return self.authenticate()
+
+    def logout(self) -> bool:
+        """Logout by unbinding from LDAP server.
+
+        Returns:
+            True if successful
+        """
+        if self.conn and self.authenticated:
+            try:
+                self.conn.unbind()
+                self.authenticated = False
+                self.conn = None
+                return True
+            except Exception:
+                return False
+
+        return True  # Already logged out

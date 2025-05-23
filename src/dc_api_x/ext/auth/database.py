@@ -7,14 +7,12 @@ This module defines the DatabaseAuthProvider class for database authentication.
 from typing import Any, Optional
 
 from ...exceptions import AuthenticationError
+from .provider import AuthProvider
 
 
 # Criando a exceção que está faltando
 class InvalidCredentialsError(AuthenticationError):
     """Exception raised when credentials are invalid."""
-
-
-from .provider import AuthProvider
 
 
 class DatabaseAuthProvider(AuthProvider):

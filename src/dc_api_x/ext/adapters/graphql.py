@@ -1,7 +1,7 @@
 """
 GraphQL adapter for DCApiX.
 
-This module defines the GraphQLAdapter abstract class for GraphQL operations.
+This module defines the GraphQLAdapter class for interacting with GraphQL endpoints.
 """
 
 import abc
@@ -9,10 +9,24 @@ from collections.abc import Callable
 from typing import Any, Optional, TypeVar
 
 from ...exceptions import AdapterError, InvalidOperationError
-from ...utils.validation import validate_not_empty
 from .protocol import ProtocolAdapter
 
-T = TypeVar("T")
+# Use TypeVar for the session type
+SessionType = TypeVar("SessionType")
+
+
+def validate_not_empty(value: str, name: str) -> None:
+    """Validate that a string is not empty.
+
+    Args:
+        value: The string to validate
+        name: Name of the parameter being validated
+
+    Raises:
+        ValueError: If the string is empty or None
+    """
+    if not value or not value.strip():
+        raise ValueError(f"{name} cannot be empty")
 
 
 class GraphQLAdapter(ProtocolAdapter):
@@ -25,16 +39,15 @@ class GraphQLAdapter(ProtocolAdapter):
         variables: Optional[dict[str, Any]] = None,
         operation_name: Optional[str] = None,
     ) -> dict[str, Any]:
-        """
-        Execute a GraphQL query.
+        """Execute a GraphQL operation.
 
         Args:
-            query: GraphQL query string
-            variables: Query variables
-            operation_name: Name of the operation to execute
+            query: GraphQL query/mutation
+            variables: Optional variables for the operation
+            operation_name: Optional operation name
 
         Returns:
-            Query result as a dictionary with 'data' and possibly 'errors' fields
+            Operation result data
         """
 
     @abc.abstractmethod
@@ -42,24 +55,21 @@ class GraphQLAdapter(ProtocolAdapter):
         self,
         operations: list[dict[str, Any]],
     ) -> list[dict[str, Any]]:
-        """
-        Execute multiple GraphQL operations in a single batch.
+        """Execute a batch of GraphQL operations.
 
         Args:
-            operations: List of operations, each with 'query', 'variables', and
-                        optionally 'operationName' keys
+            operations: List of operations with shape {"query": "...", "variables": {...}}
 
         Returns:
-            List of results corresponding to each operation
+            List of operation results
         """
 
     @abc.abstractmethod
     def introspect(self) -> dict[str, Any]:
-        """
-        Perform an introspection query to retrieve the GraphQL schema.
+        """Get the GraphQL schema through introspection.
 
         Returns:
-            Schema definition
+            Schema introspection data
         """
 
     @abc.abstractmethod
@@ -69,25 +79,23 @@ class GraphQLAdapter(ProtocolAdapter):
         callback: Callable[[dict[str, Any]], None],
         variables: Optional[dict[str, Any]] = None,
     ) -> Any:
-        """
-        Subscribe to a GraphQL subscription.
+        """Subscribe to a GraphQL subscription.
 
         Args:
             subscription: GraphQL subscription query
-            callback: Function to call when subscription data is received
-            variables: Subscription variables
+            callback: Function to call with subscription data
+            variables: Optional variables for the subscription
 
         Returns:
-            Subscription object or ID that can be used to unsubscribe
+            Subscription ID for unsubscribing
         """
 
     @abc.abstractmethod
     def unsubscribe(self, subscription_id: Any) -> None:
-        """
-        Unsubscribe from a GraphQL subscription.
+        """Unsubscribe from a GraphQL subscription.
 
         Args:
-            subscription_id: ID returned from subscribe
+            subscription_id: Subscription ID from subscribe()
         """
 
     def __init__(
@@ -98,18 +106,19 @@ class GraphQLAdapter(ProtocolAdapter):
         ] = None,
         headers: Optional[dict[str, str]] = None,
     ):
-        """Initialize GraphQL adapter.
+        """Initialize the GraphQL adapter.
 
         Args:
             url: GraphQL endpoint URL
-            request_handler: Optional custom request handler for making requests
-            headers: Optional default headers for all requests
+            request_handler: Optional custom request handler
+            headers: Optional HTTP headers for requests
         """
         self.url = url
         self.request_handler = request_handler
         self.headers = headers or {}
+        # Initialize with Any type to allow Session later
+        self._client: Any = None
         self._connected = False
-        self._client = None
 
     def connect(self) -> bool:
         """Connect to the GraphQL endpoint.
@@ -119,15 +128,21 @@ class GraphQLAdapter(ProtocolAdapter):
         """
         try:
             # Attempt to import and setup the client
-            # This can be customized based on the chosen implementation
-            import requests
+            from requests import Session
 
-            self._client = requests.Session()
-            for header, value in self.headers.items():
-                self._client.headers[header] = value
+            # Create a new session
+            client: Session = Session()
 
+            # Add headers to the client
+            if self.headers:
+                for header, value in self.headers.items():
+                    client.headers[header] = value
+
+            # Assign to self._client after setup
+            self._client = client
             self._connected = True
             return True
+
         except ImportError:
 
             def _no_requests_error():
@@ -138,7 +153,7 @@ class GraphQLAdapter(ProtocolAdapter):
 
             def _connection_error(err):
                 return AdapterError(
-                    f"Failed to connect to GraphQL endpoint: {str(err)}"
+                    f"Failed to connect to GraphQL endpoint: {str(err)}",
                 )
 
             raise _connection_error(e)
@@ -191,7 +206,7 @@ class GraphQLAdapter(ProtocolAdapter):
 
         Args:
             query: GraphQL query or mutation
-            variables: Optional variables for the query/mutation
+            variables: Optional variables for cthe query/mutation
             operation_name: Optional operation name if multiple operations exist in the query
 
         Returns:
@@ -204,7 +219,7 @@ class GraphQLAdapter(ProtocolAdapter):
             self.connect()
 
         # Prepare request payload
-        payload = {"query": query}
+        payload: dict[str, Any] = {"query": query}
         if variables:
             payload["variables"] = variables
         if operation_name:
@@ -279,7 +294,27 @@ class GraphQLAdapter(ProtocolAdapter):
 
             raise _missing_data_error()
 
-        return response["data"]
+        # Get data from response
+        data: Any = response["data"]
+
+        # Handle the case where data might be a string
+        if isinstance(data, str):
+            import json
+
+            try:
+                parsed_data = json.loads(data)
+                if isinstance(parsed_data, dict):
+                    return parsed_data
+            except json.JSONDecodeError:
+                # If JSON parsing fails, continue with original handling
+                pass
+
+        # Handle the case where data is already a dict
+        if isinstance(data, dict):
+            return data
+
+        # Return empty dict if data is neither a valid JSON string nor a dict
+        return {}
 
     def mutation(
         self,
@@ -308,7 +343,7 @@ class GraphQLAdapter(ProtocolAdapter):
             def _invalid_mutation_error():
                 return InvalidOperationError(
                     "Mutation string must start with 'mutation'. "
-                    "Did you mean to use query() instead?"
+                    "Did you mean to use query() instead?",
                 )
 
             raise _invalid_mutation_error()
@@ -321,4 +356,24 @@ class GraphQLAdapter(ProtocolAdapter):
 
             raise _missing_data_error()
 
-        return response["data"]
+        # Get data from response
+        data: Any = response["data"]
+
+        # Handle the case where data might be a string
+        if isinstance(data, str):
+            import json
+
+            try:
+                parsed_data = json.loads(data)
+                if isinstance(parsed_data, dict):
+                    return parsed_data
+            except json.JSONDecodeError:
+                # If JSON parsing fails, continue with original handling
+                pass
+
+        # Handle the case where data is already a dict
+        if isinstance(data, dict):
+            return data
+
+        # Return empty dict if data is neither a valid JSON string nor a dict
+        return {}

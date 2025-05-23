@@ -7,9 +7,11 @@ that can be implemented by external packages.
 
 from .async_adapters import (
     AsyncAdapter,
-    AsyncDatabaseAdapter,
-    AsyncDatabaseTransaction,
+    AsyncAdapterMixin,
+    AsyncDatabaseAdapterImpl,
+    AsyncDatabaseTransactionImpl,
     AsyncHttpAdapter,
+    async_transaction,
 )
 from .cache import CacheAdapter
 from .database import DatabaseAdapter, DatabaseTransaction
@@ -18,7 +20,7 @@ from .filesystem import FileSystemAdapter
 from .graphql import GraphQLAdapter
 from .http import HttpAdapter
 from .message_queue import MessageQueueAdapter
-from .protocol import ProtocolAdapter
+from .protocol import AsyncDatabaseAdapter, AsyncDatabaseTransaction, ProtocolAdapter
 from .websocket import WebSocketAdapter
 
 __all__ = [
@@ -33,7 +35,11 @@ __all__ = [
     "GraphQLAdapter",
     "WebSocketAdapter",
     "AsyncAdapter",
+    "AsyncAdapterMixin",
     "AsyncHttpAdapter",
     "AsyncDatabaseAdapter",
     "AsyncDatabaseTransaction",
+    "AsyncDatabaseAdapterImpl",
+    "AsyncDatabaseTransactionImpl",
+    "async_transaction",
 ]

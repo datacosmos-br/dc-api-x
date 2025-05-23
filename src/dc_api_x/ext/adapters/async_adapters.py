@@ -30,21 +30,27 @@ class AsyncAdapter(ProtocolAdapter):
     """
 
     @abc.abstractmethod
-    async def aconnect(self) -> None:
+    async def aconnect(self) -> bool:
         """
         Asynchronously establish a connection to the resource.
 
         This method is called when initializing the adapter and should
         establish any necessary connections.
+
+        Returns:
+            True if connection was successful, False otherwise
         """
 
     @abc.abstractmethod
-    async def adisconnect(self) -> None:
+    async def adisconnect(self) -> bool:
         """
         Asynchronously close the connection to the resource.
 
         This method is called when shutting down the adapter and should
         clean up any resources.
+
+        Returns:
+            True if disconnection was successful, False otherwise
         """
 
     @abc.abstractmethod
@@ -56,7 +62,7 @@ class AsyncAdapter(ProtocolAdapter):
             True if connected, False otherwise
         """
 
-    def connect(self) -> None:
+    def connect(self) -> bool:
         """
         Sync wrapper for aconnect.
 
@@ -68,7 +74,7 @@ class AsyncAdapter(ProtocolAdapter):
             "Cannot call connect() on AsyncAdapter. Use await adapter.aconnect() instead.",
         )
 
-    def disconnect(self) -> None:
+    def disconnect(self) -> bool:
         """
         Sync wrapper for adisconnect.
 
@@ -227,14 +233,34 @@ class AsyncDatabaseTransactionImpl(AsyncDatabaseTransaction):
         elif self.transaction:
             await self.transaction.commit()
 
-    async def commit(self) -> None:
-        """Commit the transaction."""
+    def commit(self) -> None:
+        """Commit the transaction synchronously.
+
+        This method should not be called directly on async transactions.
+        Use await transaction.commit_async() instead.
+        """
+        raise NotImplementedError(
+            "Cannot call commit() on AsyncDatabaseTransaction. Use await transaction.commit_async() instead.",
+        )
+
+    def rollback(self) -> None:
+        """Rollback the transaction synchronously.
+
+        This method should not be called directly on async transactions.
+        Use await transaction.rollback_async() instead.
+        """
+        raise NotImplementedError(
+            "Cannot call rollback() on AsyncDatabaseTransaction. Use await transaction.rollback_async() instead.",
+        )
+
+    async def commit_async(self) -> None:
+        """Commit the transaction asynchronously."""
         if self.transaction:
             await self.transaction.commit()
             self.transaction = None
 
-    async def rollback(self) -> None:
-        """Rollback the transaction."""
+    async def rollback_async(self) -> None:
+        """Rollback the transaction asynchronously."""
         if self.transaction:
             await self.transaction.rollback()
             self.transaction = None
@@ -259,15 +285,52 @@ async def async_transaction(
     try:
         yield transaction
     except Exception as e:
-        await transaction.rollback()
+        await transaction.rollback_async()  # Use rollback_async instead of rollback
         raise AdapterError(f"Transaction error: {str(e)}") from e
     finally:
         if transaction:
             # Ensure the transaction is closed if it wasn't committed or rolled back
             try:
-                await transaction.rollback()
+                await transaction.rollback_async()  # Use rollback_async instead of rollback
             except Exception:
                 # Log the error instead of silently passing
                 logging.getLogger(__name__).debug(
                     "Failed to rollback transaction during cleanup",
                 )
+
+
+class AsyncDatabaseAdapterImpl(AsyncDatabaseAdapter):
+    """Base implementation of AsyncDatabaseAdapter."""
+
+    async def connect_async(self) -> bool:
+        """Connect asynchronously to the database.
+
+        This is a default implementation that delegates to aconnect.
+        Subclasses should override this method.
+
+        Returns:
+            True if connected successfully, False otherwise
+        """
+        return False  # Subclasses should override this method
+
+    async def disconnect_async(self) -> bool:
+        """Disconnect asynchronously from the database.
+
+        This is a default implementation that delegates to adisconnect.
+        Subclasses should override this method.
+
+        Returns:
+            True if disconnected successfully, False otherwise
+        """
+        return False  # Subclasses should override this method
+
+    async def is_connected_async(self) -> bool:
+        """Check if connected asynchronously.
+
+        This is a default implementation that delegates to ais_connected.
+        Subclasses should override this method.
+
+        Returns:
+            True if connected, False otherwise
+        """
+        return False  # Subclasses should override this method

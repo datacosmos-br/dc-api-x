@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import pytest
 from pydantic import SecretStr
+
 from dc_api_x.config import (
     Config,
     ConfigProfile,

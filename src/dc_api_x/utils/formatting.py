@@ -37,7 +37,10 @@ def format_json(data: Any, indent: int = 2) -> str:  # type: ignore[return]
         try:
             # If parsing succeeds, use the parsed object
             return json.dumps(
-                json.loads(data), indent=indent, ensure_ascii=False, sort_keys=True
+                json.loads(data),
+                indent=indent,
+                ensure_ascii=False,
+                sort_keys=True,
             )
         except json.JSONDecodeError:
             # If it's not valid JSON, return the string as is

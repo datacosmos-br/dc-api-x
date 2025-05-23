@@ -10,10 +10,10 @@ import responses
 
 from dc_api_x.client import ApiClient
 from dc_api_x.exceptions import (
+    ApiConnectionError,
     ApiTimeoutError,
     AuthenticationError,
     ConfigurationError,
-    ConnectionError,
     ResponseError,
 )
 
@@ -124,7 +124,7 @@ class TestApiClient:
         responses.add(
             responses.GET,
             "https://api.example.com/users",
-            body=ConnectionError("Connection refused"),
+            body=ApiConnectionError("Connection refused"),
         )
 
         # Make request and expect error

@@ -6,14 +6,8 @@ This example demonstrates how to create a custom API client for a RESTful API
 using DCApiX classes and utilities.
 """
 
-import os
 import sys
 from typing import Any
-
-# Add src directory to path to import dc_api_x
-# If the package is installed, you can remove these lines
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../src")))
-
 
 from dc_api_x import ApiClient, ApiResponse, BaseModel, Entity, EntityManager, paginate
 
@@ -64,7 +58,7 @@ class StoreApiClient(ApiClient):
         super().__init__(
             url=url,
             username="demo",  # Placeholder
-            password="demo",  # Placeholder
+            password="demo",  # Placeholder  # noqa: S106
             **kwargs,
         )
 
@@ -233,7 +227,7 @@ def main():
     # Define constant for the product limit
     max_products = 10
 
-    print(f"Fetching products with pagination (5 items per page):")
+    print("Fetching products with pagination (5 items per page):")
     for i, product in enumerate(all_products):
         if i >= max_products:  # Limit to max_products products for this example
             break

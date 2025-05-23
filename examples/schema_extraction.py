@@ -58,7 +58,7 @@ class SchemaExtractionExample:
             self.client = ApiClient(
                 url=api_url,
                 username="demo",  # Placeholder
-                password="demo",  # Placeholder - noqa: S106
+                password="demo",  # Placeholder - noqa: S106  # noqa: S106
             )
 
             # Disable authentication for demo
