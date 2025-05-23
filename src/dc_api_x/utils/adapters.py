@@ -6,15 +6,13 @@ including HTTP, database, and directory adapters.
 """
 
 import importlib
-import json
 import logging
-from typing import Any, Dict, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Optional, TypeVar
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from ..exceptions import AdapterError
 from ..ext.adapters import (
     DatabaseAdapter,
     DatabaseTransaction,
@@ -76,7 +74,15 @@ class RequestsHttpAdapter(HttpAdapter):
                 total=self.max_retries,
                 backoff_factor=self.retry_backoff,
                 status_forcelist=[429, 500, 502, 503, 504],
-                allowed_methods=["HEAD", "GET", "OPTIONS", "POST", "PUT", "DELETE", "PATCH"],
+                allowed_methods=[
+                    "HEAD",
+                    "GET",
+                    "OPTIONS",
+                    "POST",
+                    "PUT",
+                    "DELETE",
+                    "PATCH",
+                ],
             )
 
             # Add retry handler to session
@@ -94,14 +100,18 @@ class RequestsHttpAdapter(HttpAdapter):
                         self.auth_provider.username,
                         self.auth_provider.password,
                     )
-                elif self.auth_provider.is_authenticated():
-                    if self.auth_provider.is_token_valid():
-                        auth_headers = self.auth_provider.get_auth_header()
-                        self.client.headers.update(auth_headers)
-            return
-        except Exception as e:
-            logger.error(f"Failed to create HTTP client: {str(e)}")
+                elif (
+                    self.auth_provider.is_authenticated()
+                    and self.auth_provider.is_token_valid()
+                ):
+                    auth_headers = self.auth_provider.get_auth_header()
+                    self.client.headers.update(auth_headers)
+        except Exception:
+            logging.exception("Failed to create HTTP client: %s")
             raise
+        else:
+            # Connection established successfully
+            return
 
     def disconnect(self) -> None:
         """
@@ -150,7 +160,7 @@ class RequestsHttpAdapter(HttpAdapter):
 
     def set_option(self, name: str, value: Any) -> None:
         """Set an adapter option."""
-        pass  # Implement if needed
+        # Implement if needed
 
     def is_connected(self) -> bool:
         """Check if the adapter is connected."""
@@ -174,10 +184,9 @@ class DatabaseTransactionImpl(DatabaseTransaction):
 
     def __enter__(self) -> "DatabaseTransactionImpl":
         """Enter the context manager."""
-        if not self.autocommit:
+        if not self.autocommit and hasattr(self.connection, "begin"):
             # Start the transaction
-            if hasattr(self.connection, "begin"):
-                self.connection.begin()
+            self.connection.begin()
 
         # Create a cursor
         self.cursor = self.connection.cursor()
@@ -220,7 +229,7 @@ class DatabaseTransactionImpl(DatabaseTransaction):
         """
         rows = self.cursor.fetchall()
         columns = [desc[0] for desc in self.cursor.description]
-        return [dict(zip(columns, row)) for row in rows]
+        return [dict(zip(columns, row, strict=False)) for row in rows]
 
     def fetchone(self) -> Optional[dict[str, Any]]:
         """
@@ -233,7 +242,7 @@ class DatabaseTransactionImpl(DatabaseTransaction):
         if row is None:
             return None
         columns = [desc[0] for desc in self.cursor.description]
-        return dict(zip(columns, row))
+        return dict(zip(columns, row, strict=False))
 
     def commit(self) -> None:
         """Commit the transaction."""
@@ -304,12 +313,16 @@ class GenericDatabaseAdapter(DatabaseAdapter):
 
             logger.debug("Connected to {self.driver} database")
         except ImportError as err:
+
             def _driver_not_found_error():
                 return ImportError(f"Database driver {self.driver} not found")
+
             raise _driver_not_found_error() from err
         except Exception as e:
+
             def _connection_error(err):
                 return ConnectionError(f"Failed to connect to database: {str(err)}")
+
             raise _connection_error(e) from e
 
     def disconnect(self) -> None:
@@ -415,14 +428,18 @@ class DirectoryAdapterImpl(DirectoryAdapter):
 
             logger.debug("Connected to LDAP directory at {self.url}")
         except ImportError as err:
+
             def _ldap_not_found_error():
                 return ImportError("python-ldap module not found")
+
             raise _ldap_not_found_error() from err
         except Exception as e:
+
             def _ldap_connection_error(err):
                 return ConnectionError(
-                    f"Failed to connect to LDAP directory: {str(err)}"
+                    f"Failed to connect to LDAP directory: {str(err)}",
                 )
+
             raise _ldap_connection_error(e) from e
 
     def disconnect(self) -> None:

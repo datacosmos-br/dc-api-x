@@ -27,8 +27,25 @@ request_hook_registry: dict[str, Any] = {}
 response_hook_registry: dict[str, Any] = {}
 error_hook_registry: dict[str, Any] = {}
 
-# Flag to track if plugins have been loaded
-_plugins_loaded = False
+
+class PluginState:
+    """Class to manage plugin loading state."""
+
+    def __init__(self):
+        """Initialize the plugin state."""
+        self.plugins_loaded = False
+
+    def set_loaded(self, loaded: bool = True) -> None:
+        """Set the loaded state of plugins."""
+        self.plugins_loaded = loaded
+
+    def is_loaded(self) -> bool:
+        """Check if plugins have been loaded."""
+        return self.plugins_loaded
+
+
+# Plugin state manager
+_plugin_state = PluginState()
 
 
 def enable_plugins() -> None:
@@ -38,14 +55,12 @@ def enable_plugins() -> None:
     This function discovers and loads all plugins registered via entry points.
     It should be called before using any plugins.
     """
-    global _plugins_loaded
-
-    if _plugins_loaded:
+    if _plugin_state.is_loaded():
         logger.debug("Plugins already loaded")
         return
 
     load_plugins()
-    _plugins_loaded = True
+    _plugin_state.set_loaded(True)
 
 
 def load_plugins() -> list[str]:
