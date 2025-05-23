@@ -202,14 +202,12 @@ class SchemaManager:
     def _python_type_from_json_type(
         self,
         json_type: str,
-        format_type: str | None = None,
     ) -> type[Any]:
         """
         Get Python type from JSON Schema type.
 
         Args:
             json_type: JSON Schema type
-            format_type: JSON Schema format
 
         Returns:
             Python type
@@ -223,7 +221,7 @@ class SchemaManager:
             "array": list,
             "object": dict,
         }
-
+        
         # Return the mapped type or Any as fallback
         return type_mapping.get(json_type, Any)
 
@@ -247,7 +245,6 @@ class SchemaManager:
         for field_name, field_def in schema.fields.items():
             field_type = self._python_type_from_json_type(
                 field_def.get("type", "string"),
-                field_def.get("format"),
             )
 
             # Set required fields without default values
