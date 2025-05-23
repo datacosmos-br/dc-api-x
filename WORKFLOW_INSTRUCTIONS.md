@@ -5,7 +5,8 @@ Os arquivos de workflow do GitHub foram configurados, mas não puderam ser envia
 ## Arquivos e Localizações
 
 Os arquivos de workflow estão localizados em:
-- `/home/marlonsc/pyauto/temp_workflows/`
+- `/home/marlonsc/pyauto/temp_workflows/` (workflows originais)
+- `/home/marlonsc/pyauto/dc-api-x/.github/workflows/` (workflows avançados adicionais)
 
 ## Opções para Adicionar Workflows
 
@@ -16,7 +17,7 @@ Os arquivos de workflow estão localizados em:
 3. Você pode selecionar um workflow sugerido ou criar um novo:
    - Clique em "New workflow" ou "Set up a workflow yourself"
    - Para cada arquivo, nomeie-o adequadamente (ex: `python-workflow.yml`)
-   - Copie e cole o conteúdo do arquivo correspondente de `/home/marlonsc/pyauto/temp_workflows/`
+   - Copie e cole o conteúdo do arquivo correspondente de `/home/marlonsc/pyauto/temp_workflows/` ou `/home/marlonsc/pyauto/dc-api-x/.github/workflows/`
    - Clique em "Start commit" e depois "Commit new file"
 
 ### Opção 2: Criar um Token com Escopo de Workflow
@@ -39,8 +40,7 @@ git push origin main
 
 ## Lista de Workflows
 
-Os seguintes workflows devem ser adicionados:
-
+### Workflows Originais
 1. `python-workflow.yml` - Pipeline principal de CI/CD
 2. `security-scans.yml` - Verificações de segurança
 3. `release.yml` - Automação de release
@@ -48,4 +48,9 @@ Os seguintes workflows devem ser adicionados:
 5. `stale.yml` - Gerenciamento de issues inativas
 6. `greetings.yml` - Mensagens de boas-vindas
 7. `label.yml` - Rotulação automática
-8. `summary.yml` - Resumo de issues 
+8. `summary.yml` - Resumo de issues
+
+### Workflows Avançados (Segurança e Qualidade)
+9. `codeql-analysis.yml` - Análise avançada de segurança com CodeQL
+10. `advanced-lint.yml` - Análise abrangente de qualidade de código
+11. `code-coverage.yml` - Análise de cobertura de código e instrumentação
