@@ -22,7 +22,7 @@ class BasicAuthProvider(AuthProvider):
         username: str = "",
         password: str = "",  # noqa: B107
         token_expiration: int = 3600,
-    ):
+    ) -> None:
         """
         Initialize the basic auth provider.
 
@@ -64,14 +64,14 @@ class BasicAuthProvider(AuthProvider):
         # Check if credentials are valid
         if not auth_username or not auth_password:
 
-            def _credentials_required_error():
+            def _credentials_required_error() -> None:
                 return AuthenticationError("Username and password are required")
 
             raise _credentials_required_error()
 
         if auth_username != self.valid_username or auth_password != self.valid_password:
 
-            def _invalid_credentials_error():
+            def _invalid_credentials_error() -> None:
                 return InvalidCredentialsError("Invalid username or password")
 
             raise _invalid_credentials_error()
@@ -126,7 +126,7 @@ class BasicAuthProvider(AuthProvider):
         """
         if not self._authenticated:
 
-            def _not_authenticated_error():
+            def _not_authenticated_error() -> None:
                 return AuthenticationError("Not authenticated")
 
             raise _not_authenticated_error()

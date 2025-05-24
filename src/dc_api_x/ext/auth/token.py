@@ -42,7 +42,7 @@ class TokenAuthProvider(AuthProvider):
         """
         if self.token is None:
 
-            def _missing_token_error():
+            def _missing_token_error() -> None:
                 return ValueError("Token must be set before authentication")
 
             raise _missing_token_error()

@@ -158,7 +158,8 @@ class HookManager:
         if isinstance(auth_provider, str):
             auth_provider = TokenAuthProvider(auth_provider)
         elif (
-            isinstance(auth_provider, tuple) and len(auth_provider) == AUTH_TUPLE_LENGTH
+            isinstance(auth_provider, tuple[Any, ...])
+            and len(auth_provider) == AUTH_TUPLE_LENGTH
         ):
             auth_provider = BasicAuthProvider(auth_provider[0], auth_provider[1])
         # Only check the attribute for non-tuple, non-string types
@@ -315,7 +316,10 @@ def create_auth_hook(
     """
     if isinstance(auth_provider, str):
         auth_provider = TokenAuthProvider(auth_provider)
-    elif isinstance(auth_provider, tuple) and len(auth_provider) == AUTH_TUPLE_LENGTH:
+    elif (
+        isinstance(auth_provider, tuple[Any, ...])
+        and len(auth_provider) == AUTH_TUPLE_LENGTH
+    ):
         auth_provider = BasicAuthProvider(auth_provider[0], auth_provider[1])
     # Only check the attribute for non-tuple, non-string types
     elif not isinstance(auth_provider, AuthProvider):

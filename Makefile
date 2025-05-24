@@ -209,14 +209,30 @@ clean:
 	@echo "$(GREEN)  $(CHECK) Cleanup completed$(NC)"
 
 ## test: Runs project tests
-test: install
-	@echo "$(BGREEN)$(ARROW) Running tests for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
-	@if [ -d "tests" ]; then \
-		echo "$(CYAN)  $(BULLET) Unsetting PYTHONPATH to avoid conflicts$(NC)"; \
-		PYTHONPATH="" $(POETRY) run pytest tests/ --mock-services; \
-	else \
-		echo "$(YELLOW)  $(BULLET) No tests directory found$(NC)"; \
-	fi
+test:
+	@echo "→ Running tests for project dc-api-x"
+	@cd $(CURDIR) && python -m pytest -xvs tests/unit
+
+## test-cov: Runs tests with coverage
+test-cov:
+	@echo "$(BGREEN)$(ARROW) Executing tests with coverage for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
+	@PYTHONPATH=. pytest --cov=src/$(PACKAGE_NAME) --cov-report=term --cov-report=html:reports/coverage
+	@echo "$(GREEN)  $(CHECK) Coverage report generated in reports/coverage/index.html$(NC)"
+
+## test-html: Runs tests with HTML report
+test-html:
+	@echo "→ Running tests with HTML report for project dc-api-x"
+	@cd $(CURDIR) && python -m pytest --html=reports/pytest/report.html --self-contained-html tests/unit
+
+## test-parallel: Runs tests in parallel
+test-parallel:
+	@echo "→ Running tests in parallel for project dc-api-x"
+	@cd $(CURDIR) && python -m pytest -xvs -n auto tests/unit
+
+## test-profile: Runs tests with profiling
+test-profile:
+	@echo "→ Running tests with profiling for project dc-api-x"
+	@cd $(CURDIR) && python -m pytest --profile-svg --profile tests/unit
 
 ## lint: Runs linting checks on the project
 lint:
@@ -363,3 +379,37 @@ help:
 	@echo "  $(YELLOW)make test-cov$(NC)      # Run tests with coverage"
 	@echo ""
 	@echo "For more information, see the project documentation."
+
+## monkeytype-run: Executa testes com MonkeyType para coletar tipos
+monkeytype-run:
+	@echo "$(BGREEN)$(ARROW) Executing tests with MonkeyType for type collection$(NC)"
+	@python scripts/monkeytype_runner.py run $(if $(TEST_PATH),--test-path $(TEST_PATH),)
+	@echo "$(GREEN)  $(CHECK) MonkeyType test run completed$(NC)"
+
+## monkeytype-list: Lista módulos com tipos coletados pelo MonkeyType
+monkeytype-list:
+	@echo "$(BGREEN)$(ARROW) Listing modules with type information$(NC)"
+	@python scripts/monkeytype_runner.py list
+	@echo "$(GREEN)  $(CHECK) MonkeyType module listing completed$(NC)"
+
+## monkeytype-apply: Aplica tipos coletados a um módulo específico
+monkeytype-apply:
+	@if [ -z "$(MODULE)" ]; then \
+		echo "$(RED)  $(CROSS) MODULE não especificado. Use: make monkeytype-apply MODULE=dc_api_x.config$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BGREEN)$(ARROW) Applying types to module $(BWHITE)$(MODULE)$(BGREEN)$(NC)"
+	@python scripts/monkeytype_runner.py apply --module $(MODULE)
+	@echo "$(GREEN)  $(CHECK) MonkeyType type application completed$(NC)"
+
+## monkeytype-stub: Gera stub com tipos coletados para um módulo
+monkeytype-stub:
+	@if [ -z "$(MODULE)" ]; then \
+		echo "$(RED)  $(CROSS) MODULE não especificado. Use: make monkeytype-stub MODULE=dc_api_x.config$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(BGREEN)$(ARROW) Generating type stub for module $(BWHITE)$(MODULE)$(BGREEN)$(NC)"
+	@python scripts/monkeytype_runner.py stub --module $(MODULE)
+	@echo "$(GREEN)  $(CHECK) MonkeyType stub generation completed$(NC)"
+
+## benchmark: Executa benchmarks

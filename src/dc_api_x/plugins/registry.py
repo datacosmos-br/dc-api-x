@@ -42,7 +42,7 @@ api_response_hook_registry: dict[str, Any] = {}
 class PluginState:
     """Class to manage plugin loading state."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the plugin state."""
         self.plugins_loaded = False
 
@@ -52,7 +52,7 @@ class PluginState:
 
     def is_loaded(self) -> bool:
         """Check if plugins have been loaded."""
-        return self.plugins_loaded
+        self.plugins_loaded
 
 
 # Plugin state manager

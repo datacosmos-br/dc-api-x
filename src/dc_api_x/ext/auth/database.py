@@ -37,7 +37,7 @@ class DatabaseAuthProvider(AuthProvider):
         username_field: str = "username",
         password_field: str = "password",  # noqa: S107
         token_expiration: int = 3600,
-    ):
+    ) -> None:
         """Initialize the database auth provider.
 
         Args:

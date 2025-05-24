@@ -10,7 +10,7 @@ profiles, and secure handling of sensitive information.
 import os
 import tempfile
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 from unittest import mock
 
 from pydantic import BaseModel, Field, SecretStr, field_validator
@@ -200,7 +200,7 @@ def example_4_config_profiles() -> None:
         # Temporarily modify function to work with our temp files
         original_glob = Path.glob
 
-        def mock_glob(self, pattern):
+        def mock_glob(self, pattern) -> None:
             if pattern == ".env.*":
                 return [Path(dev_env_path), Path(prod_env_path)]
             return original_glob(self, pattern)
@@ -308,7 +308,7 @@ def example_6_model_dump() -> None:
     )
 
     # Convert to dictionary (excluding None values)
-    settings_dict = settings.model_dump(exclude_none=True, exclude_secrets=False)
+    settings_dict[str, Any] = settings.model_dump(exclude_none=True, exclude_secrets=False)
     print("Dictionary representation:")
     for key, value in settings_dict.items():
         if key == "api_key" or (key == "database" and "password" in value):

@@ -49,7 +49,7 @@ class StoreApiClient(apix.ApiClient):
         self,
         url: str = "https://fakestoreapi.com",
         **kwargs,
-    ):
+    ) -> None:
         """
         Initialize Store API client.
 
@@ -66,14 +66,18 @@ class StoreApiClient(apix.ApiClient):
         )
 
         # Disable authentication for this API
-        self.session.auth = None
+        if self is not None:
+            self.session.auth = None
+        else:
+            # Handle None case appropriately
+            pass  # TODO: Implement proper None handling
 
         # Initialize entity manager
         self.entities = StoreEntityManager(self)
 
     def get_product_categories(self) -> apix.ApiResponse:
         """Get all product categories."""
-        return self.get("products/categories")
+        self.get("products/categories")
 
     def search_products(
         self,
@@ -103,14 +107,14 @@ class StoreApiClient(apix.ApiClient):
 class StoreEntityManager(apix.EntityManager):
     """Entity manager for Store API."""
 
-    def __init__(self, client: StoreApiClient):
+    def __init__(self, client: StoreApiClient) -> None:
         """Initialize Store entity manager."""
         super().__init__(client)
 
         # Register built-in entity types
         self._register_entities()
 
-    def _register_entities(self):
+    def _register_entities(self) -> None:
         """Register built-in entity types."""
         self.entities["products"] = self.get_entity("products", Product)
         self.entities["users"] = self.get_entity("users", User)
@@ -168,14 +172,14 @@ class CartEntity(apix.Entity):
         return self.client.get(f"carts/user/{user_id}")
 
 
-def print_section(title: str):
+def print_section(title: str) -> None:
     """Print a section title."""
     print("\n" + "=" * 50)
     print(f" {title}")
     print("=" * 50)
 
 
-def main():
+def main() -> None:
     """Run the example."""
     # Print available plugins
     print_section("Available Plugin Components")
@@ -247,3 +251,5 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+assert isinstance(result, None), f"Expected None, got {type(result)}"
+return result

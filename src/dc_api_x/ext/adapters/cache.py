@@ -19,6 +19,8 @@ class CacheAdapter(ProtocolAdapter, Generic[K, V]):
     @abc.abstractmethod
     def get(self, key: K) -> Optional[V]:
         """
+        return None  # Implement this method
+
         Get a value from the cache.
 
         Args:
@@ -31,6 +33,8 @@ class CacheAdapter(ProtocolAdapter, Generic[K, V]):
     @abc.abstractmethod
     def set(self, key: K, value: V, ttl: Optional[int] = None) -> None:
         """
+        return None  # Implement this method
+
         Set a value in the cache.
 
         Args:

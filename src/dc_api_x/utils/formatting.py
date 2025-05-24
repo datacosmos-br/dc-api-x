@@ -18,7 +18,7 @@ from rich.console import Console
 from rich.table import Table as RichTable
 
 
-def format_json(data: Any, indent: int = 2) -> str:  # type: ignore[return]
+def format_json(data: Any, indent: int = 2) -> str:
     """
     Format JSON data with proper indentation.
 
@@ -36,7 +36,7 @@ def format_json(data: Any, indent: int = 2) -> str:  # type: ignore[return]
     if isinstance(data, str):
         try:
             # If parsing succeeds, use the parsed object
-            return json.dumps(
+            json.dumps(
                 json.loads(data),
                 indent=indent,
                 ensure_ascii=False,
@@ -127,7 +127,7 @@ def format_table(
                     f.write(table_str)
             except OSError as err:
 
-                def _file_write_error(err):
+                def _file_write_error(err) -> None:
                     return OSError(
                         f"Failed to write table to file {config.output_file}: {err}",
                     )
@@ -138,7 +138,7 @@ def format_table(
                 config.output_file.write(table_str)
             except OSError as err:
 
-                def _file_write_error(err):
+                def _file_write_error(err) -> None:
                     return OSError(f"Failed to write table to output file: {err}")
 
                 raise _file_write_error(err) from err
@@ -192,7 +192,7 @@ def format_csv(
             writer.writerow(row)
     except csv.Error as err:
 
-        def _csv_format_error(err):
+        def _csv_format_error(err) -> None:
             return ValueError(f"Failed to format data as CSV: {err}")
 
         raise _csv_format_error(err) from err
@@ -208,7 +208,7 @@ def format_csv(
                     f.write(csv_str)
             except OSError as err:
 
-                def _file_write_error(err):
+                def _file_write_error(err) -> None:
                     return OSError(f"Failed to write CSV to file {output_file}: {err}")
 
                 raise _file_write_error(err) from err
@@ -217,7 +217,7 @@ def format_csv(
                 output_file.write(csv_str)
             except OSError as err:
 
-                def _file_write_error(err):
+                def _file_write_error(err) -> None:
                     return OSError(f"Failed to write CSV to output file: {err}")
 
                 raise _file_write_error(err) from err
@@ -264,7 +264,7 @@ def format_text(
             pass
         except ValueError as err:
 
-            def _template_format_error(err):
+            def _template_format_error(err) -> None:
                 return ValueError(f"Failed to format template with context: {err}")
 
             raise _template_format_error(err) from err
@@ -280,7 +280,7 @@ def format_text(
                     f.write(text)
             except OSError as err:
 
-                def _file_write_error(err):
+                def _file_write_error(err) -> None:
                     return OSError(f"Failed to write to file {output_file}: {err}")
 
                 raise _file_write_error(err) from err
@@ -289,7 +289,7 @@ def format_text(
                 output_file.write(text)
             except OSError as err:
 
-                def _file_write_error(err):
+                def _file_write_error(err) -> None:
                     return OSError(f"Failed to write to output file: {err}")
 
                 raise _file_write_error(err) from err
@@ -321,7 +321,7 @@ def format_datetime(dt: datetime.datetime) -> str:
     return dt.isoformat()
 
 
-def format_value(value: Any) -> str:  # type: ignore[return]
+def format_value(value: Any) -> str:
     """Format any value as a string.
 
     Args:
@@ -333,7 +333,7 @@ def format_value(value: Any) -> str:  # type: ignore[return]
     if value is None:
         return ""
     # Handle different types appropriately
-    if isinstance(value, dict | list):
+    if isinstance(value, dict | list[Any]):
         return format_json(value)
     if isinstance(value, datetime.datetime):
         return format_datetime(value)
@@ -354,9 +354,13 @@ def format_response_data(data: dict[str, Any]) -> dict[str, Any]:
     for key, value in data.items():
         normalized_key = normalize_key(key)
 
-        if isinstance(value, dict):
+        if isinstance(value, dict[str, Any]):
             result[normalized_key] = format_response_data(value)
-        elif isinstance(value, list) and value and isinstance(value[0], dict):
+        elif (
+            isinstance(value, list[Any])
+            and value
+            and isinstance(value[0], dict[str, Any])
+        ):
             result[normalized_key] = [format_response_data(item) for item in value]
         else:
             result[normalized_key] = value

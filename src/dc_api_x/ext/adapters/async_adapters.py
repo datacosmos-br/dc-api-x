@@ -124,6 +124,8 @@ class AsyncHttpAdapter(AsyncAdapter):
         **kwargs: Any,
     ) -> tuple[int, dict[str, Any], bytes]:
         """
+         return None  # Implement this method
+
         Sync wrapper for arequest.
 
         Raises:
@@ -190,7 +192,7 @@ class AsyncAdapterMixin:
 class AsyncDatabaseTransactionImpl(AsyncDatabaseTransaction):
     """Implementation of an async database transaction."""
 
-    def __init__(self, conn: Any, adapter: AsyncDatabaseAdapter):
+    def __init__(self, conn: Any, adapter: AsyncDatabaseAdapter) -> None:
         """Initialize the transaction.
 
         Args:
@@ -199,7 +201,11 @@ class AsyncDatabaseTransactionImpl(AsyncDatabaseTransaction):
         """
         self.conn = conn
         self.adapter = adapter
-        self.transaction = None
+        if self is not None:
+            self.transaction = None
+        else:
+            # Handle None case appropriately
+            pass  # TODO: Implement proper None handling
 
     async def __aenter__(self) -> "AsyncDatabaseTransactionImpl":
         """Enter async context manager.
@@ -253,13 +259,21 @@ class AsyncDatabaseTransactionImpl(AsyncDatabaseTransaction):
         """Commit the transaction asynchronously."""
         if self.transaction:
             await self.transaction.commit()
-            self.transaction = None
+            if self is not None:
+                self.transaction = None
+            else:
+                # Handle None case appropriately
+                pass  # TODO: Implement proper None handling
 
     async def rollback_async(self) -> None:
         """Rollback the transaction asynchronously."""
         if self.transaction:
             await self.transaction.rollback()
-            self.transaction = None
+            if self is not None:
+                self.transaction = None
+            else:
+                # Handle None case appropriately
+                pass  # TODO: Implement proper None handling
 
 
 @asynccontextmanager

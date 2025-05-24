@@ -15,7 +15,7 @@ from dc_api_x.exceptions import ApiError
 from dc_api_x.pagination.base import BasePaginator
 
 
-class LinkHeaderPaginator(BasePaginator):
+class LinkHeaderPaginator(BasePaginator[BaseModel]):
     """
     Paginator for APIs that use Link headers for pagination.
 
@@ -23,7 +23,7 @@ class LinkHeaderPaginator(BasePaginator):
     Link header according to RFC 5988, like GitHub's API.
     """
 
-    def paginate(self) -> Iterator[dict[str, Any] | BaseModel]:
+    def paginate(self) -> Optional[Iterator[dict[str, Any] | BaseModel]]:
         """
         Paginate through API results using Link headers.
 

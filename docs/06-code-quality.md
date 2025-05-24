@@ -408,54 +408,388 @@ def modern_style(users: list[dict[str, str]], active: bool | None = None) -> tup
     pass
 ```
 
-## Mypy Type Checking Guidelines
+## Common Mypy Errors and How to Fix Them
 
-The project uses `mypy` with `--strict` mode to ensure robust type safety. Common type errors and their solutions:
+The project uses `mypy` with `--strict` mode to ensure robust type safety. This section covers the most common mypy errors and how to fix them.
 
-```python
-# ❌ Avoid: Missing type annotations for function arguments (no-untyped-def)
-def process_data(data, options):  # mypy error: Function is missing type annotation
-    return data
+### 1. Missing Return Type Annotations [no-untyped-def]
 
-# ✅ Prefer: Complete type annotations for all parameters and return values
-def process_data(data: dict[str, Any], options: Options | None = None) -> list[Result]:
-    return process_results(data)
-```
+This is one of the most common errors in the project. All functions must have explicit return type annotations, even if they don't return a value.
 
 ```python
-# ❌ Avoid: Incompatible types in assignments
-value: str = get_optional_value()  # mypy error if get_optional_value returns str | None
-item_count: int = config.get("count")  # mypy error if config.get returns str | None
+# ❌ Error: Function is missing a return type annotation [no-untyped-def]
+def process_data(data):
+    return data.get("result")
 
-# ✅ Prefer: Proper type handling with conditionals or assertions
-value: str | None = get_optional_value()
-if value is not None:
-    process_string(value)
+# ✅ Fix: Add explicit return type annotation
+def process_data(data: dict[str, Any]) -> str | None:
+    return data.get("result")
 
-item_count_str = config.get("count")
-item_count = int(item_count_str) if item_count_str is not None else 0
+# ✅ For functions that don't return anything, use -> None
+def log_action(message: str) -> None:
+    logger.info(message)
 ```
+
+For test functions, even though they're not part of the production code, they should still have return type annotations:
 
 ```python
-# ❌ Avoid: Accessing attribute of union without checks
-def process_config(config: Config | None) -> str:
-    return config.name  # mypy error: Item "None" of "Config | None" has no attribute "name"
+# ❌ Error in tests
+def test_api_client():
+    client = ApiClient()
+    assert client.is_connected() is False
 
-# ✅ Prefer: Defensive programming with None checks
-def process_config(config: Config | None) -> str:
-    if config is None:
-        return "default"
-    return config.name
+# ✅ Fix for test functions
+def test_api_client() -> None:
+    client = ApiClient()
+    assert client.is_connected() is False
 ```
+
+### 2. Missing Type Parameters for Generic Types [type-arg]
+
+When using generic types like `list`, `dict`, `Callable`, etc., you must specify the type parameters:
 
 ```python
-# ❌ Avoid: Missing stub packages
-import requests  # mypy error: Library stubs not installed for "requests"
+# ❌ Error: Missing type parameters for generic type "list" [type-arg]
+def get_items() -> list:
+    return ["item1", "item2"]
 
-# ✅ Prefer: Install type stubs for external libraries
-# Run: python -m pip install types-requests
-import requests
+# ✅ Fix: Add type parameters for generics
+def get_items() -> list[str]:
+    return ["item1", "item2"]
+
+# More examples
+items: dict = {}  # ❌ Error
+items: dict[str, int] = {}  # ✅ Fix
+
+callback: Callable = lambda x: x  # ❌ Error
+callback: Callable[[int], int] = lambda x: x  # ✅ Fix
+
+# For BasePaginator, Entity, and other generic classes
+paginator: BasePaginator = BasePaginator()  # ❌ Error
+paginator: BasePaginator[UserModel] = BasePaginator[UserModel]()  # ✅ Fix
 ```
+
+### 3. Union Type Attribute Access [union-attr]
+
+When a variable can be `None`, you need to check for `None` before accessing attributes:
+
+```python
+# ❌ Error: Item "None" of "Error | None" has no attribute "detail" [union-attr]
+def get_error_detail(error: Error | None) -> str:
+    return error.detail  # Error: could be None
+
+# ✅ Fix: Check for None before accessing attributes
+def get_error_detail(error: Error | None) -> str | None:
+    if error is None:
+        return None
+    return error.detail
+
+# ✅ Alternative: Use assertion if None is not expected
+def get_error_detail(error: Error | None) -> str:
+    assert error is not None, "Error must not be None"
+    return error.detail
+```
+
+### 4. Incompatible Return Value Type [return-value]
+
+Ensure the function's return values match the declared return type:
+
+```python
+# ❌ Error: Incompatible return value type (got "str | None", expected "str")
+def get_username() -> str:
+    username = get_value_from_config()  # Returns str | None
+    return username
+
+# ✅ Fix: Ensure the return type matches or handle possible None
+def get_username() -> str:
+    username = get_value_from_config()
+    if username is None:
+        return "default"  # Default value when None
+    return username
+
+# ✅ Alternative: Change the return type to match
+def get_username() -> str | None:
+    username = get_value_from_config()
+    return username
+```
+
+### 5. Returning Any from Function with Explicit Return Type [no-any-return]
+
+```python
+# ❌ Error: Returning Any from function declared to return "dict[str, Any]"
+def get_config() -> dict[str, Any]:
+    return json.loads(data)  # Returns Any
+
+# ✅ Fix: Use type assertion to enforce return type
+def get_config() -> dict[str, Any]:
+    result = json.loads(data)
+    assert isinstance(result, dict), "Expected a dictionary"
+    return result
+
+# ✅ Alternative: Use TypedDict for more precise typing
+class ConfigDict(TypedDict):
+    host: str
+    port: int
+    debug: bool
+
+def get_config() -> ConfigDict:
+    result = json.loads(data)
+    return cast(ConfigDict, result)
+```
+
+### 6. Incompatible Types in Assignment [assignment]
+
+Make sure the assigned value matches the variable's type:
+
+```python
+# ❌ Error: Incompatible types in assignment (expression has type "str", variable has type "SecretStr")
+password: SecretStr = "mypassword"  # Type error
+
+# ✅ Fix: Use proper constructors for special types
+from pydantic import SecretStr
+password: SecretStr = SecretStr("mypassword")
+
+# Another example with None
+data: list[str] = None  # ❌ Error
+data: list[str] | None = None  # ✅ Fix
+```
+
+### 7. Incorrect Arguments to Functions [call-arg]
+
+```python
+# ❌ Error: Unexpected keyword argument "filters" for "list" of "BaseEntity"
+results = entity.list(filters={"name": "test"})
+
+# ✅ Fix: Check the method signature and use correct parameters
+# If the method signature is: def list(self, filter_by: dict | None = None) -> list[T]:
+results = entity.list(filter_by={"name": "test"})
+```
+
+### 8. Missing Named Arguments [call-arg]
+
+```python
+# ❌ Error: Missing named argument "url" for "Config"
+config = Config()  # Missing required arguments
+
+# ✅ Fix: Provide all required arguments
+config = Config(
+    url="https://api.example.com",
+    username="user",
+    password=SecretStr("pass"),
+    timeout=30,
+    verify_ssl=True,
+    # Add all other required parameters...
+)
+```
+
+### 9. Cannot Find Implementation or Library Stub [import-not-found]
+
+```python
+# ❌ Error: Cannot find implementation or library stub for module named "logfire"
+import logfire
+
+# ✅ Fix options:
+# 1. Install missing package: pip install logfire
+# 2. Install type stubs: pip install types-logfire
+# 3. Create a stub file if needed:
+
+# In a file named logfire.pyi (in project or typings directory):
+class Logger:
+    def __init__(self, name: str) -> None: ...
+    def info(self, message: str) -> None: ...
+    def error(self, message: str) -> None: ...
+```
+
+### 10. Type Variable Issues [type-var]
+
+```python
+# ❌ Error: Type argument "T" of "BasePaginator" must be a subtype of "BaseModel"
+class BasePaginator(Generic[T]):
+    # Type constrained to BaseModel
+
+# ✅ Fix: Add proper type variable bounds
+T = TypeVar('T', bound=BaseModel)
+
+class BasePaginator(Generic[T]):
+    # Now T is properly constrained to BaseModel
+```
+
+### 11. Method Override Signature Incompatibility [override]
+
+```python
+# ❌ Error: Signature of "process_request" incompatible with supertype "LoggingHook"
+# Superclass:
+#   def process_request(self, method: str, url: str, kwargs: dict[str, Any]) -> dict[str, Any]
+# Subclass:
+#   def process_request(self, request: Any) -> Any
+
+# ✅ Fix: Match the signature of the parent class method
+class MyLoggingHook(LoggingHook):
+    def process_request(
+        self, method: str, url: str, kwargs: dict[str, Any]
+    ) -> dict[str, Any]:
+        # Implementation
+        return kwargs
+```
+
+### 12. Unused Type Ignore Comments [unused-ignore]
+
+```python
+# ❌ Error: Unused "type: ignore" comment
+def format_string(value: str) -> str:  # type: ignore
+    return value.strip()
+
+# ✅ Fix: Remove unused type ignore comments
+def format_string(value: str) -> str:
+    return value.strip()
+```
+
+### 13. Module Has No Attribute [attr-defined]
+
+```python
+# ❌ Error: Module has no attribute "critical"
+import logfire
+logfire.critical("Error message")
+
+# ✅ Fix: Check the module's actual API
+import logfire
+logger = logfire.get_logger(__name__)
+logger.critical("Error message")
+```
+
+### 14. Cannot Instantiate Abstract Class [abstract]
+
+```python
+# ❌ Error: Cannot instantiate abstract class "HttpAdapter" with abstract attributes
+adapter = HttpAdapter(timeout=30)
+
+# ✅ Fix: Implement all abstract methods or use a concrete subclass
+class ConcreteHttpAdapter(HttpAdapter):
+    def connect(self) -> None:
+        # Implementation
+        pass
+    
+    def disconnect(self) -> None:
+        # Implementation
+        pass
+    
+    # Implement all other abstract methods...
+
+adapter = ConcreteHttpAdapter(timeout=30)
+```
+
+### Best Practices for Working with Mypy
+
+1. **Start gradually**: If adding types to a large codebase, consider using `# type: ignore` temporarily and fix errors incrementally.
+
+2. **Use reveal_type()**: For debugging type issues, add `reveal_type(variable)` to see what mypy thinks the type is.
+
+3. **Add stronger assertions**: Sometimes mypy needs help understanding flow control:
+
+   ```python
+   data = get_data()
+   if isinstance(data, dict):
+       # mypy now knows data is a dict in this branch
+       process_dict(data)
+   ```
+
+4. **Avoid using Any**: While `Any` can silence type errors, it defeats the purpose of static typing. Use it only as a last resort.
+
+5. **Handle None cases explicitly**: Always consider if a value can be `None` and handle it appropriately.
+
+6. **Use TypedDict for dictionary shapes**: Instead of `dict[str, Any]`, use `TypedDict` to describe the expected structure.
+
+7. **Use Literal for constrained strings**: For values that can only be certain strings, use `Literal`:
+
+   ```python
+   from typing import Literal
+   
+   HttpMethod = Literal["GET", "POST", "PUT", "DELETE"]
+   
+   def make_request(method: HttpMethod, url: str) -> None:
+       # Only accepts specific HTTP methods
+       pass
+   ```
+
+8. **Create Protocol classes for duck typing**: Use `Protocol` to define interface requirements without inheritance:
+
+   ```python
+   from typing import Protocol
+   
+   class Loggable(Protocol):
+       def log(self, message: str) -> None: ...
+   
+   def process_with_logging(item: Loggable) -> None:
+       item.log("Processing started")
+   ```
+
+9. **Keep types in sync with Pydantic models**: Ensure your type annotations match your Pydantic model definitions.
+
+10. **Use overload for functions with multiple signatures**: For functions that can accept different argument types:
+
+    ```python
+    from typing import overload
+    
+    @overload
+    def process_input(data: str) -> str: ...
+    
+    @overload
+    def process_input(data: bytes) -> bytes: ...
+    
+    def process_input(data: str | bytes) -> str | bytes:
+        if isinstance(data, str):
+            return data.upper()
+        else:
+            return data.upper()
+    ```
+
+### Fixing Common Test Function Errors
+
+Test files should follow the same type annotation rules as production code. Here are common patterns:
+
+```python
+# Test functions should have -> None return type
+def test_something() -> None:
+    # Test implementation
+    pass
+
+# Test fixtures should specify their return type
+@pytest.fixture
+def mock_client() -> ApiClient:
+    return MockApiClient()
+
+# Parametrized tests should have properly typed parameters
+@pytest.mark.parametrize("input_val,expected", [
+    (1, "one"),
+    (2, "two"),
+])
+def test_with_params(input_val: int, expected: str) -> None:
+    assert convert(input_val) == expected
+```
+
+### Handling Third-Party Libraries
+
+When working with third-party libraries without type stubs:
+
+1. **Install type stubs if available**:
+
+   ```bash
+   pip install types-requests types-jwt types-cryptography
+   ```
+
+2. **Create stub files for uncommon libraries**:
+
+   ```python
+   # In a file named thirdparty.pyi
+   def some_function(arg1: str, arg2: int) -> bool: ...
+   ```
+
+3. **Use strategic type ignores for third-party issues**:
+
+   ```python
+   from problematic_lib import function  # type: ignore[import]
+   result = function()  # type: ignore[no-any-return]
+   ```
 
 ## Testing Guidelines
 

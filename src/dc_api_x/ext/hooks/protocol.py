@@ -29,6 +29,8 @@ class RequestHook(Protocol):
         kwargs: dict[str, Any],
     ) -> dict[str, Any]:
         """
+         return None  # Implement this method
+
         Process a request before it is sent.
 
         Args:
@@ -59,6 +61,8 @@ class ResponseHook(Protocol):
         response: requests.Response,
     ) -> requests.Response:
         """
+         return None  # Implement this method
+
         Process a response after it is received.
 
         Args:

@@ -53,7 +53,7 @@ class AuthHook(RequestHook):
         # If headers exist in kwargs, update them; otherwise create
         if "headers" in kwargs:
             headers = kwargs.get("headers", {})
-            if isinstance(headers, dict):
+            if isinstance(headers, dict[str, Any]):
                 headers.update(auth_headers)
             kwargs["headers"] = headers
         else:

@@ -6,7 +6,7 @@ for pagination.
 """
 
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -14,7 +14,7 @@ from dc_api_x.exceptions import ApiError
 from dc_api_x.pagination.base import BasePaginator
 
 
-class OffsetPaginator(BasePaginator):
+class OffsetPaginator(BasePaginator[BaseModel]):
     """
     Paginator for APIs that use offset/limit parameters.
 
@@ -22,7 +22,7 @@ class OffsetPaginator(BasePaginator):
     where the client specifies an offset and limit for each page.
     """
 
-    def paginate(self) -> Iterator[dict[str, Any] | BaseModel]:
+    def paginate(self) -> Optional[Iterator[dict[str, Any] | BaseModel]]:
         """
         Paginate through API results using offset/limit.
 
@@ -79,4 +79,4 @@ class OffsetPaginator(BasePaginator):
                 break
 
             # Move to next page
-            offset += len(items)
+            len(items)

@@ -42,9 +42,19 @@ try:
 except ImportError:
     CLOUD_SECRETS_AVAILABLE = False
 
-import dc_api_x as apix
-
-from .exceptions import ConfigError
+# Import constants from the constants module
+from .constants import (
+    CONFIG_DEFAULT_ENV_FILE,
+    CONFIG_ENV_PREFIX,
+    CONFIG_PASSWORD_KEY,
+    CONFIG_REQUIRED_KEYS,
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RETRY_BACKOFF,
+    DEFAULT_TIMEOUT,
+    URL_EMPTY_ERROR,
+    URL_FORMAT_ERROR,
+)
+from .exceptions import ConfigError, ConfigurationError
 
 
 @dataclass
@@ -83,7 +93,7 @@ class ConfigProfile:
     loaded from environment variables or files.
     """
 
-    def __init__(self, name: str, config: dict[str, Any]):
+    def __init__(self, name: str, config: dict[str, Any]) -> None:
         """
         Initialize with profile name and configuration.
 
@@ -97,14 +107,13 @@ class ConfigProfile:
     @property
     def is_valid(self) -> bool:
         """Check if the profile contains the minimum required configuration."""
-        return all(key in self.config for key in apix.CONFIG_REQUIRED_KEYS)
+        return all(key in self.config for key in CONFIG_REQUIRED_KEYS)
 
     def __repr__(self) -> str:
         """Return string representation of the profile."""
         # Hide password in representation
         config_repr = {
-            k: "****" if k == apix.CONFIG_PASSWORD_KEY else v
-            for k, v in self.config.items()
+            k: "****" if k == CONFIG_PASSWORD_KEY else v for k, v in self.config.items()
         }
         return f"ConfigProfile({self.name}, {config_repr})"
 
@@ -154,7 +163,7 @@ class Config(BaseSettings):
 
     # Connection settings
     url: str = Field(description="API base URL")
-    timeout: int = Field(apix.DEFAULT_TIMEOUT, description="Request timeout in seconds")
+    timeout: int = Field(DEFAULT_TIMEOUT, description="Request timeout in seconds")
     verify_ssl: bool = Field(True, description="Verify SSL certificates")
 
     # Authentication
@@ -163,11 +172,11 @@ class Config(BaseSettings):
 
     # Client behavior
     max_retries: int = Field(
-        apix.DEFAULT_MAX_RETRIES,
+        DEFAULT_MAX_RETRIES,
         description="Maximum number of retry attempts",
     )
     retry_backoff: float = Field(
-        apix.DEFAULT_RETRY_BACKOFF,
+        DEFAULT_RETRY_BACKOFF,
         description="Exponential backoff factor for retries",
     )
     debug: bool = Field(False, description="Enable debug mode")
@@ -185,8 +194,8 @@ class Config(BaseSettings):
     )
 
     model_config = SettingsConfigDict(
-        env_prefix=apix.CONFIG_ENV_PREFIX,
-        env_file=apix.CONFIG_DEFAULT_ENV_FILE,
+        env_prefix=CONFIG_ENV_PREFIX,
+        env_file=CONFIG_DEFAULT_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
         validate_default=True,
@@ -211,14 +220,14 @@ class Config(BaseSettings):
             ValueError: If URL is empty or invalid
         """
         if not v:
-            raise ValueError(apix.URL_EMPTY_ERROR)
+            raise ValueError(URL_EMPTY_ERROR)
 
         # Remove trailing slash
         url = v[:-1] if v.endswith("/") else v
 
         # Ensure URL starts with http or https
         if not (url.startswith(("http://", "https://"))):
-            raise ValueError(apix.URL_FORMAT_ERROR)
+            raise ValueError(URL_FORMAT_ERROR)
 
         return url
 
@@ -258,36 +267,36 @@ class Config(BaseSettings):
         result = self.model_dump(exclude_none=True)
 
         # Handle SecretStr in Pydantic V2
-        if not exclude_secrets and apix.CONFIG_PASSWORD_KEY in result:
-            if isinstance(result[apix.CONFIG_PASSWORD_KEY], SecretStr):
-                result[apix.CONFIG_PASSWORD_KEY] = result[
-                    apix.CONFIG_PASSWORD_KEY
+        if not exclude_secrets and CONFIG_PASSWORD_KEY in result:
+            if isinstance(result[CONFIG_PASSWORD_KEY], SecretStr):
+                result[CONFIG_PASSWORD_KEY] = result[
+                    CONFIG_PASSWORD_KEY
                 ].get_secret_value()
             elif (
-                isinstance(result[apix.CONFIG_PASSWORD_KEY], dict)
-                and "__secret_value__" in result[apix.CONFIG_PASSWORD_KEY]
+                isinstance(result[CONFIG_PASSWORD_KEY], dict[str, Any])
+                and "__secret_value__" in result[CONFIG_PASSWORD_KEY]
             ):
-                result[apix.CONFIG_PASSWORD_KEY] = result[apix.CONFIG_PASSWORD_KEY][
+                result[CONFIG_PASSWORD_KEY] = result[CONFIG_PASSWORD_KEY][
                     "__secret_value__"
                 ]
 
         # Handle nested SecretStr fields
         if not exclude_secrets and "database" in result and result["database"]:
             if (
-                "password" in result["database"]
-                and result["database"]["password"]
-                and isinstance(result["database"]["password"], SecretStr)
+                CONFIG_PASSWORD_KEY in result["database"]
+                and result["database"][CONFIG_PASSWORD_KEY]
+                and isinstance(result["database"][CONFIG_PASSWORD_KEY], SecretStr)
             ):
-                result["database"]["password"] = result["database"][
-                    "password"
+                result["database"][CONFIG_PASSWORD_KEY] = result["database"][
+                    CONFIG_PASSWORD_KEY
                 ].get_secret_value()
             elif (
-                isinstance(result["database"]["password"], dict)
-                and "__secret_value__" in result["database"]["password"]
+                isinstance(result["database"][CONFIG_PASSWORD_KEY], dict[str, Any])
+                and "__secret_value__" in result["database"][CONFIG_PASSWORD_KEY]
             ):
-                result["database"]["password"] = result["database"]["password"][
-                    "__secret_value__"
-                ]
+                result["database"][CONFIG_PASSWORD_KEY] = result["database"][
+                    CONFIG_PASSWORD_KEY
+                ]["__secret_value__"]
 
         return result
 
@@ -326,10 +335,10 @@ class Config(BaseSettings):
         path.parent.mkdir(parents=True, exist_ok=True)
 
         # Determine file format based on extension
-        if path.suffix.lower() == apix.CONFIG_JSON_EXTENSION:
+        if path.suffix.lower() == ".json":
             self._save_json(path)
         else:
-            raise ValueError(apix.UNSUPPORTED_FORMAT_ERROR.format(path.suffix))
+            raise ValueError(f"Unsupported file format: {path.suffix}")
 
     @classmethod
     def _load_json_config(cls, file_path: Path) -> dict[str, Any]:
@@ -363,56 +372,75 @@ class Config(BaseSettings):
         path = Path(file_path)
 
         if not path.exists():
-            raise FileNotFoundError(apix.CONFIG_FILE_NOT_FOUND_ERROR.format(str(path)))
+            raise FileNotFoundError(f"Configuration file {str(path)} not found")
 
         # Load based on file extension
-        if path.suffix.lower() == apix.CONFIG_JSON_EXTENSION:
+        if path.suffix.lower() == ".json":
             config_data = cls._load_json_config(path)
         else:
-            raise ValueError(apix.UNSUPPORTED_FORMAT_ERROR.format(path.suffix))
+            raise ValueError(f"Unsupported file format: {path.suffix}")
 
         return cls(**config_data)
 
     @classmethod
     def _load_profile_env_vars(cls, profile_name: str) -> dict[str, Any]:
         """
-        Load configuration from environment variables for a specific profile.
+        Load environment variables from a profile file.
+
+        Args:
+            profile_name: Name of the profile to load
+
+        Returns:
+            Dictionary of environment variables from the profile
+
+        Raises:
+            ConfigError: If profile file not found
+        """
+        profile_path = cls.get_profile_path(profile_name)
+
+        if not profile_path.exists():
+            raise ConfigError(f"Profile file .env.{profile_name} not found")
+
+        # Load environment variables from profile
+        load_dotenv(dotenv_path=profile_path, override=True)
+
+        # Return environment variables with prefix
+        return {
+            k.replace(CONFIG_ENV_PREFIX, ""): v
+            for k, v in os.environ.items()
+            if k.startswith(CONFIG_ENV_PREFIX)
+        }
+
+    @classmethod
+    def get_profile_path(cls, profile_name: str) -> Path:
+        """
+        Get the path to a profile file.
 
         Args:
             profile_name: Name of the profile
 
         Returns:
-            Dictionary with configuration data from environment variables
+            Path to the profile file
         """
-        # First try to load variables with the standard prefix
-        result = {}
-        for env_var, value in os.environ.items():
-            if env_var.startswith(apix.CONFIG_ENV_PREFIX):
-                config_key = env_var[len(apix.CONFIG_ENV_PREFIX) :].lower()
-                result[config_key] = value
-
-        return result
+        return Path(f".env.{profile_name}")
 
     @classmethod
     def from_profile(cls, profile_name: str) -> "Config":
         """
-        Load configuration from a named profile.
-
-        This method loads configuration from a `.env.{profile_name}` file
-        if it exists, and then from environment variables that match
-        the profile prefix.
+        Load configuration from a profile.
 
         Args:
-            profile_name: Name of the profile
+            profile_name: Name of the profile to load
 
         Returns:
-            Config object with profile configuration
+            Config instance loaded from the profile
 
         Raises:
-            ConfigError: If profile cannot be loaded
+            ConfigError: If profile file not found
+            ConfigurationError: If configuration is invalid (missing required fields)
         """
         # Check if profile env file exists
-        env_file = f"{apix.CONFIG_DEFAULT_ENV_FILE}.{profile_name}"
+        env_file = f"{CONFIG_DEFAULT_ENV_FILE}.{profile_name}"
         env_path = Path(env_file)
 
         if env_path.exists():
@@ -422,13 +450,29 @@ class Config(BaseSettings):
         else:
             raise ConfigError(f"Profile file {env_file} not found")
 
+        # Check if required environment variables are present
+        missing_vars = []
+        for key in CONFIG_REQUIRED_KEYS:
+            env_key = f"{CONFIG_ENV_PREFIX}{key.upper()}"
+            if env_key not in os.environ:
+                missing_vars.append(env_key)
+
+        if missing_vars:
+            raise ConfigurationError(
+                f"Missing required configuration variables: {', '.join(missing_vars)}",
+            )
+
         # Create configuration from environment variables
         try:
             config = cls(_env_file=env_file)
             config.environment = profile_name
             return config
         except Exception as e:
-            raise ConfigError(f"Failed to load profile {profile_name}: {str(e)}") from e
+            raise ConfigurationError(
+                f"Failed to load profile {profile_name}: {str(e)}",
+            ) from e
+        else:
+            raise ConfigError(f"Failed to load profile {profile_name}")
 
     @classmethod
     def settings_customise_sources(
@@ -623,7 +667,7 @@ def list_available_profiles() -> list[str]:
         list of profile names
     """
     profiles = []
-    env_path = Path(apix.CONFIG_DEFAULT_ENV_FILE)
+    env_path = Path(CONFIG_DEFAULT_ENV_FILE)
     env_dir = env_path.parent
 
     # Look for .env.* files
@@ -653,8 +697,8 @@ class CLIConfig(Config):
     """
 
     model_config = SettingsConfigDict(
-        env_prefix=apix.CONFIG_ENV_PREFIX,
-        env_file=apix.CONFIG_DEFAULT_ENV_FILE,
+        env_prefix=CONFIG_ENV_PREFIX,
+        env_file=CONFIG_DEFAULT_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
         validate_default=True,

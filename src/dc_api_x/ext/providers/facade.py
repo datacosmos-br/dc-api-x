@@ -1,28 +1,27 @@
 """
-Provider facade for DCApiX.
+Provider management facilities.
 
-This module provides a simplified interface for working with providers,
-following the facade design pattern.
+This module provides centralized management for different types of providers.
 """
 
 from typing import Any, Optional, TypeVar
 
-from .config import ConfigProvider
-from .data import DataProvider
-from .pagination import PaginationProvider
-from .schema import SchemaProvider
-from .transform import TransformProvider
+from ..providers.config import ConfigProvider
+from ..providers.data import DataProvider
+from ..providers.pagination import PaginationProvider
+from ..providers.schema import SchemaProvider
+from ..providers.transform import TransformProvider
 
+# Define generic type variable
 T = TypeVar("T")
-V = TypeVar("V")
 
 
 class ProviderManager:
     """
-    Facade for managing and registering providers.
+    Central registry for providers of various types.
 
-    This class provides a simplified interface for registering and
-    managing different types of providers.
+    This class maintains registries for different provider types,
+    making it easy to discover and manage providers in a centralized way.
     """
 
     def __init__(self) -> None:

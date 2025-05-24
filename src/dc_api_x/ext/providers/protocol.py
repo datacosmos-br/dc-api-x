@@ -22,6 +22,8 @@ class Provider(abc.ABC):
     @abc.abstractmethod
     def initialize(self) -> None:
         """
+        return None  # Implement this method
+
         Initialize the provider.
 
         This method is called when the provider is first used

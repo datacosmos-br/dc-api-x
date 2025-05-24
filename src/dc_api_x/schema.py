@@ -34,7 +34,7 @@ class SchemaDefinition:
         fields: dict[str, dict[str, Any]],
         description: Optional[str] = None,
         required_fields: Optional[list[str]] = None,
-    ):
+    ) -> None:
         """
         Initialize SchemaDefinition.
 
@@ -68,7 +68,7 @@ class SchemaDefinition:
         # Handle JSON Schema format
         if (
             "properties" in data
-            and isinstance(data["properties"], dict)
+            and isinstance(data["properties"], dict[str, Any])
             or "type" in data
             and data["type"] == "object"
             and "properties" in data
@@ -76,11 +76,11 @@ class SchemaDefinition:
             fields = data["properties"]
             required_fields = data.get("required", [])
         # Handle simple field list format
-        elif "fields" in data and isinstance(data["fields"], dict):
+        elif "fields" in data and isinstance(data["fields"], dict[str, Any]):
             fields = data["fields"]
             required_fields = data.get("required_fields", [])
 
-        return cls(
+        cls(
             name=name,
             fields=fields,
             description=description,
@@ -159,7 +159,7 @@ class SchemaDefinition:
             name = name[:-7]
 
         # Handle JSON Schema format
-        if "properties" in data and isinstance(data["properties"], dict):
+        if "properties" in data and isinstance(data["properties"], dict[str, Any]):
             return cls(
                 name=data.get("title", name),
                 fields=data["properties"],
@@ -184,7 +184,7 @@ class SchemaExtractor:
         client: apix.ApiClient,
         cache_dir: Optional[Union[str, Path]] = None,
         schema_path: str = "api/schemas",
-    ):
+    ) -> None:
         """
         Initialize SchemaExtractor.
 
@@ -194,7 +194,11 @@ class SchemaExtractor:
             schema_path: API endpoint path for schema extraction
         """
         self.client = client
-        self.cache_dir = Path(cache_dir) if cache_dir else None
+        if self is not None:
+            self.cache_dir = Path(cache_dir) if cache_dir else None
+        else:
+            # Handle None case appropriately
+            pass  # TODO: Implement proper None handling
         self.schema_path = schema_path
         self.schemas: dict[str, SchemaDefinition] = {}
         logger.debug("SchemaExtractor initialized with schema_path=%s", schema_path)
@@ -211,21 +215,22 @@ class SchemaExtractor:
             # Try standard REST endpoint first
             response = self.client.get("api/entities")
 
-            if response.success and isinstance(response.data, list):
+            if response.success and isinstance(response.data, list[Any]):
                 logger.debug("Discovered %d entities", len(response.data))
                 return response.data
 
             # Try alternate endpoint if standard fails
             response = self.client.get("metadata/entities")
-            if response.success and isinstance(response.data, list):
+            if response.success and isinstance(response.data, list[Any]):
                 logger.debug("Discovered %d entities from metadata", len(response.data))
                 return response.data
 
             logger.warning("No entities discovered from API")
-            return []
 
         except apix.ApiError as e:
             logger.warning("Error discovering entities: %s", str(e))
+            return []
+        else:
             return []
 
     def extract_schema(self, entity_name: str) -> Optional[SchemaDefinition]:
@@ -252,7 +257,9 @@ class SchemaExtractor:
                     schema = SchemaDefinition.load(schema_file)
                     self.schemas[entity_name] = schema
                     return schema
-                except Exception as e:
+                except (
+                    Exception
+                ) as e:  # noqa: BLE001 - Tratamento genérico necessário para qualquer erro de cache
                     logger.warning(
                         "Error loading cached schema for %s: %s",
                         entity_name,
@@ -264,7 +271,7 @@ class SchemaExtractor:
         try:
             logger.debug("Fetching schema from API for %s", entity_name)
             response = self.client.get(f"{self.schema_path}/{entity_name}")
-            if not response.success or not isinstance(response.data, dict):
+            if not response.success or not isinstance(response.data, dict[str, Any]):
                 logger.warning("Failed to fetch schema for %s", entity_name)
                 return None
 
@@ -278,8 +285,11 @@ class SchemaExtractor:
                 schema.save(self.cache_dir)
 
             return schema
-        except apix.ApiError as e:
-            logger.error("API error extracting schema for %s: %s", entity_name, str(e))
+        except apix.ApiError:
+            logger.exception(
+                "API error extracting schema for %s",
+                entity_name,
+            )
             return None
 
     def extract_schemas(
@@ -326,7 +336,7 @@ class SchemaManager:
         cache_dir: Optional[Union[str, Path]] = None,
         *,  # Make all parameters after this keyword-only
         offline_mode: bool = False,
-    ):
+    ) -> None:
         """
         Initialize SchemaManager.
 
@@ -336,7 +346,11 @@ class SchemaManager:
             offline_mode: Whether to operate in offline mode (using only cached schemas)
         """
         self.client = client
-        self.cache_dir = Path(cache_dir) if cache_dir else None
+        if self is not None:
+            self.cache_dir = Path(cache_dir) if cache_dir else None
+        else:
+            # Handle None case appropriately
+            pass  # TODO: Implement proper None handling
         self.offline_mode = offline_mode
         self.extractor = (
             None
@@ -367,7 +381,9 @@ class SchemaManager:
                 schema = SchemaDefinition.load(file_path)
                 self.schemas[schema.name] = schema
                 logger.debug("Loaded schema for %s", schema.name)
-            except Exception as e:
+            except (
+                Exception
+            ) as e:  # noqa: BLE001 - Tratamento genérico necessário para qualquer erro de formato
                 logger.warning("Error loading schema from %s: %s", file_path, str(e))
 
         logger.info("Loaded %d schemas from cache", len(self.schemas))
@@ -400,9 +416,12 @@ class SchemaManager:
                 try:
                     schema = SchemaDefinition.load(schema_file)
                     self.schemas[entity_name] = schema
-                    return schema
-                except Exception as e:
+                except (
+                    Exception
+                ) as e:  # noqa: BLE001 - Tratamento genérico necessário para qualquer erro de arquivo
                     logger.warning("Error loading schema file: %s", str(e))
+                else:
+                    return schema
 
         return None
 
@@ -429,10 +448,11 @@ class SchemaManager:
         try:
             model = self.create_model(schema)
             self.models[entity_name] = model
-            return model
-        except Exception as e:
-            logger.exception("Error creating model for %s: %s", entity_name, str(e))
+        except Exception:
+            logger.exception("Error creating model for %s", entity_name)
             return None
+        else:
+            return model
 
     def create_model(self, schema: SchemaDefinition) -> type[BaseModel]:
         """
@@ -511,7 +531,10 @@ class SchemaManager:
         if field_type == "boolean":
             return typing.Optional[bool]
         if field_type == "array":
-            if "items" in field_schema and isinstance(field_schema["items"], dict):
+            if "items" in field_schema and isinstance(
+                field_schema["items"],
+                dict[str, Any],
+            ):
                 item_type = self._get_field_type(field_schema["items"])
                 return typing.Optional[list[item_type]]
             return typing.Optional[list[typing.Any]]

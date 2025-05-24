@@ -11,11 +11,11 @@ app = typer.Typer(help="Test CLI.")
 
 # Define options as module-level constants (our fix for B008)
 VERBOSE_OPTION = typer.Option(
-    False,  # First parameter should be the default value
+    False,  # noqa: S101 - First parameter should be the default value
     "--verbose",
     help="Enable verbose output",
-    is_flag=True,  # Specify this is a flag
-)
+    is_flag=True,
+)  # noqa: FBT003 - Este é o padrão do Typer, sem alternativa
 NAME_OPTION = typer.Option("world", "--name", help="Name to greet")
 
 
@@ -30,7 +30,7 @@ def hello(
     typer.echo(f"Hello, {name}!")
 
 
-def test_app():
+def test_app() -> None:
     """Test the Typer app."""
     runner = CliRunner()
 

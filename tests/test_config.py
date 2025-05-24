@@ -5,6 +5,7 @@ Tests for the Config module.
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -23,7 +24,7 @@ from tests.constants import CUSTOM_TIMEOUT, DEFAULT_TIMEOUT, MAX_RETRIES
 class TestConfig:
     """Test suite for the Config class."""
 
-    def test_init_with_parameters(self):
+    def test_init_with_parameters(self) -> None:
         """Test initialization with parameters."""
         config = Config(
             url="https://api.example.com",
@@ -46,7 +47,7 @@ class TestConfig:
         assert config.retry_backoff == 1.0
         assert config.debug is True
 
-    def test_init_with_defaults(self):
+    def test_init_with_defaults(self) -> None:
         """Test initialization with defaults."""
         config = Config(
             url="https://api.example.com",
@@ -63,7 +64,7 @@ class TestConfig:
         assert config.retry_backoff == 0.5
         assert config.debug is False
 
-    def test_validates_url(self):
+    def test_validates_url(self) -> None:
         """Test URL validation."""
         # Test with valid URLs
         config = Config(
@@ -88,7 +89,7 @@ class TestConfig:
                 password="testpass",
             )
 
-    def test_validates_config(self):
+    def test_validates_config(self) -> None:
         """Test cross-field validation."""
         # Test with valid data
         config = Config(
@@ -133,7 +134,7 @@ class TestConfig:
                 timeout=0,
             )
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test conversion to dictionary."""
         config = Config(
             url="https://api.example.com",
@@ -143,14 +144,14 @@ class TestConfig:
             debug=True,
         )
 
-        config_dict = config.to_dict()
+        config_dict: dict[str, Any] = config.to_dict()
         assert config_dict["url"] == "https://api.example.com"
         assert config_dict["username"] == "testuser"
         assert config_dict["password"] == "testpass"  # Plain text in dict
         assert config_dict["timeout"] == CUSTOM_TIMEOUT
         assert config_dict["debug"] is True
 
-    def test_model_dump_custom(self):
+    def test_model_dump_custom(self) -> None:
         """Test custom model_dump method."""
         config = Config(
             url="https://api.example.com",
@@ -160,8 +161,9 @@ class TestConfig:
             debug=True,
         )
 
+        config_dict: dict[str, Any] = config.to_dict()
         # With exclude_secrets=True (default)
-        config_dict = config.model_dump_custom()
+        config_dict[str, Any] = config.model_dump_custom()
         assert config_dict["url"] == "https://api.example.com"
         assert config_dict["username"] == "testuser"
         assert "password" in config_dict  # Password is included but masked
@@ -169,14 +171,14 @@ class TestConfig:
         assert config_dict["debug"] is True
 
         # With exclude_secrets=False
-        config_dict = config.model_dump_custom(exclude_secrets=False)
+        config_dict[str, Any] = config.model_dump_custom(exclude_secrets=False)
         assert config_dict["url"] == "https://api.example.com"
         assert config_dict["username"] == "testuser"
         assert config_dict["password"] == "testpass"  # Password is revealed
         assert config_dict["timeout"] == CUSTOM_TIMEOUT
         assert config_dict["debug"] is True
 
-    def test_save_load_json(self):
+    def test_save_load_json(self) -> None:
         """Test saving and loading config as JSON."""
         config = Config(
             url="https://api.example.com",
@@ -209,7 +211,7 @@ class TestConfig:
             # Clean up
             Path(temp_path).unlink()
 
-    def test_save_invalid_format(self):
+    def test_save_invalid_format(self) -> None:
         """Test saving with invalid format."""
         config = Config(
             url="https://api.example.com",
@@ -228,17 +230,22 @@ class TestConfig:
             # Clean up
             Path(temp_path).unlink()
 
-    def test_from_file_not_found(self):
+    def test_from_file_not_found(self) -> None:
         """Test loading from non-existent file."""
         with pytest.raises(FileNotFoundError):
             Config.from_file("nonexistent.json")
 
-    def test_from_profile(self):
+    def test_from_profile(self) -> None:
         """Test loading from profile."""
         # Test using the prepared .env.test file
-        with patch("pathlib.Path.exists", return_value=True), \
-             patch("pydantic_settings.sources.providers.secrets.path_type_label", return_value="directory"), \
-             patch("os.path.isdir", return_value=True):
+        with (
+            patch("pathlib.Path.exists", return_value=True),
+            patch(
+                "pydantic_settings.sources.providers.secrets.path_type_label",
+                return_value="directory",
+            ),
+            patch("os.path.isdir", return_value=True),
+        ):
             config = Config.from_profile("test")
 
             # Verify loaded configuration
@@ -249,16 +256,18 @@ class TestConfig:
             assert config.timeout == 45
             assert config.debug is True
 
-    def test_from_profile_not_found(self):
+    def test_from_profile_not_found(self) -> None:
         """Test loading from non-existent profile."""
-        with patch("pathlib.Path.exists", return_value=False):
-            with pytest.raises(
+        with (
+            patch("pathlib.Path.exists", return_value=False),
+            pytest.raises(
                 ConfigError,
                 match="Profile file .env.nonexistent not found",
-            ):
-                Config.from_profile("nonexistent")
+            ),
+        ):
+            Config.from_profile("nonexistent")
 
-    def test_from_profile_missing_vars(self):
+    def test_from_profile_missing_vars(self) -> None:
         """Test loading from profile with missing variables."""
         # Create a temporary env file with missing required variables
         with tempfile.NamedTemporaryFile(prefix=".env.", delete=False) as temp_file:
@@ -270,16 +279,14 @@ class TestConfig:
             with (
                 patch("pathlib.Path.exists", return_value=True),
                 patch("dc_api_x.config.load_dotenv", return_value=True),
+                pytest.raises(ConfigError, match="Failed to load profile"),
             ):
-
-                # Attempt to load profile with missing variables
-                with pytest.raises(ConfigError, match="Failed to load profile"):
-                    Config.from_profile(temp_path.split(".")[-1])
+                Config.from_profile(temp_path.split(".")[-1])
         finally:
             # Clean up
             Path(temp_path).unlink()
 
-    def test_model_reload(self):
+    def test_model_reload(self) -> None:
         """Test reloading configuration from sources."""
         # Initial configuration
         config = Config(
@@ -304,7 +311,7 @@ class TestConfig:
             assert config.username == "updateduser"
             assert config.password.get_secret_value() == "updatedpass"
 
-    def test_load_config_from_env(self):
+    def test_load_config_from_env(self) -> None:
         """Test loading configuration from environment variables."""
         # Mock environment variables
         with patch.dict(
@@ -327,19 +334,23 @@ class TestConfig:
             assert config.timeout == 45
             assert config.debug is True
 
-    def test_load_config_from_env_failure(self):
+    def test_load_config_from_env_failure(self) -> None:
         """Test failure to load configuration from environment variables."""
         # Mock environment with missing required variables
-        with patch.dict("os.environ", {}, clear=True):
-            # Attempt to load with missing variables
-            with pytest.raises(ConfigError, match="Failed to load configuration"):
-                load_config_from_env()
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            pytest.raises(
+                ConfigError,
+                match="Failed to load configuration",
+            ),
+        ):
+            load_config_from_env()
 
 
 class TestConfigProfile:
     """Test suite for the ConfigProfile class."""
 
-    def test_init(self):
+    def test_init(self) -> None:
         """Test initialization of ConfigProfile."""
         profile = ConfigProfile(
             name="test",
@@ -355,7 +366,7 @@ class TestConfigProfile:
         assert profile.config["username"] == "testuser"
         assert profile.config["password"] == "testpass"
 
-    def test_is_valid(self):
+    def test_is_valid(self) -> None:
         """Test validation of ConfigProfile."""
         # Valid profile
         profile = ConfigProfile(
@@ -377,7 +388,7 @@ class TestConfigProfile:
         )
         assert profile.is_valid is False
 
-    def test_repr(self):
+    def test_repr(self) -> None:
         """Test string representation of ConfigProfile."""
         profile = ConfigProfile(
             name="test",
@@ -396,7 +407,7 @@ class TestConfigProfile:
         assert "****" in repr_str  # Password should be masked
 
 
-def test_list_available_profiles():
+def test_list_available_profiles() -> None:
     """Test listing available profiles."""
     # Mock glob to return test files
     with patch(

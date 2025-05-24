@@ -28,10 +28,10 @@ from dc_api_x.utils.formatting import format_json, format_table
 console = Console()
 
 
-def handle_common_errors(func: Callable) -> Callable:
+def handle_common_errors(func: Callable[..., Any]) -> Callable[..., Any]:
     """Decorator to handle common API client errors."""
 
-    def wrapper(*args, **kwargs):
+    def wrapper(*args, **kwargs) -> None:
         try:
             return func(*args, **kwargs)
         except ConfigurationError as e:
@@ -75,10 +75,14 @@ def format_output_data(
     if output_format.lower() == "json":
         return format_json(data, indent=2)
 
-    if isinstance(data, list):
+    if isinstance(data, list[Any]):
         return format_table(data)
 
-    if isinstance(data, dict) and "data" in data and isinstance(data["data"], list):
+    if (
+        isinstance(data, dict[str, Any])
+        and "data" in data
+        and isinstance(data["data"], list[Any])
+    ):
         return format_table(data["data"])
 
     console.print(

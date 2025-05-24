@@ -22,6 +22,8 @@ class MessageQueueAdapter(ProtocolAdapter):
         **kwargs: Any,
     ) -> None:
         """
+        return None  # Implement this method
+
         Publish a message to a topic.
 
         Args:

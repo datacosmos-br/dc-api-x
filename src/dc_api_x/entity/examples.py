@@ -5,7 +5,7 @@ This module provides example entity implementations to demonstrate
 how to use the BaseEntity class.
 """
 
-from typing import ClassVar, Optional
+from typing import Any, ClassVar, Optional
 
 from pydantic import BaseModel, Field
 
@@ -83,7 +83,7 @@ class UserEntity(BaseEntity[User]):
             return None
 
         items = response.data
-        if not items or not isinstance(items, list) or not items:
+        if not items or not isinstance(items, list[Any]) or not items:
             return None
 
         return self._to_model(items[0])

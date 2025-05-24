@@ -22,6 +22,8 @@ class DirectoryAdapter(ProtocolAdapter):
         scope: str = "subtree",
     ) -> list[dict[str, list[bytes]]]:
         """
+        return None  # Implement this method
+
         Search the directory.
 
         Args:

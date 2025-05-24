@@ -50,7 +50,7 @@ class FilterExpression:
         FilterOperator.ISNOTNULL: "__isnotnull",
     }
 
-    def __init__(self, field: str, operator: FilterOperator, value: Any = None):
+    def __init__(self, field: str, operator: FilterOperator, value: Any = None) -> None:
         """
         Initialize a filter expression.
 
@@ -78,7 +78,10 @@ class FilterExpression:
             return {param_name: "true"}
 
         # Special handling for IN operator
-        if self.operator == FilterOperator.IN and isinstance(self.value, (list, tuple)):
+        if self.operator == FilterOperator.IN and isinstance(
+            self.value,
+            list | tuple[Any, ...],
+        ):
             # Convert list to comma-separated string
             return {param_name: ",".join(str(v) for v in self.value)}
 
@@ -93,7 +96,7 @@ class EntityFilter:
     multiple expressions.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize an empty filter collection."""
         self.expressions: list[FilterExpression] = []
 

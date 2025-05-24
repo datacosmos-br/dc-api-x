@@ -15,7 +15,7 @@ class BaseAPIError(Exception):
         message: str,
         code: Optional[str] = None,
         details: Optional[dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Initialize the exception.
 
         Args:
@@ -32,7 +32,7 @@ class BaseAPIError(Exception):
 class ConfigurationError(BaseAPIError):
     """Exception raised for configuration errors."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -45,7 +45,7 @@ class ConfigurationError(BaseAPIError):
 class ValidationError(BaseAPIError):
     """Exception raised for validation errors."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -58,7 +58,7 @@ class ValidationError(BaseAPIError):
 class AuthenticationError(BaseAPIError):
     """Exception raised for authentication errors."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -71,7 +71,7 @@ class AuthenticationError(BaseAPIError):
 class AuthorizationError(BaseAPIError):
     """Exception raised for authorization errors."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -88,7 +88,7 @@ class InvalidCredentialsError(AuthenticationError):
         self,
         message: str = "Invalid credentials",
         details: Optional[dict[str, Any]] = None,
-    ):
+    ) -> None:
         """Initialize the exception.
 
         Args:
@@ -102,7 +102,7 @@ class InvalidCredentialsError(AuthenticationError):
 class ApiConnectionError(BaseAPIError):
     """Exception raised for API connection errors."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -115,7 +115,7 @@ class ApiConnectionError(BaseAPIError):
 class AdapterError(BaseAPIError):
     """Exception raised for adapter errors."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -128,7 +128,7 @@ class AdapterError(BaseAPIError):
 class InvalidOperationError(BaseAPIError):
     """Exception raised for invalid operations."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -141,7 +141,7 @@ class InvalidOperationError(BaseAPIError):
 class NotFoundError(BaseAPIError):
     """Exception raised when a resource is not found."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -154,7 +154,7 @@ class NotFoundError(BaseAPIError):
 class AlreadyExistsError(BaseAPIError):
     """Exception raised when a resource already exists."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -167,7 +167,7 @@ class AlreadyExistsError(BaseAPIError):
 class ApiTimeoutError(BaseAPIError):
     """Exception raised when an operation times out."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -180,7 +180,7 @@ class ApiTimeoutError(BaseAPIError):
 class RateLimitError(BaseAPIError):
     """Exception raised when rate limit is exceeded."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -193,7 +193,7 @@ class RateLimitError(BaseAPIError):
 class ServerError(BaseAPIError):
     """Exception raised for server errors."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -206,7 +206,7 @@ class ServerError(BaseAPIError):
 class UnknownError(BaseAPIError):
     """Exception raised for unknown errors."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -231,7 +231,7 @@ class ApiError(Exception):
         details: Optional[dict[str, Any]] = None,
         status_code: Optional[int] = None,
         headers: Optional[dict[str, str]] = None,
-    ):
+    ) -> None:
         super().__init__(message)
         self.message = message
         self.code = code
@@ -252,7 +252,7 @@ class ResponseError(ApiError):
         status_code: int,
         response_data: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
-    ):
+    ) -> None:
         """Initialize the exception.
 
         Args:
@@ -269,7 +269,7 @@ class ResponseError(ApiError):
 class CLIError(BaseAPIError):
     """Exception raised for CLI-specific errors."""
 
-    def __init__(self, message: str, details: Optional[dict[str, Any]] = None):
+    def __init__(self, message: str, details: Optional[dict[str, Any]] = None) -> None:
         """Initialize the exception.
 
         Args:
@@ -342,7 +342,7 @@ class RequestError(ApiError):
         message: str,
         details: Optional[dict[str, Any]] = None,
         status_code: Optional[int] = None,
-    ):
+    ) -> None:
         """Initialize the exception.
 
         Args:

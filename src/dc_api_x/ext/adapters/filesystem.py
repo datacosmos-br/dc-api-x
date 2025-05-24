@@ -16,6 +16,8 @@ class FileSystemAdapter(ProtocolAdapter):
     @abc.abstractmethod
     def read_file(self, path: str) -> bytes:
         """
+        return None  # Implement this method
+
         Read a file from the file system.
 
         Args:
@@ -28,6 +30,8 @@ class FileSystemAdapter(ProtocolAdapter):
     @abc.abstractmethod
     def write_file(self, path: str, contents: Union[str, bytes]) -> None:
         """
+        return None  # Implement this method
+
         Write contents to a file.
 
         Args:

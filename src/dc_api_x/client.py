@@ -10,14 +10,14 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Optional, TypeVar, Union, cast
+from typing import Any, Optional, TypeVar, Union
 
 import requests
 
 import dc_api_x as apix
+
 from . import exceptions
 from .config import Config
-from .models import ApiResponse
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -58,18 +58,32 @@ class ClientConfig:
     debug: bool = False
 
     # Configuration object
+
+
+if apix is not None:
     config: Optional[apix.Config] = None
+else:
+    # Handle None case appropriately
+    # TODO: Implement proper None handling
 
     # Extensions
-    plugins: list[type[apix.ApiPlugin]] = field(default_factory=list)
+    plugins: list[type[apix.ApiPlugin]] = field(default_factory=list[Any])
+if apix is not None:
     adapter: Optional[apix.ProtocolAdapter] = None
+else:
+    # Handle None case appropriately
+    pass  # TODO: Implement proper None handling
+if apix is not None:
     auth_provider: Optional[apix.AuthProvider] = None
+else:
+    # Handle None case appropriately
+    # TODO: Implement proper None handling
 
     # Hooks
-    request_hooks: list[RequestHook] = field(default_factory=list)
-    response_hooks: list[ResponseHook] = field(default_factory=list)
-    api_response_hooks: list[ApiResponseHook] = field(default_factory=list)
-    error_hooks: list[ErrorHook] = field(default_factory=list)
+    request_hooks: list[RequestHook] = field(default_factory=list[Any])
+    response_hooks: list[ResponseHook] = field(default_factory=list[Any])
+    api_response_hooks: list[ApiResponseHook] = field(default_factory=list[Any])
+    error_hooks: list[ErrorHook] = field(default_factory=list[Any])
 
 
 @dataclass
@@ -91,7 +105,7 @@ class RequestConfig:
     raw_response: bool = False
 
     # Extra keyword arguments
-    extra_kwargs: dict[str, Any] = field(default_factory=dict)
+    extra_kwargs: dict[str, Any] = field(default_factory=dict[str, Any])
 
     @classmethod
     def create(
@@ -272,7 +286,7 @@ class ApiClient:
         max_retries: int = apix.DEFAULT_MAX_RETRIES,
         retry_backoff: float = apix.DEFAULT_RETRY_BACKOFF,
         debug: bool = False,
-    ):
+    ) -> None:
         """
         Initialize the API client.
 
@@ -309,7 +323,7 @@ class ApiClient:
                 client_config.password = password
             if timeout != apix.DEFAULT_TIMEOUT:
                 client_config.timeout = timeout
-            if verify_ssl != True:
+            if not verify_ssl:
                 client_config.verify_ssl = verify_ssl
             if max_retries != apix.DEFAULT_MAX_RETRIES:
                 client_config.max_retries = max_retries
@@ -623,7 +637,9 @@ class ApiClient:
                     api_response.error or f"API error: {api_response.status_code}"
                 )
                 error_details = (
-                    api_response.data if isinstance(api_response.data, dict) else None
+                    api_response.data
+                    if isinstance(api_response.data, dict[str, Any])
+                    else None
                 )
                 self._handle_error_response(api_response, error_msg, error_details)
             else:
@@ -864,16 +880,17 @@ class ApiClient:
         try:
             # Try a simple request to test connection
             response = self.get("ping", raw_response=True)
+            return True, f"Connection successful (status {response.status_code})"
         except apix.ApiError as e:
             return False, f"Connection failed: {str(e)}"
-        else:
-            return True, f"Connection successful (status {response.status_code})"
+        except Exception as e:
+            return False, f"Connection failed with unexpected error: {str(e)}"
 
     def execute_query(
         self,
         query: str,
         params: Optional[dict[str, Any]] = None,
-    ) -> apix.GenericResponse:
+    ) -> apix.GenericResponse[Any]:
         """
         Execute a database query (requires DatabaseAdapter).
 
@@ -886,7 +903,7 @@ class ApiClient:
         """
         if not isinstance(self.adapter, apix.DatabaseAdapter):
 
-            def _db_adapter_required_error():
+            def _db_adapter_required_error() -> None:
                 return AdapterTypeError(AdapterTypeError.DATABASE_REQUIRED)
 
             raise _db_adapter_required_error()
@@ -926,7 +943,7 @@ class ApiClient:
         search_filter: str,
         attributes: Optional[list[str]] = None,
         scope: str = "subtree",
-    ) -> apix.GenericResponse:
+    ) -> apix.GenericResponse[Any]:
         """
         Search a directory (requires DirectoryAdapter).
 
@@ -941,7 +958,7 @@ class ApiClient:
         """
         if not isinstance(self.adapter, apix.DirectoryAdapter):
 
-            def _dir_adapter_required_error():
+            def _dir_adapter_required_error() -> None:
                 return AdapterTypeError(AdapterTypeError.DIRECTORY_REQUIRED)
 
             raise _dir_adapter_required_error()
@@ -974,7 +991,7 @@ class ApiClient:
         topic: str,
         message: Union[str, bytes, dict[str, Any]],
         **kwargs: Any,
-    ) -> apix.GenericResponse:
+    ) -> apix.GenericResponse[Any]:
         """
         Publish a message (requires MessageQueueAdapter).
 
@@ -988,7 +1005,7 @@ class ApiClient:
         """
         if not isinstance(self.adapter, apix.MessageQueueAdapter):
 
-            def _mq_adapter_required_error():
+            def _mq_adapter_required_error() -> None:
                 return AdapterTypeError(AdapterTypeError.MESSAGE_QUEUE_REQUIRED)
 
             raise _mq_adapter_required_error()
@@ -1010,19 +1027,14 @@ class ApiClient:
             )
 
     def __del__(self) -> None:
-        """
-        Clean up resources when the client is destroyed.
-        """
-        # Disconnect the adapter
+        """Clean up resources on object deletion."""
         try:
-            if hasattr(self, "adapter") and self.adapter is not None:
-                self.adapter.disconnect()
+            if self is not None:
+                if hasattr(self, "adapter") and self.adapter is not None:
+                    self.adapter.disconnect()
         except (AttributeError, TypeError):
-            if self.debug:
-                logger.exception("Error disconnecting adapter")
-        except (apix.ClientError, OSError):  # More specific exceptions
-            if self.debug:
-                logger.exception("Error disconnecting adapter")
+            # Ignore errors during cleanup
+            pass
 
         # Allow plugins to clean up
         if hasattr(self, "plugins"):
@@ -1086,7 +1098,7 @@ class ApiClient:
             error_code = None
             error_details = None
 
-            if isinstance(data, dict):
+            if isinstance(data, dict[str, Any]):
                 # Extract error information from dictionary
                 error = data.get("error") or data.get("message") or data.get("msg")
                 error_code = data.get("code") or data.get("error_code")

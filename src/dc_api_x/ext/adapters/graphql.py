@@ -119,7 +119,7 @@ class GraphQLAdapter(ProtocolAdapter):
             Callable[[str, dict[str, Any]], dict[str, Any]]
         ] = None,
         headers: Optional[dict[str, str]] = None,
-    ):
+    ) -> None:
         """Initialize the GraphQL adapter.
 
         Args:
@@ -131,7 +131,11 @@ class GraphQLAdapter(ProtocolAdapter):
         self.request_handler = request_handler
         self.headers = headers or {}
         # Initialize with Any type to allow Session later
-        self._client: Any = None
+        if self is not None:
+            self._client: Any = None
+        else:
+            # Handle None case appropriately
+            pass  # TODO: Implement proper None handling
         self._connected = False
 
     def connect(self) -> bool:
@@ -160,6 +164,7 @@ class GraphQLAdapter(ProtocolAdapter):
             self._client = client
             self._connected = True
             return True
+        return False
 
     def disconnect(self) -> bool:
         """Disconnect from the GraphQL endpoint.
@@ -170,7 +175,11 @@ class GraphQLAdapter(ProtocolAdapter):
         if self._client:
             if hasattr(self._client, "close"):
                 self._client.close()
-            self._client = None
+            if self is not None:
+                self._client = None
+            else:
+                # Handle None case appropriately
+                pass  # TODO: Implement proper None handling
         self._connected = False
         return True
 
@@ -190,7 +199,7 @@ class GraphQLAdapter(ProtocolAdapter):
             value: Option value
         """
         if name == "headers":
-            if isinstance(value, dict):
+            if isinstance(value, dict[str, Any]):
                 self.headers.update(value)
             else:
                 raise ValueError(HEADERS_MUST_BE_DICT)
@@ -289,14 +298,14 @@ class GraphQLAdapter(ProtocolAdapter):
 
             try:
                 parsed_data = json.loads(data)
-                if isinstance(parsed_data, dict):
+                if isinstance(parsed_data, dict[str, Any]):
                     return parsed_data
             except json.JSONDecodeError:
                 # If JSON parsing fails, continue with original handling
                 pass
 
         # Handle the case where data is already a dict
-        if isinstance(data, dict):
+        if isinstance(data, dict[str, Any]):
             return data
 
         # Return empty dict if data is neither a valid JSON string nor a dict
@@ -344,14 +353,14 @@ class GraphQLAdapter(ProtocolAdapter):
 
             try:
                 parsed_data = json.loads(data)
-                if isinstance(parsed_data, dict):
+                if isinstance(parsed_data, dict[str, Any]):
                     return parsed_data
             except json.JSONDecodeError:
                 # If JSON parsing fails, continue with original handling
                 pass
 
         # Handle the case where data is already a dict
-        if isinstance(data, dict):
+        if isinstance(data, dict[str, Any]):
             return data
 
         # Return empty dict if data is neither a valid JSON string nor a dict

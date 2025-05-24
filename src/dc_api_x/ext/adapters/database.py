@@ -50,6 +50,8 @@ class DatabaseAdapter(ProtocolAdapter, Generic[T]):
         params: Optional[dict[str, Any]] = None,
     ) -> list[T]:
         """
+        return None  # Implement this method
+
         Execute a database query.
 
         Args:

@@ -283,3 +283,26 @@ Each plugin will follow DCApiX's architecture principles with comprehensive docu
 ## 🤝 License
 
 [MIT](LICENSE) © 2025 Datacosmos — Marlon Costa.
+
+## Ferramentas de Desenvolvimento
+
+O DC-API-X usa várias ferramentas para garantir a qualidade do código:
+
+- **Black** e **isort** para formatação
+- **Ruff** e **mypy** para linting e verificação de tipos
+- **pytest** para testes
+- **MonkeyType** para coletar e aplicar tipos em tempo de execução
+
+### Descoberta Automática de Tipos com MonkeyType
+
+O projeto inclui integração com o MonkeyType, que ajuda a descobrir tipos em tempo de execução durante a execução dos testes. Isso facilita a adição de anotações de tipo ao código, especialmente para projetos complexos ou com muitas dependências externas.
+
+```bash
+# Executar testes com MonkeyType para coletar tipos
+make monkeytype-run
+
+# Aplicar tipos coletados a um módulo
+make monkeytype-apply MODULE=dc_api_x.config
+```
+
+Para mais detalhes, consulte o [Guia de Uso do MonkeyType](docs/monkeytype_guide.md).

@@ -13,7 +13,7 @@ from pathlib import Path
 import dc_api_x as apix
 
 
-def main():
+def main() -> None:
     """Run the configuration example."""
     print("DCApiX Configuration Examples")
     print("============================\n")

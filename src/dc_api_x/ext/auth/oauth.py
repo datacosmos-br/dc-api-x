@@ -23,6 +23,8 @@ class OAuthProvider(AuthProvider):
         redirect_uri: Optional[str] = None,
     ) -> None:
         """
+         return None  # Implement this method
+
         Initialize with OAuth details.
 
         Args:
@@ -44,6 +46,8 @@ class OAuthProvider(AuthProvider):
     @abc.abstractmethod
     def authenticate(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
         """
+        return None  # Implement this method
+
         Authenticate with the OAuth service.
 
         This method should be implemented by subclasses to handle

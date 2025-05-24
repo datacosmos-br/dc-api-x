@@ -25,6 +25,8 @@ class DataProvider(Provider, Generic[T]):
     @abc.abstractmethod
     def get(self, key: str, **kwargs: Any) -> Optional[T]:
         """
+        return None  # Implement this method
+
         Get a single item by key.
 
         Args:
@@ -38,6 +40,8 @@ class DataProvider(Provider, Generic[T]):
     @abc.abstractmethod
     def list(self, **kwargs: Any) -> list[T]:
         """
+        return None  # Implement this method
+
         List items matching criteria.
 
         Args:
@@ -50,6 +54,8 @@ class DataProvider(Provider, Generic[T]):
     @abc.abstractmethod
     def create(self, data: T, **kwargs: Any) -> T:
         """
+        return None  # Implement this method
+
         Create a new item.
 
         Args:
@@ -63,6 +69,8 @@ class DataProvider(Provider, Generic[T]):
     @abc.abstractmethod
     def update(self, key: str, data: T, **kwargs: Any) -> T:
         """
+        return None  # Implement this method
+
         Update an existing item.
 
         Args:
@@ -77,6 +85,8 @@ class DataProvider(Provider, Generic[T]):
     @abc.abstractmethod
     def delete(self, key: str, **kwargs: Any) -> None:
         """
+        return None  # Implement this method
+
         Delete an item.
 
         Args:
@@ -93,6 +103,8 @@ class BatchDataProvider(DataProvider[T]):
     @abc.abstractmethod
     def batch_get(self, keys: list[str], **kwargs: Any) -> dict[str, T]:
         """
+        return None  # Implement this method
+
         Get multiple items by key.
 
         Args:
@@ -106,6 +118,8 @@ class BatchDataProvider(DataProvider[T]):
     @abc.abstractmethod
     def batch_create(self, items: list[T], **kwargs: Any) -> list[T]:
         """
+        return None  # Implement this method
+
         Create multiple items.
 
         Args:

@@ -19,7 +19,7 @@ from tests.constants import (
 class TestBaseModel:
     """Test suite for the BaseModel class."""
 
-    def test_model_creation(self):
+    def test_model_creation(self) -> None:
         """Test model creation."""
 
         # Define a model class
@@ -36,7 +36,7 @@ class TestBaseModel:
         assert user.name == "John Doe"
         assert user.email == "john@example.com"
 
-    def test_get_field(self):
+    def test_get_field(self) -> None:
         """Test getting fields with case-insensitive lookup."""
 
         # Define a model class
@@ -65,7 +65,7 @@ class TestBaseModel:
         assert product.get("description") is None
         assert product.get("category", "Electronics") == "Electronics"
 
-    def test_to_dict(self):
+    def test_to_dict(self) -> None:
         """Test conversion to dictionary."""
 
         # Define a model class
@@ -84,7 +84,7 @@ class TestBaseModel:
         )
 
         # Convert to dictionary
-        order_dict = order.to_dict()
+        order_dict[str, Any] = order.to_dict()
 
         # Verify dictionary
         assert order_dict["id"] == TEST_ORDER_ID
@@ -92,7 +92,7 @@ class TestBaseModel:
         assert order_dict["total"] == ORDER_TOTAL
         assert order_dict["items"] == [{"product_id": TEST_PRODUCT_ID, "quantity": 1}]
 
-    def test_to_json(self):
+    def test_to_json(self) -> None:
         """Test conversion to JSON."""
 
         # Define a model class
@@ -115,7 +115,7 @@ class TestBaseModel:
         assert data["city"] == "New York"
         assert data["zip_code"] == "10001"
 
-    def test_model_validate(self):
+    def test_model_validate(self) -> None:
         """Test creation from dictionary."""
 
         # Define a model class
@@ -137,7 +137,7 @@ class TestBaseModel:
 class TestApiResponse:
     """Test suite for the ApiResponse class."""
 
-    def test_success_response(self):
+    def test_success_response(self) -> None:
         """Test creating a successful response."""
         # Create success response
         response = ApiResponse(
@@ -152,7 +152,7 @@ class TestApiResponse:
         assert response.data == {"id": 1, "name": "John"}
         assert response.error is None
 
-    def test_error_response(self):
+    def test_error_response(self) -> None:
         """Test creating an error response."""
         # Create error response
         response = ApiResponse(
@@ -168,14 +168,16 @@ class TestApiResponse:
         assert response.data is None
         assert response.error.detail == "Not found"
 
-    def test_bool_representation(self):
+    def test_bool_representation(self) -> None:
         """Test boolean representation of response."""
         # Create success response
         success_response = ApiResponse(success=True, data={}, status_code=HTTP_OK)
 
         # Create error response
         error_response = ApiResponse(
-            success=False, error="Error", status_code=HTTP_NOT_FOUND
+            success=False,
+            error="Error",
+            status_code=HTTP_NOT_FOUND,
         )
 
         # Verify boolean representations

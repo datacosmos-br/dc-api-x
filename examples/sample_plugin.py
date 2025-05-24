@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 class SampleHttpAdapter(HttpAdapter):
     """A sample HTTP adapter implementation."""
 
-    def __init__(self, base_url: str, **kwargs: Any):
+    def __init__(self, base_url: str, **kwargs: Any) -> None:
         """Initialize the adapter.
 
         Args:
@@ -61,7 +61,7 @@ class SampleHttpAdapter(HttpAdapter):
 class SampleAuthProvider(BasicAuthProvider):
     """A sample authentication provider implementation."""
 
-    def __init__(self, username: str, password: str):
+    def __init__(self, username: str, password: str) -> None:
         """Initialize the provider.
 
         Args:
@@ -75,7 +75,7 @@ class SampleAuthProvider(BasicAuthProvider):
 class SampleRequestHook(RequestHook):
     """A sample request hook implementation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the hook."""
         self.order = 10
         logger.info("Initialized SampleRequestHook with order: %d", self.order)
@@ -90,7 +90,7 @@ class SampleRequestHook(RequestHook):
             Modified request
         """
         logger.debug("SampleRequestHook processing request")
-        if isinstance(request, dict) and "headers" in request:
+        if isinstance(request, dict[str, Any]) and "headers" in request:
             request["headers"]["X-Sample-Header"] = "SampleValue"
         return request
 
@@ -98,7 +98,7 @@ class SampleRequestHook(RequestHook):
 class SampleResponseHook(ResponseHook):
     """A sample response hook implementation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the hook."""
         self.order = 10
         logger.info("Initialized SampleResponseHook with order: %d", self.order)
@@ -119,7 +119,7 @@ class SampleResponseHook(ResponseHook):
 class SampleErrorHook(ErrorHook):
     """A sample error hook implementation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the hook."""
         self.order = 10
         logger.info("Initialized SampleErrorHook with order: %d", self.order)
@@ -140,11 +140,11 @@ class SampleErrorHook(ErrorHook):
 class SampleSchemaProvider(SchemaProvider):
     """A sample schema provider implementation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the provider."""
         logger.info("Initialized SampleSchemaProvider")
 
-    def get_schema(self, entity_name: str) -> dict:
+    def get_schema(self, entity_name: str) -> dict[str, Any]:
         """Get the schema for an entity.
 
         Args:
@@ -157,10 +157,10 @@ class SampleSchemaProvider(SchemaProvider):
         return {"type": "object", "properties": {"id": {"type": "integer"}}}
 
 
-class SampleDataProvider(DataProvider):
+class SampleDataProvider(DataProvider[Any]):
     """A sample data provider implementation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the provider."""
         logger.info("Initialized SampleDataProvider")
 
@@ -181,11 +181,11 @@ class SampleDataProvider(DataProvider):
 class SampleConfigProvider(ConfigProvider):
     """A sample configuration provider implementation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the provider."""
         logger.info("Initialized SampleConfigProvider")
 
-    def get_config(self, name: str) -> dict:
+    def get_config(self, name: str) -> dict[str, Any]:
         """Get configuration by name.
 
         Args:
@@ -198,10 +198,10 @@ class SampleConfigProvider(ConfigProvider):
         return {"url": "https://api.example.com", "timeout": 30}
 
 
-class SampleTransformProvider(TransformProvider):
+class SampleTransformProvider(TransformProvider[Any]):
     """A sample transform provider implementation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize the provider."""
         logger.info("Initialized SampleTransformProvider")
 

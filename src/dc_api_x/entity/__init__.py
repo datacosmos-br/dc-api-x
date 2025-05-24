@@ -5,11 +5,15 @@ This module provides base classes for entity operations with support for
 CRUD operations, pagination, filtering, and sorting.
 """
 
-from typing import Any, Optional
+from typing import Any, Optional, TypeVar
+
+from pydantic import BaseModel
 
 from dc_api_x.entity.base import BaseEntity
 from dc_api_x.entity.filters import EntityFilter, FilterExpression
 from dc_api_x.entity.sorters import EntitySorter, SortDirection
+
+T = TypeVar("T", bound=BaseModel)
 
 __all__ = [
     "BaseEntity",
@@ -29,7 +33,7 @@ class EntityManager:
     methods to create and retrieve entity instances.
     """
 
-    def __init__(self, client: Any):
+    def __init__(self, client: Any) -> None:
         """
         Initialize the entity manager.
 
@@ -56,7 +60,7 @@ class EntityManager:
             raise ValueError("Entity name is required")
         self._entities[entity_name] = entity_class
 
-    def get(self, name: str, base_path: str = "") -> BaseEntity:
+    def get(self, name: str, base_path: str = "") -> BaseEntity[T]:
         """
         Get an entity instance by name.
 

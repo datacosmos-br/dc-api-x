@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<root>
+  <user id="1">
+    <name>John Doe</name>
+    <email>john.doe@example.com</email>
+    <roles>
+      <role>admin</role>
+      <role>user</role>
+    </roles>
+    <active>true</active>
+  </user>
+  <user id="2">
+    <name>Jane Smith</name>
+    <email>jane.smith@example.com</email>
+    <roles>
+      <role>user</role>
+    </roles>
+    <active>true</active>
+  </user>
+  <metadata>
+    <created>2023-01-01T00:00:00Z</created>
+    <version>1.0</version>
+  </metadata>
+</root> 

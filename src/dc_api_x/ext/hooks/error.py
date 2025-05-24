@@ -27,6 +27,8 @@ class ErrorHook(abc.ABC):
         error: Exception,
     ) -> Optional[ApiResponse]:
         """
+        return None  # Implement this method
+
         Handle an error that occurred during a request.
 
         Args:

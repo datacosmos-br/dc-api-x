@@ -23,7 +23,7 @@ apix.enable_plugins()
 class GitHubTokenError(ValueError):
     """Exception raised when GitHub token is missing."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("GitHub token is required")
 
 
@@ -63,7 +63,7 @@ class GitHubApiClient(apix.ApiClient):
         token: str | None = None,
         url: str = "https://api.github.com",
         **kwargs,
-    ):
+    ) -> None:
         """
         Initialize GitHub API client.
 
@@ -86,7 +86,11 @@ class GitHubApiClient(apix.ApiClient):
         )
 
         # Override authentication
-        self.session.auth = None
+        if self is not None:
+            self.session.auth = None
+        else:
+            # Handle None case appropriately
+            pass  # TODO: Implement proper None handling
         self.session.headers.update(
             {
                 "Authorization": f"token {self.token}",
@@ -99,7 +103,7 @@ class GitHubApiClient(apix.ApiClient):
 
     def get_authenticated_user(self) -> apix.ApiResponse:
         """Get the authenticated user."""
-        return self.get("user")
+        self.get("user")
 
     def search_repositories(
         self,
@@ -138,14 +142,14 @@ class GitHubApiClient(apix.ApiClient):
 class GitHubEntityManager(apix.EntityManager):
     """Entity manager for GitHub API."""
 
-    def __init__(self, client: GitHubApiClient):
+    def __init__(self, client: GitHubApiClient) -> None:
         """Initialize GitHub entity manager."""
         super().__init__(client)
 
         # Register built-in entity types
         self._register_entities()
 
-    def _register_entities(self):
+    def _register_entities(self) -> None:
         """Register built-in entity types."""
         self.entities["users"] = self.get_entity("users", GitHubUser)
         self.entities["repositories"] = self.get_entity("repos", GitHubRepo)
@@ -224,7 +228,7 @@ class GitHubRepository(apix.Entity):
         return self.client.post(f"repos/{owner}/{repo}/issues", json_data=data)
 
 
-def main():
+def main() -> None:
     """Run the example."""
     # Check available plugins and adapters
     print("Available adapters:", apix.list_adapters())
@@ -279,3 +283,5 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+assert isinstance(result, None), f"Expected None, got {type(result)}"
+return result

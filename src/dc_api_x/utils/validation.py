@@ -184,7 +184,7 @@ def validate_not_empty(value: str, field_name: str) -> None:
     """
     if not value:
 
-        def _empty_field_error():
+        def _empty_field_error() -> None:
             return ValueError(f"{field_name} cannot be empty")
 
         raise _empty_field_error()
@@ -206,7 +206,7 @@ def validate_type(value: Any, expected_type: type[T], field_name: str) -> T:
     """
     if not isinstance(value, expected_type):
 
-        def _type_error():
+        def _type_error() -> None:
             return TypeError(
                 f"{field_name} must be of type {expected_type.__name__}, "
                 f"got {type(value).__name__}",
@@ -237,7 +237,7 @@ def validate_dict(
     missing_keys = [key for key in required_keys if key not in value]
     if missing_keys:
 
-        def _missing_keys_error():
+        def _missing_keys_error() -> None:
             return ValueError(
                 f"{field_name} is missing required keys: {', '.join(missing_keys)}",
             )
@@ -262,7 +262,7 @@ def validate_list(value: list[Any], min_length: int, field_name: str) -> list[An
     """
     if len(value) < min_length:
 
-        def _list_length_error():
+        def _list_length_error() -> None:
             return ValueError(
                 f"{field_name} must have at least {min_length} items, got {len(value)}",
             )
@@ -287,7 +287,7 @@ def validate_one_of(value: Any, valid_values: list[Any], field_name: str) -> Any
     """
     if value not in valid_values:
 
-        def _invalid_value_error():
+        def _invalid_value_error() -> None:
             return ValueError(
                 f"{field_name} must be one of {valid_values}, got {value}",
             )
@@ -311,7 +311,7 @@ def validate_callable(value: Callable[..., R], field_name: str) -> Callable[...,
     """
     if not callable(value):
 
-        def _not_callable_error():
+        def _not_callable_error() -> None:
             return TypeError(
                 f"{field_name} must be callable, got {type(value).__name__}",
             )

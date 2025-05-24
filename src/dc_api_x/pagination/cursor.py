@@ -6,7 +6,7 @@ such as those that return a "next_cursor" and "has_more" flag.
 """
 
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -14,7 +14,7 @@ from dc_api_x.exceptions import ApiError
 from dc_api_x.pagination.base import BasePaginator
 
 
-class CursorPaginator(BasePaginator):
+class CursorPaginator(BasePaginator[BaseModel]):
     """
     Paginator for APIs that use cursor-based pagination.
 
@@ -22,7 +22,7 @@ class CursorPaginator(BasePaginator):
     and a has_more flag to indicate if there are more pages.
     """
 
-    def paginate(self) -> Iterator[dict[str, Any] | BaseModel]:
+    def paginate(self) -> Optional[Iterator[dict[str, Any] | BaseModel]]:
         """
         Paginate through API results using cursor tokens.
 
@@ -84,7 +84,7 @@ class CursorPaginator(BasePaginator):
             has_more = False
             cursor = None
 
-            if isinstance(response_data, dict):
+            if isinstance(response_data, dict[str, Any]):
                 # Check if there are more pages
                 if self.config.has_more_key in response_data:
                     has_more = bool(response_data[self.config.has_more_key])

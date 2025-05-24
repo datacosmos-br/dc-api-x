@@ -21,6 +21,8 @@ class HttpAdapter(ProtocolAdapter):
         **kwargs: Any,
     ) -> tuple[int, dict[str, Any], bytes]:
         """
+        return None  # Implement this method
+
         Make an HTTP request.
 
         Args:

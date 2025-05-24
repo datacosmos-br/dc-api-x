@@ -8,12 +8,12 @@ It implements CRUD operations with support for pagination, filtering and sorting
 import builtins
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Generic, TypeVar, Union
+from typing import Any, ClassVar, Generic, Optional, TypeVar, Union
 
 from pydantic import BaseModel
 
 # Import from relative modules instead of dc_api_x to avoid circular imports
-from ..pagination import PaginationConfig, paginate
+from ..pagination import PaginationConfig
 from .filters import EntityFilter
 from .sorters import EntitySorter, SortDirection
 
@@ -89,7 +89,7 @@ class BaseEntity(Generic[T]):
     default_sort_direction: ClassVar[SortDirection] = SortDirection.ASC
     pagination_config: ClassVar[PaginationConfig] = PaginationConfig()
 
-    def __init__(self, client: Any, base_path: str = ""):
+    def __init__(self, client: Any, base_path: str = "") -> None:
         """
         Initialize a new entity instance.
 
@@ -118,7 +118,7 @@ class BaseEntity(Generic[T]):
         self,
         entity_id: str | int,
         params: dict[str, Any] | None = None,
-    ) -> T | dict[str, Any]:
+    ) -> Optional[T | dict[str, Any]]:
         """
         Get a single entity by ID.
 
@@ -210,116 +210,6 @@ class BaseEntity(Generic[T]):
             from .. import exceptions
 
             raise exceptions.EntityError(
-                LIST_ENTITY_ERROR.format(self.resource_name, str(e)),
-            )
-
-    # For backward compatibility
-    def list_with_params(
-        self,
-        filters: dict[str, Any] | EntityFilter | None = None,
-        sort_by: str | None = None,
-        sort_order: str | SortDirection = SortDirection.ASC,
-        limit: int | None = None,
-        offset: int | None = None,
-        params: dict[str, Any] | None = None,
-    ) -> Any:
-        """
-        List entities with filtering and sorting (backward compatibility).
-
-        Args:
-            filters: Dictionary of filter conditions or EntityFilter instance
-            sort_by: Field name to sort by
-            sort_order: Sort direction (asc or desc)
-            limit: Maximum number of results to return
-            offset: Offset for pagination
-            params: Additional query parameters
-
-        Returns:
-            API response with list of entities
-        """
-        options = ListOptions(
-            filters=filters,
-            sort_by=sort_by,
-            sort_order=sort_order,
-            limit=limit,
-            offset=offset,
-            params=params or {},
-        )
-        return self.list(options)
-
-    def paginate(
-        self,
-        options: PaginateOptions | None = None,
-    ) -> Iterator[T | dict[str, Any]]:
-        """
-        Paginate through all entities with filtering and sorting.
-
-        This method handles pagination automatically and yields each entity.
-
-        Args:
-            options: Options for paginating entities
-
-        Yields:
-            Each entity as a model instance or dictionary
-
-        Raises:
-            EntityError: If the request fails
-        """
-        if options is None:
-            options = PaginateOptions()
-
-        # Prepare parameters
-        query_params = options.params.copy() if options.params else {}
-
-        # Apply filters
-        if options.filters:
-            if isinstance(options.filters, EntityFilter):
-                # Use the entity filter object
-                filter_params = options.filters.to_params()
-                query_params.update(filter_params)
-            else:
-                # Use the simple dictionary filters
-                query_params.update(options.filters)
-
-        # Apply sorting
-        sort_field = options.sort_by or self.default_sort_field
-        if sort_field:
-            if isinstance(options.sort_order, str):
-                sort_direction = (
-                    SortDirection.DESC
-                    if options.sort_order.lower() == "desc"
-                    else SortDirection.ASC
-                )
-            else:
-                sort_direction = options.sort_order
-
-            # Create a sorter and add it to the parameters
-            sorter = EntitySorter(sort_field, sort_direction)
-            query_params.update(sorter.to_params())
-
-        # Configure pagination
-        config = PaginationConfig(
-            page_size=options.page_size or self.pagination_config.page_size,
-            max_pages=options.max_pages or self.pagination_config.max_pages,
-            params=query_params,
-            data_key=self.pagination_config.data_key,
-            page_param=self.pagination_config.page_param,
-            page_size_param=self.pagination_config.page_size_param,
-        )
-
-        try:
-            # Use the paginate function from the pagination module
-            yield from paginate(
-                self.client,
-                self.resource_path,
-                model_class=self.model_class,
-                config=config,
-            )
-        except Exception as e:
-            # Import here to avoid circular imports
-            from .. import exceptions
-
-            raise exceptions.EntityError(
                 PAGINATION_ERROR.format(self.resource_name, str(e)),
             ) from e
 
@@ -332,7 +222,7 @@ class BaseEntity(Generic[T]):
         page_size: int | None = None,
         max_pages: int | None = None,
         params: dict[str, Any] | None = None,
-    ) -> Iterator[T | dict[str, Any]]:
+    ) -> Optional[Iterator[T | dict[str, Any]]]:
         """
         Paginate through entities with filtering and sorting (backward compatibility).
 
@@ -357,7 +247,7 @@ class BaseEntity(Generic[T]):
         )
         yield from self.paginate(options)
 
-    def create(self, data: dict[str, Any] | T) -> T | dict[str, Any]:
+    def create(self, data: dict[str, Any] | T) -> Optional[T | dict[str, Any]]:
         """
         Create a new entity.
 
@@ -402,7 +292,7 @@ class BaseEntity(Generic[T]):
         entity_id: str | int,
         data: dict[str, Any] | T,
         params: dict[str, Any] | None = None,
-    ) -> T | dict[str, Any]:
+    ) -> Optional[T | dict[str, Any]]:
         """
         Update an existing entity.
 
@@ -451,7 +341,7 @@ class BaseEntity(Generic[T]):
         entity_id: str | int,
         data: dict[str, Any] | T,
         params: dict[str, Any] | None = None,
-    ) -> T | dict[str, Any]:
+    ) -> Optional[T | dict[str, Any]]:
         """
         Partially update an entity (PATCH).
 
@@ -539,8 +429,9 @@ class BaseEntity(Generic[T]):
             ) from e
 
     def bulk_create(
-        self, items: builtins.list[dict[str, Any] | T]
-    ) -> builtins.list[T | dict[str, Any]]:
+        self,
+        items: builtins.list[dict[str, Any] | T],
+    ) -> Optional[builtins.list[T | dict[str, Any]]]:
         """
         Create multiple entities in a single request.
 
@@ -574,7 +465,7 @@ class BaseEntity(Generic[T]):
             result = response.data or []
 
             # Convert to models if a model class is defined
-            if self.model_class and isinstance(result, list):
+            if self.model_class and isinstance(result, list[Any]):
                 return [self._to_model(item) for item in result]
 
             return result
@@ -589,7 +480,7 @@ class BaseEntity(Generic[T]):
     def bulk_update(
         self,
         items: builtins.list[tuple[str | int, dict[str, Any] | T]],
-    ) -> builtins.list[T | dict[str, Any]]:
+    ) -> Optional[builtins.list[T | dict[str, Any]]]:
         """
         Update multiple entities in a single request.
 
@@ -605,9 +496,11 @@ class BaseEntity(Generic[T]):
         # Convert models to dicts if needed
         payload = []
         for entity_id, data in items:
-            data_dict = self._to_dict(data) if isinstance(data, BaseModel) else data
+            data_dict[str, Any] = (
+                self._to_dict(data) if isinstance(data, BaseModel) else data
+            )
             item_payload = {self.id_field: entity_id}
-            item_payload.update(data_dict)
+            item_payload.update(data_dict[str, Any])
             payload.append(item_payload)
 
         try:
@@ -625,7 +518,7 @@ class BaseEntity(Generic[T]):
             result = response.data or []
 
             # Convert to models if a model class is defined
-            if self.model_class and isinstance(result, list):
+            if self.model_class and isinstance(result, list[Any]):
                 return [self._to_model(item) for item in result]
 
             return result

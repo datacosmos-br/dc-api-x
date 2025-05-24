@@ -6,7 +6,7 @@ for pagination.
 """
 
 from collections.abc import Iterator
-from typing import Any
+from typing import Any, Optional
 
 from pydantic import BaseModel
 
@@ -14,7 +14,7 @@ from dc_api_x.exceptions import ApiError
 from dc_api_x.pagination.base import BasePaginator
 
 
-class PagePaginator(BasePaginator):
+class PagePaginator(BasePaginator[BaseModel]):
     """
     Paginator for APIs that use page/per_page parameters.
 
@@ -22,7 +22,7 @@ class PagePaginator(BasePaginator):
     where the client specifies a page number and page size.
     """
 
-    def paginate(self) -> Iterator[dict[str, Any] | BaseModel]:
+    def paginate(self) -> Optional[Iterator[dict[str, Any] | BaseModel]]:
         """
         Paginate through API results using page/per_page.
 

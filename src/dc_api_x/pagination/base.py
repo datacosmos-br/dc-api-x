@@ -32,7 +32,7 @@ class PaginationConfig:
     page_size: int = 100
     max_pages: Optional[int] = None
     data_key: Optional[str] = None
-    params: dict[str, Any] = field(default_factory=dict)
+    params: dict[str, Any] = field(default_factory=dict[str, Any])
 
     # Page number pagination
     page_param: str = "page"
@@ -65,8 +65,10 @@ class BasePaginator(Generic[T], ABC):
         endpoint: str,
         model_class: Optional[type[BaseModel]] = None,
         config: Optional[PaginationConfig] = None,
-    ):
+    ) -> None:
         """
+         return None  # Implement this method
+
         Initialize a paginator.
 
         Args:
@@ -82,7 +84,7 @@ class BasePaginator(Generic[T], ABC):
         self.params = self.config.params.copy() if self.config.params else {}
 
     @abstractmethod
-    def paginate(self) -> Iterator[dict[str, Any] | BaseModel]:
+    def paginate(self) -> Optional[Iterator[dict[str, Any] | BaseModel]]:
         """
         Paginate through API results.
 
@@ -116,7 +118,7 @@ class BasePaginator(Generic[T], ABC):
         if self.config.data_key:
             # Data is nested under a key
             if (
-                not isinstance(response_data, dict)
+                not isinstance(response_data, dict[str, Any])
                 or self.config.data_key not in response_data
             ):
                 missing_key = self.config.data_key
@@ -128,12 +130,12 @@ class BasePaginator(Generic[T], ABC):
             items = response_data
 
         # Ensure items is a list
-        if not isinstance(items, list):
+        if not isinstance(items, list[Any]):
             raise TypeError(DATA_TYPE_ERROR_MSG)
 
         return items
 
-    def _to_model(self, item: dict[str, Any]) -> BaseModel | dict[str, Any]:
+    def _to_model(self, item: dict[str, Any]) -> Optional[BaseModel | dict[str, Any]]:
         """
         Convert an item to a model instance.
 

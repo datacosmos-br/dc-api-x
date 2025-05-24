@@ -147,7 +147,7 @@ def example_profiles() -> tuple[Config, Config]:
         # Override Path.glob to return our temporary files
         original_glob = Path.glob
 
-        def mock_glob(self, pattern):
+        def mock_glob(self, pattern) -> None:
             if pattern == f"{apix.CONFIG_DEFAULT_ENV_FILE}.*":
                 return [Path(dev_path), Path(prod_path)]
             return original_glob(self, pattern)
@@ -267,7 +267,7 @@ def example_client_from_config() -> apix.ApiClient:
     return client
 
 
-def example_convert_to_dict() -> dict:
+def example_convert_to_dict() -> dict[str, Any]:
     """Example: Convert configuration to dictionary."""
     print_section("Convert Configuration to Dictionary")
 
@@ -284,7 +284,7 @@ def example_convert_to_dict() -> dict:
     )
 
     # Convert to dictionary
-    config_dict = config.model_dump(exclude_none=True)
+    config_dict[str, Any] = config.model_dump(exclude_none=True)
 
     # Print dictionary representation
     print("Configuration as dictionary:")
@@ -320,7 +320,7 @@ def example_model_reload() -> None:
     print(f"After reload - Username: {config.username}")
 
 
-def create_profile_env(profile_name: str, values: dict) -> str:
+def create_profile_env(profile_name: str, values: dict[str, Any]) -> str:
     """Create a temporary .env file for a profile.
 
     Args:

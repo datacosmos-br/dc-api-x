@@ -8,15 +8,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 import responses
 
-from dc_api_x.client import ApiClient
 from dc_api_x import exceptions
+from dc_api_x.client import ApiClient
 from dc_api_x.exceptions import (
-    ApiConnectionError,
-    ApiError,
-    ApiTimeoutError,
     AuthenticationError,
     ConfigurationError,
-    ResponseError,
     RequestFailedError,
 )
 
@@ -25,7 +21,11 @@ class TestApiClient:
     """Test suite for the ApiClient class."""
 
     @pytest.fixture
-    def client(self, request, mock_http_service):
+    def client(
+        self,
+        request,
+        mock_http_service,
+    ) -> None:  # TODO: Add proper result = type if this fixture returns a value
         """Create a test API client."""
         # Create test client
         client = ApiClient(
@@ -37,7 +37,7 @@ class TestApiClient:
         )
 
         # Use mock auth provider when mock_services is enabled
-        if request.config.getoption("--mock-services", False):
+        if request.config.getoption("--mock-services", default=False):
             from dc_api_x.ext.auth.basic import BasicAuthProvider
 
             mock_auth = BasicAuthProvider("testuser", "testpass")
@@ -45,22 +45,22 @@ class TestApiClient:
 
         return client
 
-    def test_init_with_missing_url(self):
+    def test_init_with_missing_url(self) -> None:
         """Test initialization with missing URL."""
         with pytest.raises(ConfigurationError, match="API base URL is required"):
             ApiClient(url=None, username="testuser", password="testpass")
 
-    def test_init_with_missing_username(self):
+    def test_init_with_missing_username(self) -> None:
         """Test initialization with missing username."""
         with pytest.raises(ConfigurationError, match="API username is required"):
             ApiClient(url="https://api.example.com", username=None, password="testpass")
 
-    def test_init_with_missing_password(self):
+    def test_init_with_missing_password(self) -> None:
         """Test initialization with missing password."""
         with pytest.raises(ConfigurationError, match="API password is required"):
             ApiClient(url="https://api.example.com", username="testuser", password=None)
 
-    def test_build_url(self, client):
+    def test_build_url(self, client) -> None:
         """Test URL building."""
         # Test with normal endpoint
         url = client._build_url("users")
@@ -75,7 +75,7 @@ class TestApiClient:
         assert url == "https://api.example.com/users/123/orders"
 
     @responses.activate
-    def test_get_success(self, client):
+    def test_get_success(self, client) -> None:
         """Test successful GET request."""
         # Mock response
         responses.add(
@@ -95,35 +95,35 @@ class TestApiClient:
         assert response.error is None
 
     @responses.activate
-    def test_get_not_found(self, client):
+    def test_get_not_found(self, client) -> None:
         """Test GET request with not found error."""
         # Test request
         with pytest.raises(RequestFailedError):
             client.get("users/999")
 
     @responses.activate
-    def test_get_server_error(self, client):
+    def test_get_server_error(self, client) -> None:
         """Test GET request with server error."""
         # Test request
         with pytest.raises(RequestFailedError):
             client.get("server-error")
 
     @responses.activate
-    def test_get_connection_error(self, client):
+    def test_get_connection_error(self, client) -> None:
         """Test GET request with connection error."""
         # Test request
         with pytest.raises(exceptions.ApiConnectionError):
             client.get("error")
 
     @responses.activate
-    def test_get_timeout(self, client):
+    def test_get_timeout(self, client) -> None:
         """Test GET request with timeout error."""
         # Test request
         with pytest.raises(exceptions.ApiTimeoutError):
             client.get("timeout")
 
     @responses.activate
-    def test_post_success(self, client):
+    def test_post_success(self, client) -> None:
         """Test successful POST request."""
         # Mock response
         responses.add(
@@ -147,7 +147,7 @@ class TestApiClient:
         assert responses.calls[0].request.body == json.dumps({"name": "John"}).encode()
 
     @responses.activate
-    def test_put_success(self, client):
+    def test_put_success(self, client) -> None:
         """Test successful PUT request."""
         # Mock response
         responses.add(
@@ -174,7 +174,7 @@ class TestApiClient:
         )
 
     @responses.activate
-    def test_delete_success(self, client):
+    def test_delete_success(self, client) -> None:
         """Test successful DELETE request."""
         # Mock response
         responses.add(
@@ -194,7 +194,7 @@ class TestApiClient:
         assert response.error is None
 
     @responses.activate
-    def test_patch_success(self, client):
+    def test_patch_success(self, client) -> None:
         """Test successful PATCH request."""
         # Mock response
         responses.add(
@@ -221,7 +221,7 @@ class TestApiClient:
         )
 
     @responses.activate
-    def test_authentication_error(self, client):
+    def test_authentication_error(self, client) -> None:
         """Test authentication error."""
         # Mock response
         responses.add(
@@ -239,7 +239,7 @@ class TestApiClient:
         assert "Unauthorized" in str(excinfo.value)
 
     @responses.activate
-    def test_from_profile(self):
+    def test_from_profile(self) -> None:
         """Test creating client from profile."""
         # Mock Config.from_profile
         with patch("dc_api_x.config.Config.from_profile") as mock_from_profile:
@@ -266,7 +266,7 @@ class TestApiClient:
             assert client.config.verify_ssl is True
 
     @responses.activate
-    def test_test_connection_success(self, client):
+    def test_test_connection_success(self, client) -> None:
         """Test successful connection test."""
         # Mock response
         responses.add(
@@ -284,7 +284,7 @@ class TestApiClient:
         assert "Connection successful" in message
 
     @responses.activate
-    def test_test_connection_failure(self, client):
+    def test_test_connection_failure(self, client) -> None:
         """Test test_connection with failure."""
         # Mock the get method to raise an exception
         with patch.object(
@@ -298,3 +298,7 @@ class TestApiClient:
             # Verify result
             assert success is False
             assert "Connection failed" in message
+
+
+assert isinstance(result, None), f"Expected None, got {type(result)}"
+return result

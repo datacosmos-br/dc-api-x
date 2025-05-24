@@ -16,14 +16,14 @@ from dc_api_x import (
 class SchemaEntityNotSpecifiedError(CLIError):
     """Raised when an entity name is required but not provided."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(SCHEMA_ENTITY_NOT_SPECIFIED_ERROR)
 
 
 class SchemaExtractionFailedError(CLIError):
     """Raised when schema extraction fails for an entity."""
 
-    def __init__(self, entity: str):
+    def __init__(self, entity: str) -> None:
         super().__init__(SCHEMA_EXTRACTION_FAILED_ERROR.format(entity))
 
 
@@ -33,5 +33,5 @@ class JsonValidationError(ValidationError):
     DATA_FILE = "data file"
     DATA_STRING = "data string"
 
-    def __init__(self, source: str, error: Exception):
+    def __init__(self, source: str, error: Exception) -> None:
         super().__init__(INVALID_JSON_IN_ERROR.format(source, error))

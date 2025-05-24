@@ -32,14 +32,27 @@ python = "^3.10"
 requests = "^2.32.3"
 httpx = "^0.28.1"
 # Validation / settings
-pydantic = "^2.11.4"
+pydantic = {version = "^2.11.4", extras = ["email", "timezone"]}
 pydantic-settings = "^2.9.1"
-# CLI / logging
+# logging
+# rich = "^14.0.0"
+# tqdm
+# loguru
+# sentry-sdk
+structlog = "^25.3.0"
+# progressbar2
+#logbook
+# alive-progress
+# colorlog
+# notifiers
+
+# shell
+# xxh
+
+# cli
 click = "^8.1.8"
 typer = { version = "^0.15.4", extras = ["all"] } # rich-help & completion
 doctyper = "^0.15.4"
-rich = "^14.0.0"
-structlog = "^25.3.0"
 # Plug-ins / retries / tracing
 pluggy = "^1.6.0"
 # tenacity = "^9.1.2"
@@ -48,41 +61,177 @@ pluggy = "^1.6.0"
 # Misc
 python-dotenv = "^1.1.0"
 responses = { version = "^0.25.7", optional = true } # used only in tests
-
+ldap3 = "^2.9.1"
+# python-ldap
+pyjwt = "*"
+# requests-jwtauth = "*"
+# authlib = "*"
+# python-jose = "*"
+# jwt = "*"
 # ========================================================================== #
 #  Dev / CI toolchain                                                        #
 # ========================================================================== #
+pydantic-core = "2.33.2"
+
 [tool.poetry.group.dev.dependencies]
+# pyupgrade = "3.19.1"
+# autoflake = "^2.3.1"
+refurb = "^2.1.0" # A tool for refurbishing and modernizing Python codebases 
+
+build = "^1.2.2"
+
+# Linters & Style Checkers
+pylint = "^3.3.7"
+ruff = "^0.11.11"
+# flake8
+# wemake-python-styleguide 
+# pyflakes
+# parso
+# pycodestyle
+# beartype
+# pydocstyle
+# flake8-bugbear
+# pylint-django
+# flake8-compreehensions
+# flake8-quotes
+# mypy-protobuf (🥈28 · ⭐ 630) - open source tools to generate mypy stubs from protobufs. Apache-2
+# flake8-eradicate (🥈28 · ⭐ 310) - Flake8 plugin to find commented out or dead code. MIT 
+# hacking (🥈28 · ⭐ 240) - OpenStack Hacking Style Checks. Mirror of code maintained at.. Apache-2 
+# flake8-commas (🥈28 · ⭐ 130) - Flake8 extension for enforcing trailing commas in python. MIT 
+# flake8-isort (🥉27 · ⭐ 170) - flake8 plugin that integrates isort. ❗️GPL-2.0 
+# flake8-builtins (🥉27 · ⭐ 110) - Check for python builtins being used as variables or.. ❗️GPL-2.0 
+# nitpick (🥉26 · ⭐ 380) - Enforce the same settings on multiple projects. MIT 
+# check-manifest (🥉26 · ⭐ 280) - Tool to check the completeness of MANIFEST.in for Python packages. MIT
+# flake8-black (🥉26 · ⭐ 160) - flake8 plugin to run black for checking Python coding style. MIT 
+# flake8-import-order (🥉24 · ⭐ 280 · 💤) - Flake8 plugin that checks import order against.. ❗️LGPL-3.0 
+# pandas-vet (🥉21 · ⭐ 160 · 💤) - A plugin for Flake8 that checks pandas code. MIT 
+# flake8-simplify (🥉20 · ⭐ 180) - A flake8 plugin that helps you to simplify code. MIT
+# bellybutton (🥉17 · ⭐ 270 · 💤) - Custom Python linting through AST expressions. MIT
+# imhotep (🥉17 · ⭐ 220 · 💤) - A static-analysis bot for Github. MIT
+
+# Type checkers
+mypy = "^1.15.0"
+# pyright
+# pytype
+# pyre-check
+# typeguard
+monkeytype = "^23.3.0"  # Runtime type collection tool
+
+# Mypy stubs
+types-cryptography = "^3.3.23.2"
+types-jwt = "^0.1.3"
+types-requests = "^2.32.0.20250515"
+
+# Code Formatters
 black = "^25.1.0"
 isort = "^6.0.1"
-ruff = "^0.11.11"
-mypy = "^1.15.0"
-# pyupgrade = "3.19.1"
-pylint = "^3.3.7"
-# autoflake = "^2.3.1"
-refurb = "^2.1.0"
-bandit = "^1.8.3"
-types-requests = "^2.32.0.20250515"
-build = "^1.2.2"
-# mdformat           = "^0.7.22"     # opinionated formatter (Black-style for MD)
-# mdformat-gfm       = "^0.4.1"      # GitHub-flavoured tables, task lists …
-# pymarkdownlnt      = "^0.9.30"     # strict Markdown lint (configurable)
-ldap3 = "^2.9.1"
+# yapf
+# autopep8
+# docformatter
+# autoimport
 
-[tool.poetry.group.test.dependencies]
-pytest = "^8.3.5"
+# Code Refactory
+# jedy
+# rope
+# pyupgrade
+# vulture
+# autoflake
+# MonkeyType
+# add-trailling-comma
+# uninimport
+# com2ann
+# massedit
+
+# Security
+bandit = "^1.8.3"
+# sqlmap
+# detect-secrets
+# safety
+
+# Complexity
+# propector
+# mccabe
+# radon
+# wily
+# xenon
+# Logfire integration
+logfire = {extras = ["testing"], version = "^3.16.0", optional = true}
 pytest-cov = "^6.1.1"
 pytest-mock = "^3.14.0"
 pytest-asyncio = "^0.26.0"
-pytest-xdist = "^3.6.1"
+# pytest-xdist = "^3.6.1"
+pytest-timeout = "^2.4.0"
+pytest-sugar = "^1.0.0"
+pytest-html = "^4.1.1"
+pytest-profiling = "^1.8.1"
+pytest-benchmark = "^5.1.0"
 responses = "^0.25.7"
 
+[tool.poetry.group.test.dependencies]
+pytest = "^8.3.5"
+# hypothesis
+# robotframework
+pytest-xdist = "^3.6.1"
+# playwright-python
+# tox
+pytest-cov = "^6.1.1"
+# pyautogui
+pytest-asyncio = "^0.26.0"
+pytest-mock = "^3.14.0"
+# mimesis
+# freezegun
+# pytest-bdd
+# nose2
+# coveralls-python
+# nox
+pytest-html = "^4.1.1"
+# factory-boy
+# asv
+# pytest-testinfra
+# pytest-benchmark
+# pytest-randomly
+# ddt
+# pytest-testmon
+# pytest-mypy
+# mamba test runner
+# pytest-docker
+# pytest-datadir
+# xdoctest
+pytest-timeout = "^2.2.0"
+pytest-sugar = "^1.0.0"
+pytest-profiling = "^1.7.0"
+# JWT authentication support
+# pytest-jwt = "*"
+# XML testing support
+# pytest-xml = "*"
+
 [tool.poetry.group.docs.dependencies]
+# best of mkdocs
 sphinx = "*"
+# mkdocs-material
+# mkdocs
 sphinx-rtd-theme = "*"
+# alabaster
+# mkdocstrings
+# breathe
 sphinx-autodoc-typehints = "^3.0.0"
-myst-parser = "^4.0.0"
-sphinx-copybutton = "^0.5.2"
+# griffe
+# pdoc
+# sphinx-autobuild
+# podc3
+# interrogate
+
+myst-parser = "^4.0.0" # An extended commonmark compliant parser, with bridges to docutils/sphinx
+sphinx-copybutton = "^0.5.2" # Add a "copy" button to code blocks in Sphinx
+# mdformat           = "^0.7.22"     # CommonMark compliant Markdown formatter
+# mdformat-gfm       = "^0.4.1"      # GitHub-flavoured tables, task lists …
+
+# Markdown  Linter
+# markdownlint JS
+# johnfraney/flake8-markdown
+pymarkdownlnt      = "^0.9.30"     # strict Markdown lint (configurable)
+# spreemohealth/style - Code style management and enforcement
+
 
 [tool.poetry.group.examples.dependencies]
 pyyaml = "^6.0.2"
@@ -289,4 +438,8 @@ exclude_lines = [
 number             = true          # auto-number ordered lists
 wrap               = 88
 
-plugins = ["pydantic.mypy"]
+# plugins = ["pydantic.mypy"]
+
+
+[tool.logfire]
+pydantic_plugin_record = "all"

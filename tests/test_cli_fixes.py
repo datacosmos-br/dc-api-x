@@ -7,14 +7,14 @@ from dc_api_x.cli import app
 runner = CliRunner()
 
 
-def test_app_version():
+def test_app_version() -> None:
     """Test the app version command."""
     result = runner.invoke(app, ["--version"])
     assert result.exit_code == 0
     assert "API X CLI version:" in result.stdout
 
 
-def test_config_list():
+def test_config_list() -> None:
     """Test the config list command."""
     result = runner.invoke(app, ["config", "list"])
     assert result.exit_code == 0
@@ -25,7 +25,7 @@ def test_config_list():
     )
 
 
-def test_debug_flag():
+def test_debug_flag() -> None:
     """Test the debug flag."""
     # This should work without errors even though nothing actually happens
     result = runner.invoke(app, ["--debug", "config", "list"])

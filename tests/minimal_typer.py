@@ -12,7 +12,7 @@ VERBOSE_OPTION = typer.Option(
     "-v",
     help="Enable verbose output",
     is_flag=True,  # Specify this is a flag
-)
+)  # noqa: FBT003 - Este é o padrão do Typer, sem alternativa
 
 
 @app.command()

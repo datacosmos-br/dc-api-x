@@ -6,9 +6,37 @@ This module provides models for request and response data.
 
 from typing import Any, Generic, Optional, TypeVar, Union, cast
 
-from pydantic import BaseModel as PydanticBaseModel, ConfigDict, Field
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import ConfigDict, Field
 
-import dc_api_x as apix
+# Import constants directly from constants module instead of defining them locally
+from .constants import (
+    HTTP_BAD_REQUEST,
+    HTTP_MULTIPLE_CHOICES,
+    HTTP_OK,
+)
+
+
+# Exceções personalizadas para tratamento de erros no processamento de conteúdo
+class ContentNotJSONError(ValueError):
+    """Raised when content cannot be parsed as JSON."""
+
+    def __init__(self, error: Exception) -> None:
+        super().__init__(f"Content is not valid JSON: {error}")
+
+
+class ContentNotUTF8Error(ValueError):
+    """Raised when content cannot be decoded as UTF-8."""
+
+    def __init__(self, error: Exception) -> None:
+        super().__init__(f"Content is not valid JSON or UTF-8: {error}")
+
+
+class UnsupportedContentTypeError(ValueError):
+    """Raised when content type is not supported for conversion."""
+
+    def __init__(self, content_type: type) -> None:
+        super().__init__(f"Cannot convert content of type {content_type} to dict")
 
 
 # Exportar PydanticBaseModel como BaseModel para compatibilidade com os testes
@@ -27,7 +55,7 @@ class BaseModel(PydanticBaseModel):
         """
         # Try exact match first
         if field_name in self.__dict__:
-            return self.__dict__[field_name]
+            self.__dict__[field_name]
 
         # Try case-insensitive match
         field_name_lower = field_name.lower()
@@ -107,9 +135,9 @@ class Error(ConfigurableBase):
 
     type: str = "error"
     title: str = "Error"
-    status: int = apix.HTTP_BAD_REQUEST
+    status: int = HTTP_BAD_REQUEST
     detail: str = ""
-    errors: list[ErrorDetail] = Field(default_factory=list)
+    errors: list[ErrorDetail] = Field(default_factory=list[Any])
 
     def add_error(
         self,
@@ -122,7 +150,7 @@ class Error(ConfigurableBase):
         self.errors.append(error_detail)
 
 
-class GenericResponse(Generic[T], ConfigurableBase):
+class GenericResponse(ConfigurableBase, Generic[T]):
     """Generic API response model that can hold any data type."""
 
     success: bool = True
@@ -130,7 +158,7 @@ class GenericResponse(Generic[T], ConfigurableBase):
     error: Optional[Error] = None
     meta: Metadata = Field(default_factory=Metadata)
 
-    def __init__(self, **data: Any):
+    def __init__(self, **data: Any) -> None:
         """Initialize the response with the provided data."""
         super().__init__(**data)
         self._set_defaults()
@@ -265,10 +293,10 @@ class AuthResponse(ConfigurableBase):
 class ApiResponse(GenericResponse[dict[str, Any]]):
     """API response model with status code and headers."""
 
-    status_code: int = apix.HTTP_OK
-    headers: dict[str, str] = Field(default_factory=dict)
+    status_code: int = HTTP_OK
+    headers: dict[str, str] = Field(default_factory=dict[str, Any])
 
-    def __init__(self, **data: Any):
+    def __init__(self, **data: Any) -> None:
         """Initialize the response with the provided data."""
         # Convert string error to Error object
         if "error" in data and isinstance(data["error"], str):
@@ -279,113 +307,114 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
     def create_success(
         cls,
         data: Any,
-        status_code: int = apix.HTTP_OK,
+        status_code: int = HTTP_OK,
         meta: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
     ) -> "ApiResponse":
         """Create a success response.
 
         Args:
-            data: Response data
-            status_code: HTTP status code
-            meta: Response metadata
-            headers: Response headers
+            data: The data to include in the response
+            status_code: HTTP status code (default: 200)
+            meta: Optional metadata for the response
+            headers: Optional response headers
 
         Returns:
-            A successful API response
+            A successful API response with the provided data
         """
-        response = cast(ApiResponse, cls.from_data(data, meta))
+        if not meta:
+            meta = {}
+
+        # Set count if data is a list
+        if isinstance(data, list[Any]) and "count" not in meta:
+            meta["count"] = len(data)
+
+        response = cls.from_data(data, meta)
         response.status_code = status_code
-        if headers:
-            response.headers = headers
+        response.headers = headers or {}
         return response
 
     @classmethod
     def create_error(
         cls,
         error: Union[str, Error],
-        status_code: int = apix.HTTP_BAD_REQUEST,
+        status_code: int = HTTP_BAD_REQUEST,
         error_code: Optional[str] = None,
         details: Optional[dict[str, Any]] = None,
         headers: Optional[dict[str, str]] = None,
-    ) -> "ApiResponse":  # type: ignore[return]
+    ) -> "ApiResponse":
         """Create an error response.
 
         Args:
             error: Error message or Error object
-            status_code: HTTP status code
+            status_code: HTTP status code (default: 400)
             error_code: Application-specific error code
             details: Additional error details
-            headers: Response headers
+            headers: Optional response headers
 
         Returns:
-            An error API response
+            An error API response with the provided information
         """
-        # Create error object from string or use provided Error object
-        if isinstance(error, str):
-            error_obj = Error(
-                detail=error,
-                status=status_code,
-            )
-            if error_code:
-                error_obj.add_error(error, error_code)
-            if details and error_obj.errors:
-                error_obj.errors[0].details = details
-        else:
-            error_obj = error
-
-        # Create and return the response
-        return cls(
-            data=None,
-            meta=Metadata(),
-            success=False,
-            error=error_obj,
-            status_code=status_code,
-            headers=headers or {},
+        response = cast(
+            ApiResponse,
+            cls.from_error(error, status_code, error_code, details),
         )
+        response.status_code = status_code
+        response.headers = headers or {}
+
+        # Set error status to match response status code if not already set
+        if response.error and response.error.status != status_code:
+            response.error.status = status_code
+
+        return response
 
     def is_success(self) -> bool:
         """Check if the response is successful.
 
+        A successful response has:
+        - success flag set to True
+        - status code in the 2xx range (200-299)
+
         Returns:
             True if the response is successful, False otherwise
         """
-        return (
-            self.success
-            and apix.HTTP_OK <= self.status_code < apix.HTTP_MULTIPLE_CHOICES
-        )
+        return self.success and HTTP_OK <= self.status_code < HTTP_MULTIPLE_CHOICES
 
     def __bool__(self) -> bool:
-        """Boolean representation of the response.
+        """
+        Convert to boolean.
+
+        A response is considered "truthy" if it is successful.
 
         Returns:
             True if the response is successful, False otherwise
         """
         return self.is_success()
 
-    def to_dict(self) -> dict[str, Any]:  # type: ignore[no-any-return]
+    def to_dict(self) -> dict[str, Any]:
         """Convert the response to a dictionary.
 
         Returns:
             Dictionary representation of the response
         """
-        # Create error dictionary if error exists
-        error_dict: Optional[dict[str, Any]] = None
-        if self.error:
-            error_dict = self.error.model_dump()
-
-        # Create meta dictionary
-        meta_dict: dict[str, Any] = {}
-        if self.meta:
-            meta_dict = self.meta.model_dump()
-
-        # Create the result dictionary with proper typing
-        result: dict[str, Any] = {
-            "data": self.data,
-            "meta": meta_dict,
-            "success": bool(self.success),
-            "error": error_dict,
+        result = {
+            "success": self.success,
+            "meta": self.meta.model_dump() if self.meta else {},
         }
+
+        # Add data or error based on response type
+        if self.success and self.data is not None:
+            if isinstance(self.data, dict[str, Any]):
+                result["data"] = self.data
+            elif hasattr(self.data, "to_dict"):
+                result["data"] = self.data.to_dict()
+            elif hasattr(self.data, "model_dump"):
+                result["data"] = self.data.model_dump()
+            else:
+                result["data"] = self.data
+        elif self.error:
+            result["error"] = self.error.model_dump()
+
         return result
 
     def to_json(self) -> str:
@@ -400,9 +429,7 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
 
 
 class QueueMessage:
-    """
-    Message queue message.
-    """
+    """Queue message model for message queue operations."""
 
     def __init__(
         self,
@@ -411,51 +438,69 @@ class QueueMessage:
         message_id: Optional[str] = None,
         timestamp: Optional[float] = None,
         headers: Optional[dict[str, str]] = None,
-    ):
-        """
-        Initialize QueueMessage.
+    ) -> None:
+        """Initialize the queue message.
 
         Args:
             content: Message content
-            topic: Topic the message was published to
-            message_id: Message ID
-            timestamp: Message timestamp
+            topic: Message topic or queue name
+            message_id: Unique message identifier
+            timestamp: Message timestamp (default: current time)
             headers: Message headers
         """
         self.content = content
         self.topic = topic
         self.message_id = message_id
-        self.timestamp = timestamp
+        self.timestamp = timestamp or self._get_timestamp()
         self.headers = headers or {}
 
-    def get_content_as_dict(self) -> dict[str, Any]:  # type: ignore[no-any-return]
-        """
-        Get message content as a dictionary.
+    def _get_timestamp(self) -> float:
+        """Get current timestamp in seconds since epoch.
 
         Returns:
-            Message content as dictionary
+            Current timestamp
+        """
+        import time
+
+        return time.time()
+
+    def get_content_as_dict(self) -> dict[str, Any]:
+        """Get message content as a dictionary.
+
+        Returns:
+            Content as dictionary
 
         Raises:
-            TypeError: If content cannot be converted to a dictionary
+            ContentNotJSONError: If content cannot be parsed as JSON
+            ContentNotUTF8Error: If content cannot be decoded as UTF-8
+            UnsupportedContentTypeError: If content type is not supported
         """
         import json
 
-        if isinstance(self.content, dict):
+        if isinstance(self.content, dict[str, Any]):
             return self.content
+
         if isinstance(self.content, str):
             try:
                 return json.loads(self.content)
-            except json.JSONDecodeError as err:
-                raise TypeError(apix.INVALID_JSON_ERROR.format(err)) from err
+            except json.JSONDecodeError as e:
+                raise ContentNotJSONError(e) from e
+
         if isinstance(self.content, bytes):
             try:
                 return json.loads(self.content.decode("utf-8"))
-            except (json.JSONDecodeError, UnicodeDecodeError) as err:
-                raise TypeError(apix.INVALID_JSON_UTF8_ERROR.format(err)) from err
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                raise ContentNotUTF8Error(e) from e
 
-        # If we get here, the content type is not supported
-        raise TypeError(apix.INVALID_TYPE_ERROR.format(type(self.content)))
+        raise UnsupportedContentTypeError(type(self.content))
 
     def __str__(self) -> str:
         """Return string representation of the message."""
-        return f"QueueMessage(topic={self.topic}, id={self.message_id})"
+        if isinstance(self.content, dict[str, Any]):
+            content_str = str(self.content)
+        elif isinstance(self.content, bytes):
+            content_str = f"bytes[{len(self.content)}]"
+        else:
+            content_str = str(self.content)
+
+        return f"QueueMessage(topic={self.topic}, id={self.message_id}, content={content_str})"

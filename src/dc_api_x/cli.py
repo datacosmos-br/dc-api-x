@@ -13,7 +13,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Any, Optional
 
 import doctyper
 import typer
@@ -63,20 +63,26 @@ class State:
 state = State()
 
 
+@app.command("version")
+def version_command() -> None:
+    """Show the application version."""
+    typer.echo(f"API X CLI version: {apix.__version__}")
+
+
 @app.callback()
 def app_callback(
     *,  # Make all arguments keyword-only to fix FBT002
     version: Annotated[
         bool,
         doctyper.Option(
-            param_decls=["--version"],
+            "--version",
             help="Show version and exit",
             is_flag=True,
         ),
     ] = False,
     debug: Annotated[
         bool,
-        doctyper.Option(param_decls=["--debug/--no-debug"], help="Enable debug output"),
+        doctyper.Option("--debug/--no-debug", help="Enable debug output"),
     ] = False,
 ) -> None:
     """Command-line interface for API X.
@@ -114,9 +120,7 @@ def config_list() -> None:
     if not profiles:
         console.print("[yellow]No configuration profiles found.[/yellow]")
         console.print("Create .env.{profile} files to define profiles.")
-        return
-
-    console.print("[bold]Available configuration profiles:[/bold]")
+        console.print("[bold]Available configuration profiles:[/bold]")
     for profile in profiles:
         console.print(f"  • [green]{profile}[/green]")
 
@@ -141,8 +145,9 @@ def config_show(
     cfg = apix.Config.from_profile(profile) if profile else apix.Config()
 
     # Convert to dictionary (excluding sensitive fields)
-    config_dict = cfg.to_dict()
-    if "password" in config_dict:
+    config_dict: dict[str, Any] = {}
+    config_dict[str, Any] = cfg.to_dict()
+    if "password" in config_dict[str, Any]:
         config_dict["password"] = "********"  # noqa: S105, B105 - placeholder password
 
     # Pretty print configuration
@@ -194,7 +199,7 @@ class RequestOptions:
     output_format: str = "json"
     output_file: Optional[Path] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.params is None:
             self.params = []
 
@@ -208,14 +213,16 @@ def request_app_callback(
     param: Annotated[
         list[str],
         doctyper.Option(
-            param_decls=["--param", "-p"],
+            "--param",
+            "-p",
             help="Query parameters (name=value)",
         ),
     ] = None,  # Use None instead of [] to avoid mutable default
     _output_format: Annotated[  # Prefix with underscore to indicate intentionally unused
         str,
         doctyper.Option(
-            param_decls=["--format", "-f"],
+            "--format",
+            "-f",
             help="Output format",
             show_default=True,
             case_sensitive=False,
@@ -223,7 +230,7 @@ def request_app_callback(
     ] = "json",
     _output: Annotated[  # Prefix with underscore to indicate intentionally unused
         Optional[Path],
-        doctyper.Option(param_decls=["--output", "-o"], help="Output file"),
+        doctyper.Option("--output", "-o", help="Output file"),
     ] = None,
 ) -> None:
     """Configure common options for API requests.
@@ -297,9 +304,12 @@ def request_post(
     endpoint: Annotated[str, doctyper.Argument(help="API endpoint")],
     data: Annotated[
         Optional[str],
-        doctyper.Option(param_decls=["--data", "-d"], help="JSON data string"),
+        doctyper.Option("--data", "-d", help="JSON data string"),
     ] = None,
-    data_file: Annotated[Optional[Path], doctyper.Option(help="JSON data file")] = None,
+    data_file: Annotated[
+        Optional[Path],
+        doctyper.Option(help="JSON data file"),
+    ] = None,
 ) -> None:
     """Make POST request to API endpoint.
 
@@ -415,7 +425,7 @@ def schema_extract(
     *,  # Make remaining arguments keyword-only to fix FBT002
     extract_all: Annotated[
         bool,
-        doctyper.Option(param_decls=["--all"], help="Extract all entity schemas"),
+        doctyper.Option("--all", help="Extract all entity schemas"),
     ] = False,
 ) -> None:
     """Extract schema for an entity.
@@ -524,17 +534,18 @@ def schema_show(
     ),
     output: Annotated[
         Optional[Path],
-        doctyper.Option(param_decls=["--output", "-o"], help="Output file"),
+        doctyper.Option("--output", "-o", help="Output file"),
     ] = None,
 ) -> None:
     """Show schema for an entity.
 
-    Displays the JSON schema for a specific entity.
+    Displays the JSON schema for a specific entity, either from the cache
+    or by fetching it from the API if not found in the cache.
 
     Args:
         entity: Entity name to show schema for
         cache_dir: Directory containing cached schemas
-        output: File to save output to
+        output: File to save schema to
     """
     # Check cache directory
     cache_path = Path(cache_dir)
@@ -580,7 +591,7 @@ class EntityQueryOptions:
     output_format: str = "json"
     output_file: Optional[Path] = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.filters is None:
             self.filters = []
 
@@ -598,7 +609,7 @@ class EntityCommandOptions:
     offset: Optional[int] = None
     order: str = "asc"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.filter_params is None:
             self.filter_params = []
 
@@ -612,7 +623,8 @@ def entity_app_callback(  # noqa: PLR0913
     _output_format: Annotated[  # Prefix with underscore to indicate intentionally unused
         str,
         doctyper.Option(
-            param_decls=["--format", "-f"],
+            "--format",
+            "-f",
             help="Output format",
             show_default=True,
             case_sensitive=False,
@@ -620,12 +632,13 @@ def entity_app_callback(  # noqa: PLR0913
     ] = "json",
     _output: Annotated[  # Prefix with underscore to indicate intentionally unused
         Optional[Path],
-        doctyper.Option(param_decls=["--output", "-o"], help="Output file"),
+        doctyper.Option("--output", "-o", help="Output file"),
     ] = None,
     filter_params: Annotated[
         list[str],
         doctyper.Option(
-            param_decls=["--filter", "-f"],
+            "--filter",
+            "-f",
             help="Filter conditions (name=value)",
         ),
     ] = None,  # Use None instead of [] to avoid mutable default

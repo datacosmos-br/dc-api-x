@@ -17,6 +17,8 @@ class WebSocketAdapter(ProtocolAdapter):
     @abc.abstractmethod
     def connect_websocket(self, url: str, **kwargs: Any) -> None:
         """
+        return None  # Implement this method
+
         Connect to a WebSocket endpoint.
 
         Args:
@@ -27,6 +29,8 @@ class WebSocketAdapter(ProtocolAdapter):
     @abc.abstractmethod
     def disconnect_websocket(self) -> None:
         """
+        return None  # Implement this method
+
         Disconnect from the WebSocket endpoint.
         """
 
@@ -36,7 +40,7 @@ class WebSocketAdapter(ProtocolAdapter):
         Send data through the WebSocket connection.
 
         Args:
-            data: Data to send (string, bytes, or JSON-serializable dict)
+            data: Data to send (string, bytes, or JSON-serializable dict[str, Any])
         """
 
     @abc.abstractmethod

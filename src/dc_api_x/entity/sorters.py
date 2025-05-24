@@ -27,7 +27,7 @@ class EntitySorter:
         self,
         field: str,
         direction: SortDirection = SortDirection.ASC,
-    ):
+    ) -> None:
         """
         Initialize a sort expression.
 
@@ -59,7 +59,7 @@ class MultiFieldSorter:
     sort directions.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize an empty sorter collection."""
         self.sorters: list[EntitySorter] = []
 

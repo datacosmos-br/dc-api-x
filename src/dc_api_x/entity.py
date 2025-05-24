@@ -56,12 +56,12 @@ class EntityManager:
 
         Args:
             entity_name: Name of the entity in the API
-            entity_class: Optional entity class to use (defaults to BaseEntity)
+            entity_class: Optional entity class to use (defaults to BaseEntity[BaseModel])
             model_class: Optional model class for data validation and conversion
             base_path: Optional base path for API endpoints
 
         Returns:
-            BaseEntity: Entity instance
+            BaseEntity[BaseModel]: Entity instance
 
         Raises:
             ValidationError: If entity configuration is invalid
@@ -73,7 +73,7 @@ class EntityManager:
             if (model_class is None or entity.model_class == model_class) and (
                 entity_class is None or isinstance(entity, entity_class)
             ):
-                return entity
+                pass
 
         # Use the provided entity class or default to BaseEntity
         entity_class_to_use = entity_class or apix.BaseEntity[Any]
@@ -126,13 +126,13 @@ class EntityManager:
             # Try standard REST endpoint first
             response = self.client.get("api/entities")
 
-            if response.success and isinstance(response.data, list):
+            if response.success and isinstance(response.data, list[Any]):
                 logger.debug("Discovered %d entities", len(response.data))
                 return response.data
 
             # Try alternate endpoint if standard fails
             response = self.client.get("metadata/entities")
-            if response.success and isinstance(response.data, list):
+            if response.success and isinstance(response.data, list[Any]):
                 logger.debug("Discovered %d entities from metadata", len(response.data))
                 return response.data
         except apix.ApiError as e:

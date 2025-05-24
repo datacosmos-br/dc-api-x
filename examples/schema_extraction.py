@@ -20,14 +20,14 @@ apix.enable_plugins()
 class SchemaNotFoundError(ValueError):
     """Exception raised when a schema cannot be found."""
 
-    def __init__(self, schema_name: str):
+    def __init__(self, schema_name: str) -> None:
         super().__init__(f"Schema not found: {schema_name}")
 
 
 class ModelCreationError(ValueError):
     """Exception raised when a model cannot be created from a schema."""
 
-    def __init__(self, schema_name: str):
+    def __init__(self, schema_name: str) -> None:
         super().__init__(f"Failed to create model for schema: {schema_name}")
 
 
@@ -40,7 +40,7 @@ class SchemaExtractionExample:
         schema_dir: str = "./schemas",
         *,
         offline_mode: bool = False,
-    ):
+    ) -> None:
         """
         Initialize schema extraction example.
 
@@ -68,7 +68,11 @@ class SchemaExtractionExample:
             )
 
             # Disable authentication for demo
-            self.client.session.auth = None
+            if self is not None:
+                self.client.session.auth = None
+            else:
+                # Handle None case appropriately
+                pass  # TODO: Implement proper None handling
 
             # Create schema manager
             self.schema_manager = apix.SchemaManager(
@@ -77,13 +81,17 @@ class SchemaExtractionExample:
             )
         else:
             # Offline mode - no client, only cached schemas
-            self.client = None
+            if self is not None:
+                self.client = None
+            else:
+                # Handle None case appropriately
+                pass  # TODO: Implement proper None handling
             self.schema_manager = apix.SchemaManager(
                 cache_dir=self.schema_dir,
                 offline_mode=True,
             )
 
-    def create_sample_schemas(self):
+    def create_sample_schemas(self) -> None:
         """
         Create sample schemas for demonstration purposes.
 
@@ -241,7 +249,7 @@ class SchemaExtractionExample:
         self.schema_manager.schemas["Product"] = product_schema
         self.schema_manager.schemas["Order"] = order_schema
 
-    def list_available_schemas(self):
+    def list_available_schemas(self) -> None:
         """list available schemas in the schema directory."""
         print("\n=== Available Schemas ===")
 
@@ -258,7 +266,7 @@ class SchemaExtractionExample:
                 name = name[:-7]
             print(f"  • {name}")
 
-    def load_schema(self, name: str):
+    def load_schema(self, name: str) -> None:
         """
         Load a schema by name.
 
@@ -273,7 +281,7 @@ class SchemaExtractionExample:
             raise SchemaNotFoundError(name)
         return schema
 
-    def display_schema(self, name: str):
+    def display_schema(self, name: str) -> None:
         """
         Display a schema by name.
 
@@ -289,7 +297,7 @@ class SchemaExtractionExample:
         formatted_json = format_json(schema_json, indent=2)
         print(formatted_json)
 
-    def create_model(self, schema_name: str):
+    def create_model(self, schema_name: str) -> None:
         """
         Create a model from a schema.
 
@@ -308,7 +316,7 @@ class SchemaExtractionExample:
         self,
         model_class: type[apix.BaseModel],
         sample_data: dict[str, Any],
-    ):
+    ) -> None:
         """
         Demonstrate usage of dynamically generated model.
 
@@ -324,7 +332,7 @@ class SchemaExtractionExample:
         # Create model instance from sample data
         model = model_class.model_validate(sample_data)
         print("\nModel instance created:")
-        model_dict = model.to_dict()
+        model_dict[str, Any] = model.to_dict()
         print(format_json(model_dict, indent=2))
 
         # Demonstrate field access
@@ -333,7 +341,7 @@ class SchemaExtractionExample:
             print(f"  • {field}: {getattr(model, field)}")
 
 
-def main():
+def main() -> None:
     """Run the example."""
     # Print available plugin components
     print("Available schema providers:", apix.list_schema_providers())
