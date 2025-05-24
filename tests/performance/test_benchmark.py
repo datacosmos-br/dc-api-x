@@ -10,6 +10,11 @@ from typing import Any
 
 import pytest
 
+from tests.constants import (
+    EXPECTED_SUM_0_TO_99,
+    TEST_ITERATIONS,
+    TEST_PERFORMANCE_ROUNDS,
+)
 from tests.factories import create_mock_client_with_responses
 
 
@@ -20,7 +25,7 @@ def slow_function(iterations: int = 1000) -> int:
         result += i
         # Add some delay to simulate work
         time.sleep(0.0001)
-    result = result
+    return result
 
 
 def fast_function(iterations: int = 1000) -> int:
@@ -67,12 +72,12 @@ class TestPerformance:
                 "name": f"User {i}",
                 "email": f"user{i}@example.com",
                 "active": i % 2 == 0,
-                "score": random.randint(
+                "score": random.randint(  # noqa: S311 - Not used for security purposes, only for test data generation
                     1,
                     100,
-                ),  # noqa: S311 - Não é usado para segurança, apenas teste
+                ),
             }
-            for i in range(100)
+            for i in range(TEST_ITERATIONS)
         ]
 
     def test_compare_function_speed(self, benchmark) -> None:
@@ -80,16 +85,16 @@ class TestPerformance:
         # Test the slow function
         result_slow = benchmark.pedantic(
             slow_function,
-            args=(100,),
-            iterations=5,
-            rounds=5,
+            args=(TEST_ITERATIONS,),
+            iterations=TEST_PERFORMANCE_ROUNDS,
+            rounds=TEST_PERFORMANCE_ROUNDS,
         )
 
         # Verify correctness
-        assert result_slow == 4950  # Sum of numbers from 0 to 99
+        assert result_slow == EXPECTED_SUM_0_TO_99  # Sum of numbers from 0 to 99
 
         # Test the fast function (outside of benchmark for comparison)
-        result_fast = fast_function(100)
+        result_fast = fast_function(TEST_ITERATIONS)
         assert result_fast == result_slow  # Verify same result
 
     def test_benchmark_data_transformation(self, benchmark, sample_data) -> None:
@@ -127,7 +132,9 @@ class TestPerformance:
         client = create_mock_client_with_responses(
             {
                 ("GET", "users"): {
-                    "data": [{"id": i, "name": f"User {i}"} for i in range(100)],
+                    "data": [
+                        {"id": i, "name": f"User {i}"} for i in range(TEST_ITERATIONS)
+                    ],
                 },
             },
         )
@@ -145,6 +152,6 @@ class TestPerformance:
         result = benchmark(fetch_and_process)
 
         # Verify result
-        assert len(result) == 100
+        assert len(result) == TEST_ITERATIONS
         assert result[0]["user_id"] == 0
         assert result[0]["username"] == "user 0"

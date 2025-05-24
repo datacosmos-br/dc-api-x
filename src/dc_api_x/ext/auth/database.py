@@ -6,7 +6,7 @@ This module defines the DatabaseAuthProvider class for database authentication.
 
 from typing import Any, Optional
 
-from ...exceptions import AuthenticationError
+from ...utils.exceptions import AuthenticationError
 from .provider import AuthProvider
 
 # Error message constants

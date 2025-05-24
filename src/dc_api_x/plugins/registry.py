@@ -52,7 +52,7 @@ class PluginState:
 
     def is_loaded(self) -> bool:
         """Check if plugins have been loaded."""
-        self.plugins_loaded
+        return self.plugins_loaded
 
 
 # Plugin state manager
@@ -93,15 +93,15 @@ def load_plugins() -> list[str]:
                 pm.register(plugin)
                 loaded_plugins.append(plugin_name)
                 logger.info("Loaded plugin: %s", plugin_name)
-            except (ImportError, AttributeError) as e:
-                logger.exception("Error loading plugin %s: %s", plugin_name, e)
-            except Exception as e:
-                logger.exception("Error loading plugin %s: %s", plugin_name, e)
+            except (ImportError, AttributeError):
+                logger.exception("Error loading plugin %s", plugin_name)
+            except Exception:
+                logger.exception("Error loading plugin %s", plugin_name)
 
-    except (ImportError, ValueError) as e:
-        logger.exception("Error discovering plugins: %s", e)
-    except Exception as e:
-        logger.exception("Error discovering plugins: %s", e)
+    except (ImportError, ValueError):
+        logger.exception("Error discovering plugins")
+    except Exception:
+        logger.exception("Error discovering plugins")
 
     # Check for any pending hooks
     pm.check_pending()

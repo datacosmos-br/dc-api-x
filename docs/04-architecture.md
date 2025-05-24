@@ -1,14 +1,22 @@
 # High-Level Architecture & Class System
 
-dc-api-x is intentionally small at its **core** yet endlessly extensible through
-a well-defined class hierarchy.  
+DCApiX is intentionally small at its **core** yet endlessly extensible through
+a well-defined class hierarchy.
 This document dives deeper than the overview—clarifying **every base class,
 ABC, mix-in, and "do-not-override" rule**—so plugin authors and core
 contributors share a common model.
 
 ---
 
-## 0 ▸ TL;DR Decision Tree
+## Navigation
+
+| ⬅️ Previous | Current | Next ➡️ |
+|-------------|---------|----------|
+| [03 - Project Structure](03-project-structure.md) | **04 - Architecture** | [05 - Quickstart](05-quickstart.md) |
+
+---
+
+## 0. TL;DR Decision Tree
 
 ```text
 Need new protocol?    → subclass ProtocolAdapter  → register_adapters
@@ -17,12 +25,12 @@ Need request tweak?   → subclass RequestHook      → pass in ApiClient
 Need X-to-Y transform?→ subclass TransformProvider→ add to provider registry
 ```
 
-If you find yourself subclassing **ApiClient** directly, stop—99 % of use-cases
+If you find yourself subclassing **ApiClient** directly, stop—99% of use-cases
 fit one of the interfaces above.
 
 ---
 
-## 1 ▸ Component Diagram (v2)
+## 1. Component Diagram
 
 ```mermaid
 classDiagram
@@ -72,7 +80,7 @@ classDiagram
 
 ---
 
-## 2 ▸ Class Contracts
+## 2. Class Contracts
 
 ### 2.1 `ProtocolAdapter` (ABC)
 
@@ -105,7 +113,7 @@ Hook **ordering** is controlled by `order: int` attribute (lower → earlier).
 
 | Provider            | Responsibility                                                 |
 | ------------------- | -------------------------------------------------------------- |
-| `SchemaProvider`    | Fetch + cache OpenAPI/JSON-Schema; maps to Pydantic V2.11 models.    |
+| `SchemaProvider`    | Fetch + cache OpenAPI/JSON-Schema; maps to Pydantic models.    |
 | `DataProvider`      | Join/merge heterogeneous datasets; emits Pandas DF (optional). |
 | `TransformProvider` | Convert adapter payloads into domain DTOs / CSV / Parquet.     |
 
@@ -113,7 +121,7 @@ Providers are **pure**—no network I/O; depend only on adapters.
 
 ---
 
-## 3 ▸ Golden OOP Rules
+## 3. Golden OOP Rules
 
 1. **Favor composition**: wrap an adapter inside a hook rather than subclassing.
 2. **Stateless singletons**: Providers & Hooks should be reusable.
@@ -148,9 +156,9 @@ Providers are **pure**—no network I/O; depend only on adapters.
 
 ---
 
-## 4 ▸ Custom Implementation Examples
+## 4. Custom Implementation Examples
 
-### 4.1  Kafka Adapter (read-only)
+### 4.1 Kafka Adapter (read-only)
 
 ```python
 from dc_api_x.ext.adapters import ProtocolAdapter
@@ -175,7 +183,18 @@ class KafkaConsumerAdapter(ProtocolAdapter):
         self._c.close()
 ```
 
-### 4.2  HMAC Signing Hook
+CLI equivalent usage:
+
+```bash
+# Configure a Kafka adapter connection
+dcapix config set kafka_adapter.brokers=localhost:9092
+dcapix config set kafka_adapter.topic=my-topic
+
+# Read messages from Kafka
+dcapix request get -a kafka_adapter
+```
+
+### 4.2 HMAC Signing Hook
 
 ```python
 import hmac, hashlib, base64
@@ -194,9 +213,20 @@ class HMACSignHook(RequestHook):
 
 Register in `ApiClient(request_hooks=[HMACSignHook("s3cr3t")])`.
 
+CLI usage for hooks:
+
+```bash
+# Configure a hook in the CLI
+dcapix config set hooks.hmac.secret=s3cr3t
+dcapix config set hooks.hmac.enabled=true
+
+# Use the hook with any adapter
+dcapix request get https://api.example.com/data --hooks hmac
+```
+
 ---
 
-## 5 ▸ Adapter Factory Pattern
+## 5. Adapter Factory Pattern
 
 Large plugins often support *multiple* adapter flavours (sync vs async).
 Factory helpers keep `register_adapters` slim.
@@ -214,7 +244,7 @@ def register_adapters(reg):
 
 ---
 
-## 6 ▸ Class Lifecycle & Memory Management
+## 6. Class Lifecycle & Memory Management
 
 * **Adapters & Clients** implement `__enter__/__exit__` so `with` releases pools.
 * Plugins **must** call their adapter's `.close()` in `atexit.register` when
@@ -223,10 +253,10 @@ def register_adapters(reg):
 
 ---
 
-## 7 ▸ Advanced Type Tricks
+## 7. Advanced Type Tricks
 
 * Use **ParamSpec** and **TypeVar** for generic hooks that preserve signatures.
-* Leverage `pydantic.TypeAdapter` from Pydantic V2.11 to validate 3rd-party objects without copying.
+* Leverage `pydantic.TypeAdapter` from Pydantic to validate 3rd-party objects without copying.
 * Adapters returning *lazy* generators should annotate `-> Iterable[T]` and keep
   pagination hidden.
 * Use PEP 585 built-in generic types over their `typing` counterparts:
@@ -247,7 +277,7 @@ def process_orders_legacy(orders: List[Dict[str, any]]) -> Dict[str, int]:
 
 * Use the union operator `|` from PEP 604 for cleaner type unions:
 
-```python 
+```python
 # ✅ Preferred
 def get_order(order_id: str | int) -> dict | None:
     # ...
@@ -260,7 +290,7 @@ def get_order_legacy(order_id: Union[str, int]) -> Optional[Dict]:
 
 ---
 
-## 8 ▸ FAQ
+## 8. FAQ
 
 | Question                                                  | Answer                                                           |
 | --------------------------------------------------------- | ---------------------------------------------------------------- |
@@ -274,7 +304,7 @@ def get_order_legacy(order_id: Union[str, int]) -> Optional[Dict]:
 > All new base classes or changes to constructor signatures require an **ADR**
 > and at least one *major-version* bump consideration.
 
-## Code Complexity Guidelines
+## 9. Code Complexity Guidelines
 
 To maintain high code quality and adhere to wemake-python-styleguide standards, follow these guidelines for managing code complexity:
 
@@ -312,10 +342,10 @@ When complexity exceeds these limits, refactor using these strategies:
 def process_order(order):
     if not order:
         return None
-        
+
     if not order.items:
         return {"error": "No items in order"}
-        
+
     total = 0
     for item in order.items:
         if item.type == "product":
@@ -328,14 +358,14 @@ def process_order(order):
             if item.extras:
                 for extra in item.extras:
                     total += extra.price
-    
+
     tax = total * 0.2
     shipping = 0
     if total < 50:
         shipping = 10
     elif total < 100:
         shipping = 5
-        
+
     return {
         "order_id": order.id,
         "subtotal": total,
@@ -377,14 +407,14 @@ def calculate_shipping(subtotal):
 def process_order(order):
     if not order:
         return None
-        
+
     if not order.items:
         return {"error": "No items in order"}
-    
+
     subtotal = calculate_subtotal(order.items)
     tax = subtotal * 0.2
     shipping = calculate_shipping(subtotal)
-    
+
     return {
         "order_id": order.id,
         "subtotal": subtotal,
@@ -427,3 +457,15 @@ When a module grows too large:
 ```
 
 These guidelines help maintain readable, maintainable code that passes strict linting checks.
+
+---
+
+## Related Documentation
+
+* [01 - Overview](01-overview.md) - Introduction to the DCApiX integration ecosystem
+* [02 - Installation](02-installation.md) - Installation instructions for DCApiX
+* [03 - Project Structure](03-project-structure.md) - Understanding the project layout
+* [05 - Quickstart](05-quickstart.md) - Getting started with your first integration
+* [12 - Development: Plugin System](12-development-plugin-system.md) - Plugin development guide
+* [20 - Tech: Pydantic](20-tech-pydantic.md) - Using Pydantic with DCApiX
+* [24 - Tech: Pluggy](24-tech-pluggy.md) - Leveraging the pluggy system

@@ -1,8 +1,8 @@
 """
-Adapter hook specifications for the DC-API-X plugin system.
+Adapter hook specifications for the DCApiX plugin system.
 
 This module defines the specifications for adapter-related hooks that plugins can
-implement to extend the functionality of DC-API-X.
+implement to extend the functionality of DCApiX.
 """
 
 from .protocol import TRegistry, hookspec
@@ -10,7 +10,7 @@ from .protocol import TRegistry, hookspec
 
 class AdapterHookSpecs:
     """
-    Hook specifications for adapters in the DC-API-X plugin system.
+    Hook specifications for adapters in the DCApiX plugin system.
 
     This class defines the specifications for hooks that plugins can implement
     to register custom adapters and related components.

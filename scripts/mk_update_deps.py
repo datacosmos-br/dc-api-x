@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Update dependencies script for DC-API-X project.
+Update dependencies script for DCApiX project.
 
 This script reads the pyproject.toml file and generates Poetry commands
 to update dependencies based on the configured groups.
@@ -15,12 +15,13 @@ License: MIT
 
 import subprocess
 import sys
-import tomli
 from pathlib import Path
-from typing import Dict, List, Set, Any
+from typing import Any
+
+import tomli
 
 
-def read_pyproject() -> Dict[str, Any]:
+def read_pyproject() -> dict[str, Any]:
     """Read and parse pyproject.toml file."""
     try:
         pyproject_path = Path("pyproject.toml")
@@ -30,7 +31,7 @@ def read_pyproject() -> Dict[str, Any]:
         sys.exit(1)
 
 
-def get_dependencies_by_group(pyproject: Dict[str, Any]) -> Dict[str, Set[str]]:
+def get_dependencies_by_group(pyproject: dict[str, Any]) -> dict[str, set[str]]:
     """Extract dependencies by group from pyproject data."""
     dependencies_by_group = {}
 
@@ -42,7 +43,8 @@ def get_dependencies_by_group(pyproject: Dict[str, Any]) -> Dict[str, Set[str]]:
             if dep != "python"
             and not isinstance(pyproject["tool"]["poetry"]["dependencies"][dep], dict)
             or not pyproject["tool"]["poetry"]["dependencies"][dep].get(
-                "optional", False
+                "optional",
+                False,
             )
         )
 
@@ -68,7 +70,7 @@ def update_dependencies() -> None:
     for group, deps in dependencies_by_group.items():
         if deps:
             if group == "main":
-                print(f"→ Updating main dependencies")
+                print("→ Updating main dependencies")
                 cmd = ["poetry", "add"]
             else:
                 print(f"→ Updating {group} dependencies")

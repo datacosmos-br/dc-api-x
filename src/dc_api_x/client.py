@@ -1,38 +1,55 @@
 """
-API client implementation.
+API client for DCApiX.
 
-This module provides client implementations for various protocols to
-interact with different types of services.
+This module provides the main ApiClient class that allows interacting with APIs.
 """
 
-from __future__ import annotations
-
-import logging
-from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Optional, TypeVar, Union
+from typing import Any, TypeVar
 
 import requests
+from requests.exceptions import ConnectionError as RequestsConnectionError
 
-import dc_api_x as apix
-
-from . import exceptions
 from .config import Config
+from .ext.adapters import (
+    HttpAdapter,
+)
+from .ext.hooks import (
+    ApiResponseHook,
+    ErrorHook,
+    RequestHook,
+    ResponseHook,
+)
+from .models import ApiResponse, GenericResponse
+from .utils import (
+    exceptions,
+    logging,
+)
+from .utils.constants import (
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RETRY_BACKOFF,
+    DEFAULT_TIMEOUT,
+    HTTP_BAD_REQUEST,
+    HTTP_INTERNAL_SERVER_ERROR,
+    HTTP_NOT_FOUND,
+    HTTP_UNAUTHORIZED,
+    MISSING_PASSWORD_ERROR,
+    MISSING_URL_ERROR,
+    MISSING_USERNAME_ERROR,
+)
+from .utils.definitions import (
+    Headers,
+    JsonObject,
+)
+from .utils.exceptions import ApiError, ConfigurationError
 
-# Set up logging
-logger = logging.getLogger(__name__)
+# Create logger using our unified logging module
+logger = logging.get_logger(__name__)
 
-# Type aliases for hooks
-RequestHook = Callable[[str, str, dict[str, Any]], dict[str, Any]]
-ResponseHook = Callable[[str, str, requests.Response], requests.Response]
-ApiResponseHook = Callable[[requests.Response, "apix.ApiResponse"], "apix.ApiResponse"]
-ErrorHook = Callable[
-    [str, str, Exception, dict[str, Any]],
-    Optional["apix.ApiResponse"],
-]
+# Define TypeVar for plugin type hints
+P = TypeVar("P", bound="ApiPlugin")
 
-# Type variables for plugins
-P = TypeVar("P", bound="apix.ApiPlugin")
+# Use import alias for self-reference to avoid circular imports
 
 
 @dataclass
@@ -44,46 +61,137 @@ class ClientConfig:
     """
 
     # Connection settings
-    url: Optional[str] = None
-    username: Optional[str] = None
-    password: Optional[str] = None
-    timeout: int = apix.DEFAULT_TIMEOUT
+    url: str | None = None
+    username: str | None = None
+    password: str | None = None
+    timeout: int = DEFAULT_TIMEOUT
     verify_ssl: bool = True
 
     # Retry settings
-    max_retries: int = apix.DEFAULT_MAX_RETRIES
-    retry_backoff: float = apix.DEFAULT_RETRY_BACKOFF
+    max_retries: int = DEFAULT_MAX_RETRIES
+    retry_backoff: float = DEFAULT_RETRY_BACKOFF
 
     # Debug mode
     debug: bool = False
 
     # Configuration object
-
-
-if apix is not None:
-    config: Optional[apix.Config] = None
-else:
-    # Handle None case appropriately
-    # TODO: Implement proper None handling
+    config: Config | None = None
 
     # Extensions
-    plugins: list[type[apix.ApiPlugin]] = field(default_factory=list[Any])
-if apix is not None:
-    adapter: Optional[apix.ProtocolAdapter] = None
-else:
-    # Handle None case appropriately
-    pass  # TODO: Implement proper None handling
-if apix is not None:
-    auth_provider: Optional[apix.AuthProvider] = None
-else:
-    # Handle None case appropriately
-    # TODO: Implement proper None handling
+    plugins: list[type["ApiPlugin"]] = field(default_factory=list)
+    adapter: Any | None = None  # Type ProtocolAdapter
+    auth_provider: Any | None = None  # Type AuthProvider
 
     # Hooks
-    request_hooks: list[RequestHook] = field(default_factory=list[Any])
-    response_hooks: list[ResponseHook] = field(default_factory=list[Any])
-    api_response_hooks: list[ApiResponseHook] = field(default_factory=list[Any])
-    error_hooks: list[ErrorHook] = field(default_factory=list[Any])
+    request_hooks: list[RequestHook] = field(default_factory=list)
+    response_hooks: list[ResponseHook] = field(default_factory=list)
+    api_response_hooks: list[ApiResponseHook] = field(default_factory=list)
+    error_hooks: list[ErrorHook] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(
+        cls,
+        config_dict: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> "ClientConfig":
+        """Create a ClientConfig from a dictionary and/or keyword arguments.
+
+        Args:
+            config_dict: Dictionary containing configuration parameters
+            **kwargs: Additional parameters that override config_dict values
+
+        Returns:
+            ClientConfig object
+        """
+        # Start with empty dict if None provided
+        config = config_dict or {}
+
+        # Override with kwargs
+        config.update(kwargs)
+
+        # Extract basic parameters
+        url = config.get("url")
+        username = config.get("username")
+        password = config.get("password")
+        timeout = config.get("timeout", DEFAULT_TIMEOUT)
+        verify_ssl = config.get("verify_ssl", True)
+        max_retries = config.get("max_retries", DEFAULT_MAX_RETRIES)
+        retry_backoff = config.get("retry_backoff", DEFAULT_RETRY_BACKOFF)
+        debug = config.get("debug", False)
+        cfg = config.get("config")
+
+        # Extract extension parameters
+        plugins = config.get("plugins", [])
+        adapter = config.get("adapter")
+        auth_provider = config.get("auth_provider")
+
+        # Extract hook parameters
+        request_hooks = config.get("request_hooks", [])
+        response_hooks = config.get("response_hooks", [])
+        api_response_hooks = config.get("api_response_hooks", [])
+        error_hooks = config.get("error_hooks", [])
+
+        return cls(
+            url=url,
+            username=username,
+            password=password,
+            timeout=timeout,
+            verify_ssl=verify_ssl,
+            max_retries=max_retries,
+            retry_backoff=retry_backoff,
+            debug=debug,
+            config=cfg,
+            plugins=plugins,
+            adapter=adapter,
+            auth_provider=auth_provider,
+            request_hooks=request_hooks,
+            response_hooks=response_hooks,
+            api_response_hooks=api_response_hooks,
+            error_hooks=error_hooks,
+        )
+
+
+@dataclass
+class InitParams:
+    """Parameters for ApiClient initialization.
+
+    This class helps reduce the number of parameters in the ApiClient constructor.
+    """
+
+    url: str | None = None
+    username: str | None = None
+    password: str | None = None
+    timeout: int = DEFAULT_TIMEOUT
+    verify_ssl: bool = True
+    max_retries: int = DEFAULT_MAX_RETRIES
+    retry_backoff: float = DEFAULT_RETRY_BACKOFF
+    debug: bool = False
+
+    def apply_to_config(self, config: ClientConfig) -> None:
+        """Apply these parameters to a ClientConfig object.
+
+        Args:
+            config: The configuration to update
+        """
+        # Apply non-None values
+        if self.url is not None:
+            config.url = self.url
+        if self.username is not None:
+            config.username = self.username
+        if self.password is not None:
+            config.password = self.password
+
+        # Apply non-default values
+        if self.timeout != DEFAULT_TIMEOUT:
+            config.timeout = self.timeout
+        if not self.verify_ssl:
+            config.verify_ssl = self.verify_ssl
+        if self.max_retries != DEFAULT_MAX_RETRIES:
+            config.max_retries = self.max_retries
+        if self.retry_backoff != DEFAULT_RETRY_BACKOFF:
+            config.retry_backoff = self.retry_backoff
+        if self.debug:
+            config.debug = self.debug
 
 
 @dataclass
@@ -95,24 +203,24 @@ class RequestConfig:
     """
 
     # Request data
-    params: Optional[dict[str, Any]] = None
-    data: Optional[dict[str, Any]] = None
-    json_data: Optional[dict[str, Any]] = None
-    headers: Optional[dict[str, str]] = None
-    files: Optional[dict[str, Any]] = None
+    params: dict[str, Any] | None = None
+    data: dict[str, Any] | None = None
+    json_data: JsonObject | None = None
+    headers: Headers | None = None
+    files: dict[str, Any] | None = None
 
     # Response handling
     raw_response: bool = False
 
     # Extra keyword arguments
-    extra_kwargs: dict[str, Any] = field(default_factory=dict[str, Any])
+    extra_kwargs: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def create(
         cls,
-        config_dict: Optional[dict[str, Any]] = None,
+        config_dict: dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> RequestConfig:
+    ) -> "RequestConfig":
         """Create a RequestConfig instance from a dictionary and/or keyword arguments.
 
         This factory method helps reduce the parameter count in methods that
@@ -164,6 +272,11 @@ class AdapterTypeError(TypeError):
     DATABASE_REQUIRED = "Query execution requires a DatabaseAdapter"
     DIRECTORY_REQUIRED = "Directory search requires a DirectoryAdapter"
     MESSAGE_QUEUE_REQUIRED = "Message publishing requires a MessageQueueAdapter"
+
+
+# Forward declare ApiClient for type annotations
+class ApiClient:
+    """API client for making HTTP requests."""
 
 
 class ApiPlugin:
@@ -231,8 +344,8 @@ class ApiPlugin:
     def before_response_processed(
         self,
         response: requests.Response,
-        api_response: apix.ApiResponse,
-    ) -> apix.ApiResponse:
+        api_response: ApiResponse,
+    ) -> ApiResponse:
         """
         Process ApiResponse before returning to caller.
 
@@ -251,7 +364,7 @@ class ApiPlugin:
         url: str,
         error: Exception,
         kwargs: dict[str, Any],
-    ) -> Optional[apix.ApiResponse]:
+    ) -> ApiResponse | None:
         """
         Handle request errors.
 
@@ -267,6 +380,7 @@ class ApiPlugin:
         return None
 
 
+# Redefine the ApiClient class with the actual implementation
 class ApiClient:
     """
     API client for making HTTP requests.
@@ -277,107 +391,117 @@ class ApiClient:
 
     def __init__(
         self,
-        client_config: Optional[ClientConfig] = None,
-        url: Optional[str] = None,
-        username: Optional[str] = None,
-        password: Optional[str] = None,
-        timeout: int = apix.DEFAULT_TIMEOUT,
-        verify_ssl: bool = True,
-        max_retries: int = apix.DEFAULT_MAX_RETRIES,
-        retry_backoff: float = apix.DEFAULT_RETRY_BACKOFF,
-        debug: bool = False,
+        client_config: ClientConfig | None = None,
+        *,  # Make remaining parameters keyword-only
+        params: InitParams | None = None,
+        url: str | None = None,
+        username: str | None = None,
+        password: str | None = None,
     ) -> None:
         """
         Initialize the API client.
 
         Args:
             client_config: Configuration for the client
-            url: API base URL (overrides client_config)
-            username: API username (overrides client_config)
-            password: API password (overrides client_config)
-            timeout: Request timeout in seconds (overrides client_config)
-            verify_ssl: Whether to verify SSL certificates (overrides client_config)
-            max_retries: Maximum number of retries (overrides client_config)
-            retry_backoff: Backoff factor for retries (overrides client_config)
-            debug: Enable debug logging (overrides client_config)
+            params: Initialization parameters (alternative to individual parameters)
+            url: API base URL (overrides client_config and params)
+            username: API username (overrides client_config and params)
+            password: API password (overrides client_config and params)
         """
-        # If direct parameters are provided, create a ClientConfig
-        if client_config is None:
-            client_config = ClientConfig(
-                url=url,
-                username=username,
-                password=password,
-                timeout=timeout,
-                verify_ssl=verify_ssl,
-                max_retries=max_retries,
-                retry_backoff=retry_backoff,
-                debug=debug,
-            )
-        # If direct parameters are provided, override client_config
-        else:
-            if url is not None:
-                client_config.url = url
-            if username is not None:
-                client_config.username = username
-            if password is not None:
-                client_config.password = password
-            if timeout != apix.DEFAULT_TIMEOUT:
-                client_config.timeout = timeout
-            if not verify_ssl:
-                client_config.verify_ssl = verify_ssl
-            if max_retries != apix.DEFAULT_MAX_RETRIES:
-                client_config.max_retries = max_retries
-            if retry_backoff != apix.DEFAULT_RETRY_BACKOFF:
-                client_config.retry_backoff = retry_backoff
-            if debug:
-                client_config.debug = debug
-
-        # Validate required parameters
-        if client_config.url is None:
-            raise MissingUrlError()
-        if client_config.username is None:
-            raise MissingUsernameError()
-        if client_config.password is None:
-            raise MissingPasswordError()
-
-        # Store configuration
-        self.config = client_config
+        # Create or update the configuration
+        self.config = self._initialize_config(
+            client_config,
+            params,
+            url,
+            username,
+            password,
+        )
 
         # Set up logging
-        self.debug = client_config.debug
+        self.debug = self.config.debug
         if self.debug:
             logger.setLevel(logging.DEBUG)
 
         # Initialize auth provider
-        self.auth_provider = client_config.auth_provider
+        self.auth_provider = self.config.auth_provider
         if self.auth_provider is None:
             from dc_api_x.ext.auth.basic import BasicAuthProvider
 
             self.auth_provider = BasicAuthProvider(
-                client_config.username,
-                client_config.password,
+                self.config.username,
+                self.config.password,
             )
 
         # Initialize adapter
-        self.adapter = client_config.adapter or self._create_default_http_adapter()
+        self.adapter = self.config.adapter or self._create_default_http_adapter()
 
         # Initialize hooks
-        self.request_hooks = client_config.request_hooks.copy()
-        self.response_hooks = client_config.response_hooks.copy()
-        self.api_response_hooks = client_config.api_response_hooks.copy()
-        self.error_hooks = client_config.error_hooks.copy()
+        self.request_hooks = self.config.request_hooks.copy()
+        self.response_hooks = self.config.response_hooks.copy()
+        self.api_response_hooks = self.config.api_response_hooks.copy()
+        self.error_hooks = self.config.error_hooks.copy()
 
         # Initialize plugins
-        self.plugins: dict[type[apix.ApiPlugin], apix.ApiPlugin] = {}
-        for plugin_class in client_config.plugins:
+        self.plugins: dict[type[ApiPlugin], ApiPlugin] = {}
+        for plugin_class in self.config.plugins:
             self.register_plugin(plugin_class)
 
         # Log initialization
         logger.debug(
             "ApiClient initialized with URL %s and username %s",
-            client_config.url,
-            client_config.username,
+            self.config.url,
+            self.config.username,
         )
+
+    def _initialize_config(
+        self,
+        client_config: ClientConfig | None,
+        params: InitParams | None,
+        url: str | None,
+        username: str | None,
+        password: str | None,
+    ) -> ClientConfig:
+        """Initialize and validate the client configuration.
+
+        Args:
+            client_config: Base configuration or None
+            params: Additional parameters to apply
+            url: URL to override
+            username: Username to override
+            password: Password to override
+
+        Returns:
+            Complete ClientConfig with all settings
+
+        Raises:
+            MissingUrlError: If URL is missing
+            MissingUsernameError: If username is missing
+            MissingPasswordError: If password is missing
+        """
+        # Start with client_config if provided, otherwise create new one
+        config = client_config or ClientConfig()
+
+        # Apply params if provided
+        if params is not None:
+            params.apply_to_config(config)
+
+        # Apply direct overrides (highest priority)
+        if url is not None:
+            config.url = url
+        if username is not None:
+            config.username = username
+        if password is not None:
+            config.password = password
+
+        # Validate required parameters
+        if config.url is None:
+            raise MissingUrlError()
+        if config.username is None:
+            raise MissingUsernameError()
+        if config.password is None:
+            raise MissingPasswordError()
+
+        return config
 
     @property
     def url(self) -> str:
@@ -420,7 +544,7 @@ class ApiClient:
     @classmethod
     def create(
         cls,
-        config_dict: Optional[dict[str, Any]] = None,
+        config_dict: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> ApiClient:
         """
@@ -455,10 +579,10 @@ class ApiClient:
         url = config.get("url")
         username = config.get("username")
         password = config.get("password")
-        timeout = config.get("timeout", apix.DEFAULT_TIMEOUT)
+        timeout = config.get("timeout", DEFAULT_TIMEOUT)
         verify_ssl = config.get("verify_ssl", True)
-        max_retries = config.get("max_retries", apix.DEFAULT_MAX_RETRIES)
-        retry_backoff = config.get("retry_backoff", apix.DEFAULT_RETRY_BACKOFF)
+        max_retries = config.get("max_retries", DEFAULT_MAX_RETRIES)
+        retry_backoff = config.get("retry_backoff", DEFAULT_RETRY_BACKOFF)
         debug = config.get("debug", False)
         cfg = config.get("config")
         plugins = config.get("plugins", [])
@@ -489,14 +613,14 @@ class ApiClient:
         )
         return cls(client_config)
 
-    def _create_default_http_adapter(self) -> apix.HttpAdapter:
+    def _create_default_http_adapter(self) -> HttpAdapter:
         """
         Create a default HTTP adapter based on requests.
 
         Returns:
             HttpAdapter implementation
         """
-        from dc_api_x.utils.adapters import RequestsHttpAdapter
+        from dc_api_x.ext.adapters import RequestsHttpAdapter
 
         return RequestsHttpAdapter(
             timeout=self.config.timeout,
@@ -506,7 +630,7 @@ class ApiClient:
             auth_provider=self.auth_provider,
         )
 
-    def register_plugin(self, plugin_class: type[apix.ApiPlugin]) -> apix.ApiPlugin:
+    def register_plugin(self, plugin_class: type[ApiPlugin]) -> ApiPlugin:
         """
         Register a plugin with the client.
 
@@ -521,7 +645,7 @@ class ApiClient:
         self.plugins[plugin_class] = plugin
         return plugin
 
-    def get_plugin(self, plugin_class: type[P]) -> Optional[P]:
+    def get_plugin(self, plugin_class: type[P]) -> P | None:
         """
         Get a registered plugin by class.
 
@@ -537,8 +661,8 @@ class ApiClient:
         self,
         method: str,
         endpoint: str,
-        request_config: Optional[RequestConfig] = None,
-    ) -> apix.ApiResponse:
+        request_config: RequestConfig | None = None,
+    ) -> ApiResponse:
         """
         Make an HTTP request using the HTTP adapter.
 
@@ -562,6 +686,49 @@ class ApiClient:
         url = self._build_url(endpoint)
 
         # Prepare request kwargs
+        kwargs = self._prepare_request_kwargs(request_config)
+
+        # Use Logfire context for request tracing
+        with logging.with_tags(
+            method=method,
+            url=url,
+            endpoint=endpoint,
+            params=request_config.params,
+        ):
+            # Debug logging
+            self._log_request_debug(method, url, kwargs)
+
+            # Apply request hooks and plugin hooks
+            kwargs = self._apply_request_hooks(method, url, kwargs)
+
+            try:
+                # Make the request and process response
+                response = self._perform_request(method, url, kwargs)
+                api_response = self._process_request_response(method, url, response)
+
+                # Return raw response if requested
+                if request_config.raw_response:
+                    return api_response
+
+                # Handle error responses
+                if self._is_error_response(api_response):
+                    self._handle_error_response_with_logging(api_response)
+                else:
+                    return api_response
+
+            except self._get_connection_exceptions() as e:
+                return self._handle_connection_error(method, url, e, kwargs)
+
+    def _prepare_request_kwargs(self, request_config: RequestConfig) -> dict[str, Any]:
+        """Prepare request kwargs from config.
+
+        Args:
+            request_config: Request configuration
+
+        Returns:
+            Dict of request kwargs with None values filtered out
+        """
+        # Prepare request kwargs
         kwargs = {
             "params": request_config.params,
             "data": request_config.data,
@@ -572,25 +739,56 @@ class ApiClient:
         }
 
         # Filter out None values
-        kwargs = {k: v for k, v in kwargs.items() if v is not None}
+        return {k: v for k, v in kwargs.items() if v is not None}
 
-        # Debug logging
-        if self.debug:
+    def _log_request_debug(self, method: str, url: str, kwargs: dict[str, Any]) -> None:
+        """Log debug information about the request.
+
+        Args:
+            method: HTTP method
+            url: Request URL
+            kwargs: Request kwargs
+        """
+        if not self.debug:
+            return
+
+        logger.debug(
+            "Making %s request to %s with kwargs: %s",
+            method,
+            url,
+            {k: v for k, v in kwargs.items() if k != "headers"},
+        )
+        if kwargs.get("headers"):
             logger.debug(
-                "Making %s request to %s with kwargs: %s",
-                method,
-                url,
-                {k: v for k, v in kwargs.items() if k != "headers"},
+                "Request headers: %s",
+                {
+                    k: v if k.lower() != "authorization" else "[REDACTED]"
+                    for k, v in kwargs["headers"].items()
+                },
             )
-            if kwargs.get("headers"):
-                logger.debug(
-                    "Request headers: %s",
-                    {
-                        k: v if k.lower() != "authorization" else "[REDACTED]"
-                        for k, v in kwargs["headers"].items()
-                    },
-                )
+        # Log with Logfire
+        logging.debug(
+            f"Making {method} request",
+            endpoint=url,
+            client_id=id(self),
+        )
 
+    def _apply_request_hooks(
+        self,
+        method: str,
+        url: str,
+        kwargs: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Apply request hooks to modify request parameters.
+
+        Args:
+            method: HTTP method
+            url: Request URL
+            kwargs: Request kwargs
+
+        Returns:
+            Modified kwargs after applying hooks
+        """
         # Apply request hooks (modify kwargs)
         for hook in self.request_hooks:
             kwargs = hook(method, url, kwargs)
@@ -599,108 +797,232 @@ class ApiClient:
         for plugin in self.plugins.values():
             kwargs = plugin.before_request(method, url, kwargs)
 
-        try:
+        return kwargs
+
+    def _perform_request(
+        self,
+        method: str,
+        url: str,
+        kwargs: dict[str, Any],
+    ) -> requests.Response:
+        """Perform the actual HTTP request.
+
+        Args:
+            method: HTTP method
+            url: Request URL
+            kwargs: Request kwargs
+
+        Returns:
+            HTTP response
+        """
+        # Use RequestTimer for performance tracking
+        with logging.RequestTimer(method, url):
             # Make the request
-            response = self.adapter.request(method, url, **kwargs)
+            return self.adapter.request(method, url, **kwargs)
 
-            # Apply response hooks (modify response)
-            for hook in self.response_hooks:
-                response = hook(method, url, response)
+    def _process_request_response(
+        self,
+        method: str,
+        url: str,
+        response: requests.Response,
+    ) -> ApiResponse:
+        """Process the HTTP response.
 
-            # Apply plugin response hooks
-            for plugin in self.plugins.values():
-                response = plugin.after_request(method, url, response)
+        Args:
+            method: HTTP method
+            url: Request URL
+            response: HTTP response
 
-            # Process response
-            api_response = self._process_response(response)
+        Returns:
+            Processed API response
+        """
+        # Apply response hooks (modify response)
+        for hook in self.response_hooks:
+            response = hook(method, url, response)
 
-            # Apply API response hooks
-            for hook in self.api_response_hooks:
-                api_response = hook(response, api_response)
+        # Apply plugin response hooks
+        for plugin in self.plugins.values():
+            response = plugin.after_request(method, url, response)
 
-            # Apply plugin API response hooks
-            for plugin in self.plugins.values():
-                api_response = plugin.before_response_processed(response, api_response)
+        # Process response
+        api_response = self._process_response(response)
 
-            # Return raw response if requested
-            if request_config.raw_response:
-                return api_response
+        # Log response
+        logging.debug(
+            f"Received {method} response",
+            status_code=api_response.status_code,
+            success=api_response.success,
+        )
 
-            # Handle response errors
-            if (
-                not api_response.success
-                and api_response.status_code is not None
-                and api_response.status_code >= apix.HTTP_BAD_REQUEST
-            ):
-                # Extract error details
-                error_msg = (
-                    api_response.error or f"API error: {api_response.status_code}"
-                )
-                error_details = (
-                    api_response.data
-                    if isinstance(api_response.data, dict[str, Any])
-                    else None
-                )
-                self._handle_error_response(api_response, error_msg, error_details)
-            else:
-                return api_response
+        # Apply API response hooks
+        for hook in self.api_response_hooks:
+            api_response = hook(response, api_response)
 
-        except (apix.ApiTimeoutError, apix.AuthenticationError):
+        # Apply plugin API response hooks
+        for plugin in self.plugins.values():
+            api_response = plugin.before_response_processed(
+                response,
+                api_response,
+            )
+
+        return api_response
+
+    def _is_error_response(self, api_response: ApiResponse) -> bool:
+        """Check if an API response indicates an error.
+
+        Args:
+            api_response: API response to check
+
+        Returns:
+            True if the response indicates an error
+        """
+        return (
+            not api_response.success
+            and api_response.status_code is not None
+            and api_response.status_code >= HTTP_BAD_REQUEST
+        )
+
+    def _handle_error_response_with_logging(
+        self,
+        api_response: ApiResponse,
+    ) -> None:
+        """Handle error responses from the API with proper logging.
+
+        Args:
+            api_response: Error API response
+
+        Raises:
+            Various API exceptions based on the error
+        """
+        # Extract error details
+        error_msg = api_response.error or f"API error: {api_response.status_code}"
+        error_details = (
+            api_response.data if isinstance(api_response.data, dict[str, Any]) else None
+        )
+
+        # Log the error
+        logging.error(
+            "API error response",
+            status_code=api_response.status_code,
+            error=error_msg,
+        )
+
+        self._handle_error_response(api_response, error_msg, error_details)
+
+    def _get_connection_exceptions(self) -> tuple[type[Exception], ...]:
+        """Get the exception types to catch for connection errors.
+
+        Returns:
+            Tuple of exception types
+        """
+        # Import locally to avoid circular imports
+        from dc_api_x.utils.exceptions import (
+            ApiConnectionError,
+            ApiTimeoutError,
+            AuthenticationError,
+        )
+
+        return (
+            ApiTimeoutError,
+            AuthenticationError,
+            ApiConnectionError,
+            RequestsConnectionError,
+            TimeoutError,
+            OSError,
+        )
+
+    def _handle_connection_error(
+        self,
+        method: str,
+        url: str,
+        e: Exception,
+        kwargs: dict[str, Any],
+    ) -> ApiResponse:
+        """Handle connection errors with proper logging and hooks.
+
+        Args:
+            method: HTTP method
+            url: Request URL
+            e: Exception that occurred
+            kwargs: Request kwargs
+
+        Returns:
+            API response if a hook provides one, otherwise re-raises the exception
+
+        Raises:
+            The original exception if no hook handles it
+        """
+        # Import locally to avoid circular imports
+        from dc_api_x.utils.exceptions import (
+            ApiConnectionError,
+            ApiTimeoutError,
+            AuthenticationError,
+            ConnectionFailedError,
+            ConnectionTimeoutError,
+            RequestFailedError,
+        )
+
+        # Special handling for API-specific exceptions
+        if isinstance(e, ApiTimeoutError | AuthenticationError):
+            # Log with Logfire
+            logging.exception(
+                "API request exception",
+                error_type=type(e).__name__,
+                error=str(e),
+            )
             # Re-raise API exceptions without wrapping
-            raise
-        except apix.ApiConnectionError as e:
-            # Call error hooks
-            for hook in self.error_hooks:
-                hook_response = hook(method, url, e, kwargs)
-                if hook_response is not None:
-                    return hook_response
+            raise e  # Explicitly re-raise the caught exception
 
-            # Apply plugin error hooks
-            for plugin in self.plugins.values():
-                plugin_response = plugin.on_error(method, url, e, kwargs)
-                if plugin_response is not None:
-                    return plugin_response
+        # Log with Logfire
+        logging.exception(
+            (
+                "API connection error"
+                if isinstance(e, ApiConnectionError)
+                else "Unexpected API error"
+            ),
+            error_type=type(e).__name__,
+            error=str(e),
+        )
 
-            # Re-raise exception
-            raise
-        except Exception as e:
-            # Call error hooks
-            for hook in self.error_hooks:
-                hook_response = hook(method, url, e, kwargs)
-                if hook_response is not None:
-                    return hook_response
+        # Call error hooks
+        for hook in self.error_hooks:
+            hook_response = hook(method, url, e, kwargs)
+            if hook_response is not None:
+                return hook_response
 
-            # Apply plugin error hooks
-            for plugin in self.plugins.values():
-                plugin_response = plugin.on_error(method, url, e, kwargs)
-                if plugin_response is not None:
-                    return plugin_response
+        # Apply plugin error hooks
+        for plugin in self.plugins.values():
+            plugin_response = plugin.on_error(method, url, e, kwargs)
+            if plugin_response is not None:
+                return plugin_response
 
-            # Wrap exception
-            if isinstance(e, requests.Timeout):
-                raise exceptions.ConnectionTimeoutError(
-                    self.config.timeout,
-                    details={"url": url, "method": method},
-                ) from e
-            if isinstance(e, requests.ConnectionError):
-                raise exceptions.ConnectionFailedError(
-                    e,
-                    details={"url": url, "method": method},
-                ) from e
-            raise exceptions.RequestFailedError(
+        # Re-raise exception with proper wrapping if needed
+        if isinstance(e, requests.Timeout):
+            raise ConnectionTimeoutError(
+                self.config.timeout,
+                details={"url": url, "method": method},
+            ) from e
+        if isinstance(e, requests.ConnectionError):
+            raise ConnectionFailedError(
                 e,
                 details={"url": url, "method": method},
             ) from e
 
+        # For other exceptions
+        raise RequestFailedError(
+            e,
+            details={"url": url, "method": method},
+        ) from e
+
     def get(
         self,
         endpoint: str,
-        params: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        headers: Headers | None = None,
         *,
         raw_response: bool = False,
         **kwargs: Any,
-    ) -> apix.ApiResponse:
+    ) -> ApiResponse:
         """
         Make a GET request to the API.
 
@@ -726,7 +1048,7 @@ class ApiClient:
         self,
         endpoint: str,
         **kwargs: Any,
-    ) -> apix.ApiResponse:
+    ) -> ApiResponse:
         """
         Make a POST request to the API.
 
@@ -749,7 +1071,7 @@ class ApiClient:
         self,
         endpoint: str,
         **kwargs: Any,
-    ) -> apix.ApiResponse:
+    ) -> ApiResponse:
         """
         Make a PUT request to the API.
 
@@ -771,12 +1093,12 @@ class ApiClient:
     def delete(
         self,
         endpoint: str,
-        params: Optional[dict[str, Any]] = None,
-        headers: Optional[dict[str, str]] = None,
+        params: dict[str, Any] | None = None,
+        headers: Headers | None = None,
         *,
         raw_response: bool = False,
         **kwargs: Any,
-    ) -> apix.ApiResponse:
+    ) -> ApiResponse:
         """
         Make a DELETE request to the API.
 
@@ -802,7 +1124,7 @@ class ApiClient:
         self,
         endpoint: str,
         **kwargs: Any,
-    ) -> apix.ApiResponse:
+    ) -> ApiResponse:
         """
         Make a PATCH request to the API.
 
@@ -825,24 +1147,27 @@ class ApiClient:
     def from_profile(
         cls,
         profile_name: str,
-        plugins: Optional[list[type[apix.ApiPlugin]]] = None,
-        adapter: Optional[apix.HttpAdapter] = None,
-        auth_provider: Optional[apix.AuthProvider] = None,
+        plugins: list[type[ApiPlugin]] | None = None,
+        adapter: HttpAdapter | None = None,
+        auth_provider: Any | None = None,  # Type: AuthProvider
     ) -> ApiClient:
         """
-        Create an API client from a profile.
+        Create an ApiClient from a profile.
+
+        Profiles can be defined as environment variables or .env files.
+        Profile-specific variables are loaded from .env.{profile_name} file.
 
         Args:
             profile_name: Name of the profile to load
             plugins: List of plugin classes to register
-            adapter: Custom adapter to use
-            auth_provider: Custom auth provider to use
+            adapter: HTTP adapter to use
+            auth_provider: Authentication provider to use
 
         Returns:
-            ApiClient instance
+            Configured ApiClient instance
 
         Raises:
-            ConfigError: If profile cannot be loaded
+            ConfigurationError: If required config is missing
         """
         # Load configuration from profile
         config = Config.from_profile(profile_name)
@@ -872,7 +1197,7 @@ class ApiClient:
 
     def test_connection(self) -> tuple[bool, str]:
         """
-        Test connection to API.
+        Test the connection to the API.
 
         Returns:
             Tuple[bool, str]: (success, message)
@@ -880,17 +1205,19 @@ class ApiClient:
         try:
             # Try a simple request to test connection
             response = self.get("ping", raw_response=True)
-            return True, f"Connection successful (status {response.status_code})"
-        except apix.ApiError as e:
+        except exceptions.ApiError as e:
             return False, f"Connection failed: {str(e)}"
-        except Exception as e:
-            return False, f"Connection failed with unexpected error: {str(e)}"
+        except (RequestsConnectionError, TimeoutError, OSError) as e:
+            # Handle specific network-related exceptions
+            return False, f"Connection failed with network error: {str(e)}"
+        else:
+            return True, f"Connection successful (status {response.status_code})"
 
     def execute_query(
         self,
         query: str,
-        params: Optional[dict[str, Any]] = None,
-    ) -> apix.GenericResponse[Any]:
+        params: dict[str, Any] | None = None,
+    ) -> GenericResponse[Any]:
         """
         Execute a database query (requires DatabaseAdapter).
 
@@ -901,7 +1228,9 @@ class ApiClient:
         Returns:
             GenericResponse with query results
         """
-        if not isinstance(self.adapter, apix.DatabaseAdapter):
+        from .ext.adapters import DatabaseAdapter
+
+        if not isinstance(self.adapter, DatabaseAdapter):
 
             def _db_adapter_required_error() -> None:
                 return AdapterTypeError(AdapterTypeError.DATABASE_REQUIRED)
@@ -910,8 +1239,10 @@ class ApiClient:
 
         try:
             results = self.adapter.execute(query, params)
-            return apix.GenericResponse.success(
-                apix.DatabaseResult(
+            from . import DatabaseResult
+
+            return GenericResponse.success(
+                DatabaseResult(
                     success=True,
                     rows=results,
                     query=query,
@@ -919,19 +1250,19 @@ class ApiClient:
                 ),
             )
         except ValueError as e:
-            return apix.GenericResponse.error(
+            return GenericResponse.error(
                 str(e),
                 error_code="QUERY_FAILED",
                 error_details={"query": query, "params": params},
             )
         except (TypeError, AttributeError) as e:
-            return apix.GenericResponse.error(
+            return GenericResponse.error(
                 str(e),
                 error_code="QUERY_FAILED",
                 error_details={"query": query, "params": params},
             )
-        except (apix.ClientError, OSError) as e:  # More specific exceptions
-            return apix.GenericResponse.error(
+        except (exceptions.ClientError, OSError) as e:  # More specific exceptions
+            return GenericResponse.error(
                 str(e),
                 error_code="QUERY_FAILED",
                 error_details={"query": query, "params": params},
@@ -941,9 +1272,9 @@ class ApiClient:
         self,
         base_dn: str,
         search_filter: str,
-        attributes: Optional[list[str]] = None,
+        attributes: list[str] | None = None,
         scope: str = "subtree",
-    ) -> apix.GenericResponse[Any]:
+    ) -> GenericResponse[Any]:
         """
         Search a directory (requires DirectoryAdapter).
 
@@ -956,7 +1287,10 @@ class ApiClient:
         Returns:
             GenericResponse with search results
         """
-        if not isinstance(self.adapter, apix.DirectoryAdapter):
+        from .ext.adapters import DirectoryAdapter
+        from .models import DirectoryEntry
+
+        if not isinstance(self.adapter, DirectoryAdapter):
 
             def _dir_adapter_required_error() -> None:
                 return AdapterTypeError(AdapterTypeError.DIRECTORY_REQUIRED)
@@ -965,10 +1299,10 @@ class ApiClient:
 
         try:
             results = self.adapter.search(base_dn, search_filter, attributes, scope)
-            entries = [apix.DirectoryEntry(dn, attrs) for dn, attrs in results]
-            return apix.GenericResponse.success(entries)
+            entries = [DirectoryEntry(dn, attrs) for dn, attrs in results]
+            return GenericResponse.success(entries)
         except ValueError as e:
-            return apix.GenericResponse.error(
+            return GenericResponse.error(
                 str(e),
                 error_code="SEARCH_FAILED",
                 error_details={
@@ -976,8 +1310,8 @@ class ApiClient:
                     "filter": search_filter,
                 },
             )
-        except (apix.ClientError, OSError) as e:  # More specific exceptions
-            return apix.GenericResponse.error(
+        except (exceptions.ClientError, OSError) as e:  # More specific exceptions
+            return GenericResponse.error(
                 str(e),
                 error_code="SEARCH_FAILED",
                 error_details={
@@ -989,9 +1323,9 @@ class ApiClient:
     def publish_message(
         self,
         topic: str,
-        message: Union[str, bytes, dict[str, Any]],
+        message: str | bytes | dict[str, Any],
         **kwargs: Any,
-    ) -> apix.GenericResponse[Any]:
+    ) -> GenericResponse[Any]:
         """
         Publish a message (requires MessageQueueAdapter).
 
@@ -1003,7 +1337,9 @@ class ApiClient:
         Returns:
             GenericResponse indicating success or failure
         """
-        if not isinstance(self.adapter, apix.MessageQueueAdapter):
+        from .ext.adapters import MessageQueueAdapter
+
+        if not isinstance(self.adapter, MessageQueueAdapter):
 
             def _mq_adapter_required_error() -> None:
                 return AdapterTypeError(AdapterTypeError.MESSAGE_QUEUE_REQUIRED)
@@ -1012,15 +1348,15 @@ class ApiClient:
 
         try:
             self.adapter.publish(topic, message, **kwargs)
-            return apix.GenericResponse.success({"topic": topic})
+            return GenericResponse.success({"topic": topic})
         except ValueError as e:
-            return apix.GenericResponse.error(
+            return GenericResponse.error(
                 str(e),
                 error_code="PUBLISH_FAILED",
                 error_details={"topic": topic},
             )
-        except (apix.ClientError, OSError) as e:  # More specific exceptions
-            return apix.GenericResponse.error(
+        except (exceptions.ClientError, OSError) as e:  # More specific exceptions
+            return GenericResponse.error(
                 str(e),
                 error_code="PUBLISH_FAILED",
                 error_details={"topic": topic},
@@ -1029,9 +1365,13 @@ class ApiClient:
     def __del__(self) -> None:
         """Clean up resources on object deletion."""
         try:
-            if self is not None:
-                if hasattr(self, "adapter") and self.adapter is not None:
-                    self.adapter.disconnect()
+            # Combine nested ifs into a single condition
+            if (
+                self is not None
+                and hasattr(self, "adapter")
+                and self.adapter is not None
+            ):
+                self.adapter.disconnect()
         except (AttributeError, TypeError):
             # Ignore errors during cleanup
             pass
@@ -1047,7 +1387,7 @@ class ApiClient:
                             "Error shutting down plugin %s",
                             plugin.__class__.__name__,
                         )
-                except (apix.ClientError, OSError):  # More specific exceptions
+                except (exceptions.ClientError, OSError):  # More specific exceptions
                     if self.debug:
                         logger.exception(
                             "Error shutting down plugin %s",
@@ -1072,7 +1412,7 @@ class ApiClient:
         endpoint_path = endpoint.lstrip("/")
         return f"{base_url}/{endpoint_path}"
 
-    def _process_response(self, response: requests.Response) -> apix.ApiResponse:
+    def _process_response(self, response: requests.Response) -> ApiResponse:
         """
         Process HTTP response into ApiResponse.
 
@@ -1090,7 +1430,7 @@ class ApiClient:
             data = response.text
 
         # Check if response is successful
-        success = response.status_code < apix.HTTP_BAD_REQUEST
+        success = response.status_code < HTTP_BAD_REQUEST
 
         if not success:
             # Try to extract error details
@@ -1109,12 +1449,12 @@ class ApiClient:
                 error = f"HTTP {response.status_code}: {response.reason}"
 
             # Handle common error status codes
-            if response.status_code == apix.HTTP_NOT_FOUND:
+            if response.status_code == HTTP_NOT_FOUND:
                 logger.warning("Resource not found: %s", response.url)
-            elif response.status_code >= apix.HTTP_INTERNAL_SERVER_ERROR:
+            elif response.status_code >= HTTP_INTERNAL_SERVER_ERROR:
                 logger.error("Server error: %s", error or response.reason)
 
-            return apix.ApiResponse(
+            return ApiResponse(
                 success=False,
                 status_code=response.status_code,
                 data=data,
@@ -1124,7 +1464,7 @@ class ApiClient:
             )
 
         # Successful response
-        return apix.ApiResponse(
+        return ApiResponse(
             success=True,
             status_code=response.status_code,
             data=data,
@@ -1132,9 +1472,9 @@ class ApiClient:
 
     def _handle_error_response(
         self,
-        api_response: apix.ApiResponse,
+        api_response: ApiResponse,
         error_msg: str,
-        error_details: Optional[dict[str, Any]],
+        error_details: dict[str, Any] | None,
     ) -> None:
         """
         Handle error responses from the API by raising appropriate exceptions.
@@ -1151,11 +1491,11 @@ class ApiClient:
         if (
             not api_response.success
             and api_response.status_code is not None
-            and api_response.status_code >= apix.HTTP_BAD_REQUEST
+            and api_response.status_code >= HTTP_BAD_REQUEST
         ):
             # Handle different error types
-            if api_response.status_code == apix.HTTP_UNAUTHORIZED:
-                raise apix.AuthenticationError(error_msg, error_details)
+            if api_response.status_code == HTTP_UNAUTHORIZED:
+                raise exceptions.AuthenticationError(error_msg, error_details)
 
             raise exceptions.RequestError(
                 error_msg,
@@ -1164,29 +1504,26 @@ class ApiClient:
             )
 
 
-class ClientError(apix.ApiError):
-    """Base exception for client errors."""
+class ClientError(ApiError):
+    """Base class for client-specific errors."""
 
 
-class MissingUrlError(apix.ConfigurationError):
-    """Raised when API URL is missing."""
-
-    def __init__(self) -> None:
-        """Initialize the error."""
-        super().__init__("API base URL is required")
-
-
-class MissingUsernameError(apix.ConfigurationError):
-    """Raised when API username is missing."""
+class MissingUrlError(ConfigurationError):
+    """Raised when URL is required but missing."""
 
     def __init__(self) -> None:
-        """Initialize the error."""
-        super().__init__("API username is required")
+        super().__init__(MISSING_URL_ERROR)
 
 
-class MissingPasswordError(apix.ConfigurationError):
-    """Raised when API password is missing."""
+class MissingUsernameError(ConfigurationError):
+    """Raised when username is required but missing."""
 
     def __init__(self) -> None:
-        """Initialize the error."""
-        super().__init__("API password is required")
+        super().__init__(MISSING_USERNAME_ERROR)
+
+
+class MissingPasswordError(ConfigurationError):
+    """Raised when password is required but missing."""
+
+    def __init__(self) -> None:
+        super().__init__(MISSING_PASSWORD_ERROR)

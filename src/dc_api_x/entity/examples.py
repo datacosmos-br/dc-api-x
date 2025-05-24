@@ -13,6 +13,10 @@ from dc_api_x.entity.base import BaseEntity
 from dc_api_x.entity.sorters import SortDirection
 from dc_api_x.pagination import PaginationConfig
 
+# Error message constants
+ACTIVATE_USER_FAILED = "Failed to activate user: {error}"
+DEACTIVATE_USER_FAILED = "Failed to deactivate user: {error}"
+
 
 class User(BaseModel):
     """A user entity model."""
@@ -107,7 +111,7 @@ class UserEntity(BaseEntity[User]):
         )
 
         if not response.success or not response.data:
-            raise ValueError(f"Failed to activate user: {response.error}")
+            raise ValueError(ACTIVATE_USER_FAILED.format(error=response.error))
 
         return self._to_model(response.data)
 
@@ -128,6 +132,6 @@ class UserEntity(BaseEntity[User]):
         )
 
         if not response.success or not response.data:
-            raise ValueError(f"Failed to deactivate user: {response.error}")
+            raise ValueError(DEACTIVATE_USER_FAILED.format(error=response.error))
 
         return self._to_model(response.data)

@@ -17,7 +17,7 @@ from dc_api_x.config import (
     list_available_profiles,
     load_config_from_env,
 )
-from dc_api_x.exceptions import ConfigError
+from dc_api_x.utils.exceptions import ConfigError
 from tests.constants import CUSTOM_TIMEOUT, DEFAULT_TIMEOUT, MAX_RETRIES
 
 

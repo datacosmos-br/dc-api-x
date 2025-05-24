@@ -1,48 +1,58 @@
-# Typer Guide for DCApiX
+# Command-Line Interface
 
-## Introduction
+> *"A great CLI is the foundation of developer experience."*
+> This guide explains how DCApiX creates a powerful, intuitive command-line interface using Typer and doctyper
+> across the integration ecosystem.
 
-DCApiX leverages [Typer](https://typer.tiangolo.com/) for building its command-line interface (CLI), enhanced with [doctyper](https://github.com/audivir/doctyper) for rich documentation generation. This guide provides a comprehensive overview of how Typer is used within DCApiX, serving as a central reference for developers who want to extend or customize the CLI.
+---
 
-## Core Typer Features in DCApiX
+## Navigation
 
-### Command Structure
+| ⬅️ Previous | Current | Next ➡️ |
+|-------------|---------|----------|
+| [25 - Tech: Typing](25-tech-typing.md) | **26 - Tech: CLI** | [27 - Tech: Plugin](27-tech-plugin.md) |
+
+---
+
+## 1. Introduction
+
+DCApiX leverages [Typer](https://typer.tiangolo.com/) for building its command-line interface (CLI), enhanced with
+[doctyper](https://github.com/audivir/doctyper) for rich documentation generation. This creates an intuitive and
+discoverable interface for working with the integration ecosystem.
+
+---
+
+## 2. Core Features
+
+### 2.1 Command Structure
 
 Typer organizes commands into a hierarchical structure that makes the CLI intuitive and discoverable:
 
-- **Command Groups**: Organize related commands under a common namespace
-- **Subcommands**: Provide specific functionality within a command group
-- **Command Parameters**: Define options and arguments with type checking
+* **Command Groups**: Organize related commands under a common namespace
+* **Subcommands**: Provide specific functionality within a command group
+* **Command Parameters**: Define options and arguments with type checking
 
-### Parameter Types
+### 2.2 Parameter Types
 
 DCApiX uses Typer's type-driven parameter definition:
 
-- **Arguments**: Required positional inputs
-- **Options**: Named parameters with flags (`--option`)
-- **Typed Parameters**: Automatic validation and conversion based on Python type hints
-- **Default Values**: Sensible defaults with clear documentation
+* **Arguments**: Required positional inputs
+* **Options**: Named parameters with flags (`--option`)
+* **Typed Parameters**: Automatic validation and conversion based on Python type hints
+* **Default Values**: Sensible defaults with clear documentation
 
-### Documentation and Help
+### 2.3 Documentation and Help
 
 The CLI provides rich help text through doctyper integration:
 
-- **Command Help**: Detailed description of each command and its purpose
-- **Parameter Help**: Description of each parameter, including type and default values
-- **Examples**: Usage examples for common scenarios
-- **Rich Formatting**: Colorized output, tables, and highlight formatting
+* **Command Help**: Detailed description of each command and its purpose
+* **Parameter Help**: Description of each parameter, including type and default values
+* **Examples**: Usage examples for common scenarios
+* **Rich Formatting**: Colorized output, tables, and highlight formatting
 
-## Integration with doctyper
+---
 
-DCApiX enhances Typer with doctyper to provide more comprehensive documentation:
-
-- **Google-style Docstring Parsing**: Automatically extracts parameter descriptions from docstrings
-- **Type-aliased Identifiers**: Clear type information in help text
-- **Required vs. Optional Distinction**: Clear indication of which arguments are required
-
-## Basic Usage in DCApiX
-
-### Command Structure
+## 3. Command Organization
 
 The DCApiX CLI follows this structure:
 
@@ -64,9 +74,11 @@ dcapix
     └── get          # Retrieve entity data
 ```
 
-### Basic Command Definition
+---
 
-Here's how DCApiX defines commands using Typer and doctyper:
+## 4. Command Definition
+
+DCApiX uses doctyper to enhance Typer with Google-style docstring parsing:
 
 ```python
 import typer
@@ -82,7 +94,7 @@ app.add_typer(config_app, name="config")
 @config_app.command("list")
 def list_configs() -> None:
     """List all available configuration profiles.
-    
+
     This command scans the config directory and environment for available
     profiles and displays them in a table format.
     """
@@ -97,10 +109,10 @@ def test_connection(
     timeout: Annotated[int, doctyper.Option(help="Connection timeout in seconds")] = 30,
 ) -> None:
     """Test connection using the specified profile.
-    
+
     Attempts to connect to the API using the configuration from the
     specified profile and reports success or failure.
-    
+
     Args:
         profile: The profile name to use for configuration
         timeout: Connection timeout in seconds
@@ -111,24 +123,11 @@ def test_connection(
     typer.echo(typer.style("✓ Connection successful", fg=typer.colors.GREEN))
 ```
 
-### Running Commands
+---
 
-Users invoke CLI commands with clear, intuitive syntax:
+## 5. Advanced Features
 
-```bash
-# List configuration profiles
-dcapix config list
-
-# Test connection with specific profile
-dcapix config test --profile dev
-
-# Extract schema from API
-dcapix schema extract users --out ./schemas
-```
-
-## Advanced Features
-
-### Rich Output Formatting
+### 5.1 Rich Output Formatting
 
 DCApiX CLI uses Typer's rich output capabilities:
 
@@ -145,22 +144,22 @@ def list_users() -> None:
     table.add_column("ID", style="cyan")
     table.add_column("Name", style="green")
     table.add_column("Email", style="yellow")
-    
+
     # Add data
     users = [
         {"id": 1, "name": "John Doe", "email": "john@example.com"},
         {"id": 2, "name": "Jane Smith", "email": "jane@example.com"},
     ]
-    
+
     for user in users:
         table.add_row(str(user["id"]), user["name"], user["email"])
-    
+
     # Display the table
     console = Console()
     console.print(table)
 ```
 
-### Progress Bars
+### 5.2 Progress Bars
 
 For long-running operations, DCApiX provides progress feedback:
 
@@ -176,13 +175,13 @@ def sync_data() -> None:
         for i in progress:
             # Perform work
             time.sleep(0.05)
-    
+
     typer.echo(typer.style("✓ Sync completed", fg=typer.colors.GREEN))
 ```
 
-### Input Prompts
+### 5.3 Interactive Input
 
-Interactive CLI commands can prompt for user input:
+The CLI supports interactive prompts and confirmations:
 
 ```python
 import typer
@@ -192,28 +191,20 @@ def login() -> None:
     """Log in to the API."""
     username = typer.prompt("Username")
     password = typer.prompt("Password", hide_input=True)
-    
+
     # Authentication logic
     typer.echo(f"Logging in as {username}...")
     # Success message
     typer.echo(typer.style("✓ Login successful", fg=typer.colors.GREEN))
-```
-
-### Confirmation Prompts
-
-Protect destructive operations with confirmation:
-
-```python
-import typer
 
 @app.command("delete")
 def delete_entity(
     entity_id: Annotated[str, doctyper.Argument(help="ID of entity to delete")]
 ) -> None:
     """Delete an entity from the system.
-    
+
     This is a destructive operation that permanently removes an entity.
-    
+
     Args:
         entity_id: The unique identifier of the entity to delete
     """
@@ -226,11 +217,13 @@ def delete_entity(
         typer.echo("Operation cancelled")
 ```
 
-## Extending the CLI
+---
 
-### Adding New Commands
+## 6. Extending the CLI
 
-Plugin developers can extend the DCApiX CLI by adding their own commands:
+### 6.1 Plugin Integration
+
+Plugins can extend the DCApiX CLI with their own commands:
 
 ```python
 from dc_api_x.cli import app as main_app
@@ -244,10 +237,10 @@ def run_plugin_command(
     param: Annotated[str, doctyper.Argument(help="Plugin parameter")]
 ) -> None:
     """Run a plugin-specific command.
-    
+
     This command demonstrates how plugins can extend the DCApiX CLI
     with their own functionality.
-    
+
     Args:
         param: The parameter for the plugin command
     """
@@ -258,9 +251,9 @@ def run_plugin_command(
 main_app.add_typer(plugin_app, name="plugin")
 ```
 
-### Customizing Output
+### 6.2 Output Formats
 
-Adapt CLI output for different contexts:
+Commands can support multiple output formats:
 
 ```python
 import typer
@@ -272,12 +265,12 @@ def get_data(
     format: Annotated[str, doctyper.Option(help="Output format")] = "table"
 ) -> None:
     """Get data in various formats.
-    
+
     Args:
         format: Output format (table, json, yaml)
     """
     data = {"name": "Example", "values": [1, 2, 3]}
-    
+
     if format == "json":
         typer.echo(json.dumps(data, indent=2))
     elif format == "yaml":
@@ -290,76 +283,35 @@ def get_data(
             typer.echo(f"- {value}")
 ```
 
-## doctyper Enhancements
+---
 
-DCApiX uses doctyper to enhance Typer's capabilities:
+## 7. Best Practices
 
-### Before and After Example
+1. **Use Google-style Docstrings**: Include detailed `Args:` sections for all parameters
 
-#### Standard Typer Command
+2. **Follow Command Hierarchy**: Group related commands logically
 
-```python
-@app.command()
-def example(
-    name: str = typer.Argument(..., help="Name argument"),
-    count: int = typer.Option(1, help="Count of iterations"),
-):
-    """Simple example command."""
-    for _ in range(count):
-        print(f"Hello {name}")
-```
+3. **Type Everything**: Use proper type annotations for all parameters
 
-#### Enhanced with doctyper
+4. **Provide Examples**: Include example usages in command help
 
-```python
-@app.command()
-def example(
-    name: Annotated[str, doctyper.Argument(help="Name argument")],
-    count: Annotated[int, doctyper.Option(help="Count of iterations")] = 1,
-) -> None:
-    """Simple example command.
-    
-    Prints a greeting to the specified name a given number of times.
-    
-    Args:
-        name: The name to greet
-        count: Number of times to print the greeting
-    """
-    for _ in range(count):
-        print(f"Hello {name}")
-```
+5. **Descriptive Names**: Use clear, descriptive names for commands and parameters
 
-The doctyper version:
+6. **Defaults Where Appropriate**: Provide sensible defaults for optional parameters
 
-- Uses `Annotated` for type information
-- Extracts detailed descriptions from the Google-style docstring
-- Generates more comprehensive help text
+7. **Confirmation for Destructive Actions**: Always confirm before destructive operations
 
-## Best Practices
+8. **Rich Feedback**: Use progress bars for long operations and clear success/error messages
 
-1. **Use Google-style Docstrings**: Include detailed `Args:` sections for all parameters.
+9. **Consistent Style**: Maintain consistent naming and style across all commands
 
-2. **Follow Command Hierarchy**: Group related commands logically.
+10. **Error Handling**: Provide clear error messages and non-zero exit codes for failures
 
-3. **Type Everything**: Use proper type annotations for all parameters.
+---
 
-4. **Provide Examples**: Include example usages in command help.
+## 8. Command Reference
 
-5. **Descriptive Names**: Use clear, descriptive names for commands and parameters.
-
-6. **Defaults Where Appropriate**: Provide sensible defaults for optional parameters.
-
-7. **Confirmation for Destructive Actions**: Always confirm before destructive operations.
-
-8. **Rich Feedback**: Use progress bars for long operations and clear success/error messages.
-
-9. **Consistent Style**: Maintain consistent naming and style across all commands.
-
-10. **Error Handling**: Provide clear error messages and non-zero exit codes for failures.
-
-## DCApiX CLI Commands Reference
-
-### Configuration Commands
+### 8.1 Configuration Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
@@ -367,14 +319,14 @@ The doctyper version:
 | `config show` | Show profile details | `dcapix config show dev` |
 | `config test` | Test connection | `dcapix config test --profile prod` |
 
-### Request Commands
+### 8.2 Request Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
 | `request get` | Make GET request | `dcapix request get /users` |
 | `request post` | Make POST request | `dcapix request post /users --data '{"name":"John"}'` |
 
-### Schema Commands
+### 8.3 Schema Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
@@ -382,16 +334,20 @@ The doctyper version:
 | `schema list` | List available schemas | `dcapix schema list` |
 | `schema show` | Show schema details | `dcapix schema show User` |
 
-### Entity Commands
+### 8.4 Entity Commands
 
 | Command | Description | Example |
 |---------|-------------|---------|
 | `entity list` | List available entities | `dcapix entity list` |
 | `entity get` | Get entity data | `dcapix entity get user 123` |
 
-## See Also
+---
 
-- [Typer Documentation](https://typer.tiangolo.com/)
-- [doctyper Repository](https://github.com/audivir/doctyper)
-- [Click Documentation](https://click.palletsprojects.com/) (Typer is built on Click)
-- [Rich Documentation](https://rich.readthedocs.io/) (Used for rich terminal output)
+## Related Documentation
+
+* [20 - Tech: Overview](20-tech-overview.md) - Technology stack overview
+* [21 - Tech: Core Libraries](21-tech-core-libraries.md) - Core libraries
+* [22 - Tech: Developer Tools](22-tech-developer-tools.md) - Developer tools
+* [25 - Tech: Typing](25-tech-typing.md) - Type system and Pydantic
+* [24 - Tech: Structured Logging](24-tech-structured-logging.md) - Structured logging
+* [27 - Tech: Plugin](27-tech-plugin.md) - Plugin system architecture

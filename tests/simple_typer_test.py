@@ -11,11 +11,11 @@ app = typer.Typer(help="Test CLI.")
 
 # Define options as module-level constants (our fix for B008)
 VERBOSE_OPTION = typer.Option(
-    False,  # noqa: S101 - First parameter should be the default value
-    "--verbose",
+    default=False,  # Use named parameter to fix FBT003
+    param="--verbose",
     help="Enable verbose output",
     is_flag=True,
-)  # noqa: FBT003 - Este é o padrão do Typer, sem alternativa
+)
 NAME_OPTION = typer.Option("world", "--name", help="Name to greet")
 
 

@@ -12,7 +12,7 @@ import json
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, TextIO
+from typing import Any, TextIO
 
 from rich.console import Console
 from rich.table import Table as RichTable
@@ -59,17 +59,17 @@ def format_json(data: Any, indent: int = 2) -> str:
 class TableFormatConfig:
     """Configuration for table formatting."""
 
-    fields: Optional[list[str]] = None
-    headers: Optional[dict[str, str]] = None
-    title: Optional[str] = None
-    console: Optional[Console] = None
-    output_file: Optional[str | TextIO] = None
+    fields: list[str] | None = None
+    headers: dict[str, str] | None = None
+    title: str | None = None
+    console: Any | None = None
+    output_file: str | TextIO | None = None
 
 
 def format_table(
     data: list[dict[str, Any]],
     *,
-    config: Optional[TableFormatConfig] = None,
+    config: TableFormatConfig | None = None,
 ) -> str:
     """
     Format data as a table.
@@ -232,45 +232,48 @@ def format_text(
     output_file: str | TextIO | None = None,
 ) -> str:
     """
-    Format data using a text template.
+    Format data as text using a template.
 
     Args:
         data: Data to format
-        template: Format template with field placeholders
-        field_func: Function to transform field values (optional)
+        template: Template string with {field} placeholders
+        field_func: Function to process field values (optional)
         output_file: Output file path or file object (optional)
 
     Returns:
         str: Formatted text string
     """
-    # Default field transformation function
+    # Use identity function if field_func not provided
     if field_func is None:
 
         def field_func(_: str, value: Any) -> Any:
             return value
 
-    # Format each item
-    lines = []
+    # Apply template to each item
+    result = []
     for item in data:
-        # Create context with transformed field values
-        context = {name: field_func(name, value) for name, value in item.items()}
-
-        # Format template with context
         try:
-            line = template.format(**context)
-            lines.append(line)
-        except KeyError:
-            # Skip items that don't have all template fields
-            pass
+            # Process fields with field_func
+            processed_item = {
+                k: field_func(k, v) for k, v in item.items() if k in template
+            }
+            # Format item with template
+            result.append(template.format(**processed_item))
+        except KeyError as err:
+
+            def _template_format_error(err) -> None:
+                return KeyError(f"Missing field in template: {err}")
+
+            raise _template_format_error(err) from err
         except ValueError as err:
 
             def _template_format_error(err) -> None:
-                return ValueError(f"Failed to format template with context: {err}")
+                return ValueError(f"Failed to format template: {err}")
 
             raise _template_format_error(err) from err
 
-    # Join lines
-    text = "\n".join(lines)
+    # Join results
+    text = "\n".join(result)
 
     # Write to file if requested
     if output_file is not None:
@@ -281,7 +284,7 @@ def format_text(
             except OSError as err:
 
                 def _file_write_error(err) -> None:
-                    return OSError(f"Failed to write to file {output_file}: {err}")
+                    return OSError(f"Failed to write text to file {output_file}: {err}")
 
                 raise _file_write_error(err) from err
         else:
@@ -290,7 +293,7 @@ def format_text(
             except OSError as err:
 
                 def _file_write_error(err) -> None:
-                    return OSError(f"Failed to write to output file: {err}")
+                    return OSError(f"Failed to write text to output file: {err}")
 
                 raise _file_write_error(err) from err
 
@@ -298,31 +301,38 @@ def format_text(
 
 
 def normalize_key(key: str) -> str:
-    """Normalize a key for consistent formatting.
+    """
+    Normalize a key for consistent formatting.
 
     Args:
-        key: The key to normalize
+        key: Key to normalize
 
     Returns:
-        Normalized key string
+        Normalized key
     """
-    return key.lower().replace(" ", "_").replace("-", "_")
+    # Convert to lowercase
+    key = key.lower()
+    # Replace spaces and underscores with hyphens
+    return key.replace(" ", "-").replace("_", "-")
 
 
 def format_datetime(dt: datetime.datetime) -> str:
-    """Format a datetime object to ISO format.
+    """
+    Format a datetime object as an ISO 8601 string.
 
     Args:
-        dt: Datetime object to format
+        dt: Datetime object
 
     Returns:
         Formatted datetime string
     """
+    # Format as ISO 8601
     return dt.isoformat()
 
 
 def format_value(value: Any) -> str:
-    """Format any value as a string.
+    """
+    Format a value for display.
 
     Args:
         value: Value to format
@@ -332,36 +342,36 @@ def format_value(value: Any) -> str:
     """
     if value is None:
         return ""
-    # Handle different types appropriately
-    if isinstance(value, dict | list[Any]):
-        return format_json(value)
     if isinstance(value, datetime.datetime):
         return format_datetime(value)
-    # Default to string representation
+    if isinstance(value, dict | list):
+        return format_json(value)
+    if isinstance(value, bool):
+        return str(value).lower()
+    if isinstance(value, int | float):
+        return str(value)
     return str(value)
 
 
 def format_response_data(data: dict[str, Any]) -> dict[str, Any]:
-    """Format response data for consistent key naming.
+    """
+    Format response data for display.
+
+    This function walks through a dictionary and formats all values
+    using format_value().
 
     Args:
-        data: Response data to format
+        data: Response data
 
     Returns:
         Formatted response data
     """
-    result: dict[str, Any] = {}
-    for key, value in data.items():
-        normalized_key = normalize_key(key)
 
-        if isinstance(value, dict[str, Any]):
-            result[normalized_key] = format_response_data(value)
-        elif (
-            isinstance(value, list[Any])
-            and value
-            and isinstance(value[0], dict[str, Any])
-        ):
-            result[normalized_key] = [format_response_data(item) for item in value]
-        else:
-            result[normalized_key] = value
-    return result
+    def format_nested(value: Any) -> Any:
+        if isinstance(value, dict):
+            return {k: format_nested(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [format_nested(v) for v in value]
+        return format_value(value)
+
+    return format_nested(data)

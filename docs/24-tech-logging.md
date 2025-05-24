@@ -1,61 +1,67 @@
-# Logfire Guide for DCApiX
+# Structured Logging with Logfire
 
-## Introduction
+> *"Logs are useless unless they can be searched, filtered, and analyzed."*
+> This guide explains how DCApiX integrates structured logging to provide powerful observability and diagnostics
+> capabilities across the integration ecosystem.
 
-DCApiX leverages [Logfire](https://logfire.dev) for advanced structured logging, monitoring, and observability. Logfire provides powerful integration with Pydantic V2.11 and other libraries used in DCApiX, making it an ideal companion for enterprise-grade applications.
+---
 
-## Core Logfire Features in DCApiX
+## Navigation
 
-### Pydantic Integration
+| ⬅️ Previous | Current | Next ➡️ |
+|-------------|---------|----------|
+| [23 - Tech: Testing](23-tech-testing.md) | **24 - Tech: Structured Logging** | [25 - Tech: Typing](25-tech-typing.md) |
 
-DCApiX takes advantage of Logfire's seamless integration with Pydantic V2.11:
+---
 
-- [Pydantic Integration](https://logfire.pydantic.dev/docs/integrations/pydantic/) - Automatic model logging and validation events
-- [Model Validation](https://logfire.pydantic.dev/docs/reference/api/pydantic/) - Specialized logging for validation errors
+## 1. Introduction
 
-### HTTP Client Integration
+DCApiX leverages [Logfire](https://logfire.dev) for advanced structured logging, monitoring, and observability. Logfire
+provides powerful integration with Pydantic and other libraries used in DCApiX, making it an ideal companion for
+enterprise-grade applications.
+
+---
+
+## 2. Core Features
+
+### 2.1 Pydantic Integration
+
+DCApiX takes advantage of Logfire's seamless integration with Pydantic:
+
+* **Model Validation** - Automatic logging of validation errors
+* **Schema Events** - Track schema changes and validations
+* **Field Binding** - Structured logging of model fields
+
+### 2.2 HTTP Client Integration
 
 For API requests and responses, Logfire provides excellent HTTP client integrations:
 
-- [HTTPX Integration](https://logfire.pydantic.dev/docs/integrations/http-clients/httpx/) - Used with DCApiX's primary HTTP client
-- [Requests Integration](https://logfire.pydantic.dev/docs/integrations/http-clients/requests/) - For legacy HTTP client support
-- [AIOHTTP Integration](https://logfire.pydantic.dev/docs/integrations/http-clients/aiohttp/) - For async HTTP operations
+* **HTTPX Integration** - Used with DCApiX's primary HTTP client
+* **Request/Response Logging** - Detailed logging of HTTP operations
+* **Performance Metrics** - Track timing and response sizes
 
-### Database Integration
+### 2.3 Database Integration
 
 Logfire provides specialized support for database operations:
 
-- [SQLAlchemy Integration](https://logfire.pydantic.dev/docs/integrations/databases/sqlalchemy/) - For logging database queries and performance metrics
+* **SQLAlchemy Integration** - For logging database queries and performance metrics
+* **Query Timing** - Measure and log query execution time
+* **Connection Pooling** - Monitor connection pool usage
 
-### Advanced Logging Features
+### 2.4 Advanced Features
 
 Logfire extends beyond basic logging with powerful features:
 
-- [Sensitive Data Scrubbing](https://logfire.pydantic.dev/docs/how-to-guides/scrubbing/) - Automatically redact sensitive information
-- [Environment Management](https://logfire.pydantic.dev/docs/how-to-guides/environments/) - Configure logging differently per environment
-- [Loguru Integration](https://logfire.pydantic.dev/docs/integrations/loguru/) - For compatibility with existing Loguru setups
+* **Sensitive Data Scrubbing** - Automatically redact sensitive information
+* **Environment Management** - Configure logging differently per environment
+* **Context Binding** - Add structured context to log entries
+* **Log Sampling** - Performance optimization for high-volume logs
 
-### Testing and Verification
+---
 
-Robust testing tools ensure your logging works correctly:
+## 3. Basic Usage
 
-- [Testing Tools](https://logfire.pydantic.dev/docs/reference/advanced/testing/) - Verify log output in unit tests
-- [Testing API](https://logfire.pydantic.dev/docs/reference/api/testing/) - Programmatic testing capabilities
-
-### Configuration and APIs
-
-Full control over logging behavior:
-
-- [Configuration Options](https://logfire.pydantic.dev/docs/reference/configuration/) - Customize logging behavior
-- [CLI Tools](https://logfire.pydantic.dev/docs/reference/cli/) - Command-line utilities
-- [Core API](https://logfire.pydantic.dev/docs/reference/api/logfire/) - Programmatic control
-- [Error Handling](https://logfire.pydantic.dev/docs/reference/api/exceptions/) - Exception handling patterns
-- [Log Propagation](https://logfire.pydantic.dev/docs/reference/api/propagate/) - Control log event flow
-- [Log Sampling](https://logfire.pydantic.dev/docs/reference/api/sampling/) - Performance optimization for high-volume logs
-
-## Basic Usage in DCApiX
-
-### Setup and Configuration
+### 3.1 Setup and Configuration
 
 Initialize Logfire in your DCApiX application:
 
@@ -74,7 +80,7 @@ def setup_logging(config: Config):
     )
 ```
 
-### Logging API Requests
+### 3.2 Logging API Requests
 
 DCApiX automatically logs API requests and responses using Logfire:
 
@@ -92,7 +98,7 @@ logfire.bind(operation="fetch_users", user_count=len(response.data))
 logfire.info("Successfully fetched users")
 ```
 
-### Logging Database Operations
+### 3.3 Logging Database Operations
 
 When using the DatabaseAdapter, operations are logged with performance metrics:
 
@@ -110,7 +116,7 @@ with logfire.context(database="oracle", operation="user_query"):
     logfire.info("Retrieved active users", count=len(users))
 ```
 
-### Structured Logging with Pydantic Models
+### 3.4 Structured Logging with Pydantic Models
 
 Log Pydantic models with automatic field validation:
 
@@ -122,7 +128,7 @@ class User(BaseModel):
     id: int
     name: str
     email: EmailStr
-    
+
 user = User(id=1, name="John Doe", email="john@example.com")
 
 # Log the user model with full structure
@@ -133,9 +139,11 @@ secure_data = {"password": "secret123", "credit_card": "4111-1111-1111-1111"}
 logfire.info("Processing payment", data=secure_data)  # password will appear as "***"
 ```
 
-## Advanced Features
+---
 
-### Context Managers
+## 4. Advanced Features
+
+### 4.1 Context Managers
 
 Use context managers to add structured information to a block of code:
 
@@ -150,14 +158,14 @@ with logfire.context(request_id="req-123"):
     response = client.get("users")
     # Process response
     logfire.info("Processed users", count=len(response.data))
-    
+
     # Nested contexts are supported
     with logfire.context(operation="filter_active"):
         active_users = [u for u in response.data if u.get("active")]
         logfire.info("Filtered active users", count=len(active_users))
 ```
 
-### Error Handling
+### 4.2 Error Handling
 
 Log exceptions with proper context:
 
@@ -172,12 +180,12 @@ try:
     # Process response
 except ApiError as e:
     # Log with full exception details
-    logfire.exception("Failed to fetch users", 
+    logfire.exception("Failed to fetch users",
                       status_code=e.status_code,
                       error_type=type(e).__name__)
 ```
 
-### Performance Metrics
+### 4.3 Performance Metrics
 
 Track operation timing with built-in utilities:
 
@@ -188,13 +196,15 @@ import time
 with logfire.Timer() as timer:
     # Perform operation
     time.sleep(0.5)
-    
+
 logfire.info("Operation completed", duration_ms=timer.milliseconds)
 ```
 
-## Integration with other DCApiX Components
+---
 
-### ApiClient Logging
+## 5. Integration with other DCApiX Components
+
+### 5.1 ApiClient Integration
 
 The ApiClient automatically logs requests and responses:
 
@@ -216,7 +226,7 @@ client = ApiClient(url="https://api.example.com")
 response = client.get("users")
 ```
 
-### Plugin System Integration
+### 5.2 Plugin System Integration
 
 When developing DCApiX plugins, integrate Logfire for consistent logging:
 
@@ -226,12 +236,12 @@ import logfire
 
 class MyCustomAdapter(ProtocolAdapter):
     """Custom protocol adapter with Logfire integration."""
-    
+
     def __init__(self, connection_string: str):
         self.conn_string = connection_string
-        logfire.info("Initializing custom adapter", 
+        logfire.info("Initializing custom adapter",
                      adapter_type=self.__class__.__name__)
-    
+
     def request(self, method: str, path: str, **kwargs):
         # Log request with sanitized connection string
         with logfire.context(method=method, path=path):
@@ -240,31 +250,33 @@ class MyCustomAdapter(ProtocolAdapter):
             return result
 ```
 
-## Best Practices
+---
+
+## 6. Best Practices
 
 1. **Use Structured Logging**: Always use keyword arguments rather than string interpolation.
 
    ```python
    # Good
    logfire.info("User created", user_id=123, status="active")
-   
+
    # Avoid
    logfire.info(f"User created: {user_id} with status {status}")
    ```
 
 2. **Log Levels**: Use appropriate log levels.
-   - `debug`: Detailed information for debugging
-   - `info`: Confirmation of normal events
-   - `warning`: Something unexpected but not an error
-   - `error`: An error that prevented an operation
-   - `critical`: An error that requires immediate attention
+   * `debug`: Detailed information for debugging
+   * `info`: Confirmation of normal events
+   * `warning`: Something unexpected but not an error
+   * `error`: An error that prevented an operation
+   * `critical`: An error that requires immediate attention
 
 3. **Context Binding**: Use context to add recurring information rather than repeating in each log.
 
    ```python
    # Add context once
    logfire.bind(request_id=req_id, user_id=user.id)
-   
+
    # Then log without repeating
    logfire.info("Operation started")
    # ... do work ...
@@ -275,8 +287,13 @@ class MyCustomAdapter(ProtocolAdapter):
 
 5. **Performance**: For high-volume logs, consider using sampling to reduce overhead.
 
-## See Also
+---
 
-- [Logfire Documentation](https://logfire.dev/docs/)
-- [Pydantic Guide](11-pydantic_guide.md)
-- [OpenTelemetry Integration](https://logfire.dev/docs/integrations/opentelemetry/)
+## Related Documentation
+
+* [20 - Tech: Overview](20-tech-overview.md) - Technology stack overview
+* [21 - Tech: Core Libraries](21-tech-core-libraries.md) - Core libraries
+* [22 - Tech: Developer Tools](22-tech-developer-tools.md) - Developer tools
+* [23 - Tech: Testing](23-tech-testing.md) - Testing guide
+* [25 - Tech: Typing](25-tech-typing.md) - Advanced typing and Pydantic usage
+* [30 - CLI Reference](30-cli-reference.md) - Command-line interface reference

@@ -1,4 +1,4 @@
-# DC-API-X Code Ownership Configuration
+# DCApiX Code Ownership Configuration
 # This file defines individuals or teams responsible for code review in this repository.
 # Each line is a file pattern followed by one or more owners.
 # Order is important; the last matching pattern takes precedence.
@@ -31,4 +31,4 @@ tests/                        @datacosmos-br/Datacosmos
 examples/                     @datacosmos-br/Datacosmos
 
 # Replace with actual usernames or team names before using
-# Format: GitHub username or @org/team-name 
+# Format: GitHub username or @org/team-name

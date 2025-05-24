@@ -6,6 +6,7 @@ used by API endpoints.
 """
 
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from typing import Any, Optional, TypeVar
 
 from .base import BasePaginator, PaginationConfig
@@ -23,9 +24,26 @@ __all__ = [
     "PagePaginator",
     "get_paginator",
     "paginate",
+    "PaginationOptions",
 ]
 
 T = TypeVar("T")
+
+# Error messages
+UNSUPPORTED_STRATEGY_ERROR = "Unsupported pagination strategy: {}"
+
+
+@dataclass
+class PaginationOptions:
+    """Configuration options for pagination."""
+
+    client: Any
+    endpoint: str
+    params: Optional[dict[str, Any]] = None
+    model_class: Optional[type[Any]] = None
+    config: Optional[PaginationConfig] = None
+    strategy: str = "offset"
+    transform_func: Optional[Callable[[Any], Any]] = None
 
 
 def get_paginator(
@@ -67,29 +85,15 @@ def get_paginator(
         from .link import LinkHeaderPaginator
 
         return LinkHeaderPaginator(client, endpoint, model_class, config)
-    raise ValueError(f"Unsupported pagination strategy: {strategy}")
+    raise ValueError(UNSUPPORTED_STRATEGY_ERROR.format(strategy))
 
 
-def paginate(
-    client: Any,
-    endpoint: str,
-    params: Optional[dict[str, Any]] = None,
-    model_class: Optional[type[T]] = None,
-    config: Optional[PaginationConfig] = None,
-    strategy: str = "offset",
-    transform_func: Optional[Callable[[Any], T]] = None,
-) -> Iterator[T]:
+def paginate(options: PaginationOptions) -> Iterator[T]:
     """
     Paginate through API results.
 
     Args:
-        client: API client
-        endpoint: API endpoint
-        params: Optional request parameters
-        model_class: Optional model class for response items
-        config: Pagination configuration
-        strategy: Pagination strategy (offset, page, cursor, link)
-        transform_func: Optional function to transform each item
+        options: PaginationOptions containing client, endpoint, params, etc.
 
     Returns:
         Iterator yielding items from paginated results
@@ -97,5 +101,11 @@ def paginate(
     Raises:
         ValueError: If the strategy is not supported
     """
-    paginator = get_paginator(client, endpoint, model_class, config, strategy)
-    return paginator.paginate(params, transform_func)
+    paginator = get_paginator(
+        options.client,
+        options.endpoint,
+        options.model_class,
+        options.config,
+        options.strategy,
+    )
+    return paginator.paginate(options.params, options.transform_func)

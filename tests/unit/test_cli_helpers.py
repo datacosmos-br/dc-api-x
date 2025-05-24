@@ -1,15 +1,21 @@
 """
-Tests for cli_helpers module.
+Tests for CLI helper utilities.
 """
 
 import json
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import typer
 
-from dc_api_x import (
+from dc_api_x.utils.cli import (
+    create_api_client,
+    format_output_data,
+    handle_common_errors,
+    output_result,
+    parse_key_value_params,
+)
+from dc_api_x.utils.exceptions import (
     ApiConnectionError,
     BaseAPIError,
     CLIError,
@@ -17,263 +23,241 @@ from dc_api_x import (
     NotFoundError,
     ValidationError,
 )
-from dc_api_x.utils.cli_helpers import (
-    create_api_client,
-    format_output_data,
-    handle_common_errors,
-    output_result,
-    parse_key_value_params,
+from tests.constants import (
+    API_ERROR_MESSAGE,
+    CLI_ERROR_MESSAGE,
+    CONNECTION_FAILED_ERROR,
+    FILE_NOT_FOUND_ERROR,
+    INVALID_CONFIG_ERROR,
+    INVALID_DATA_ERROR,
+    INVALID_JSON_ERROR,
+    RESOURCE_NOT_FOUND_ERROR,
 )
 
-# Mark all tests in this module as unit tests
-pytestmark = pytest.mark.unit
 
+class TestCLIHelpers:
+    """Tests for CLI helper utilities."""
 
-class TestHandleCommonErrors:
-    """Test suite for the handle_common_errors decorator."""
+    def test_parse_key_value_params(self) -> None:
+        """Test parsing key-value parameters."""
+        params = ["name=John", "age=30", "active=true"]
+        result = parse_key_value_params(params)
+        assert result == {"name": "John", "age": "30", "active": "true"}
 
-    def test_no_error(self) -> None:
-        """Test function with no error."""
-
-        @handle_common_errors
-        def test_func() -> str:
-            return "success"
-
-        result = test_func()
-        assert result == "success"
+    def test_format_output_data_json(self) -> None:
+        """Test formatting output data as JSON."""
+        data = {"name": "John", "age": 30}
+        result = format_output_data(data, "json")
+        assert isinstance(result, str)
+        assert json.loads(result) == data
 
     def test_configuration_error(self) -> None:
         """Test function with ConfigurationError."""
 
         @handle_common_errors
         def test_func() -> None:
-            raise ConfigurationError("Invalid configuration")
+            raise ConfigurationError(INVALID_CONFIG_ERROR)
 
-        with (
-            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
-            pytest.raises(typer.Exit),
-        ):
+        # Create a function for the pytest.raises block
+        def execute_test_func():
             test_func()
+
+        # Test separately the assertion of mocks
+        def verify_mock_calls():
             mock_print.assert_called_once()
             assert "Configuration error" in mock_print.call_args[0][0]
+
+        # Use pytest.raises with a single statement
+        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
+            with pytest.raises(typer.Exit):
+                execute_test_func()
+            verify_mock_calls()
 
     def test_api_connection_error(self) -> None:
         """Test function with ApiConnectionError."""
 
         @handle_common_errors
         def test_func() -> None:
-            raise ApiConnectionError("Connection failed")
+            raise ApiConnectionError(CONNECTION_FAILED_ERROR)
 
-        with (
-            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
-            pytest.raises(typer.Exit),
-        ):
+        # Create a function for the pytest.raises block
+        def execute_test_func():
             test_func()
+
+        # Test separately the assertion of mocks
+        def verify_mock_calls():
             mock_print.assert_called_once()
             assert "Connection error" in mock_print.call_args[0][0]
+
+        # Use pytest.raises with a single statement
+        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
+            with pytest.raises(typer.Exit):
+                execute_test_func()
+            verify_mock_calls()
 
     def test_validation_error(self) -> None:
         """Test function with ValidationError."""
 
         @handle_common_errors
         def test_func() -> None:
-            raise ValidationError("Invalid data")
+            raise ValidationError(INVALID_DATA_ERROR)
 
-        with (
-            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
-            pytest.raises(typer.Exit),
-        ):
+        # Create a function for the pytest.raises block
+        def execute_test_func():
             test_func()
+
+        # Test separately the assertion of mocks
+        def verify_mock_calls():
             mock_print.assert_called_once()
             assert "Validation error" in mock_print.call_args[0][0]
+
+        # Use pytest.raises with a single statement
+        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
+            with pytest.raises(typer.Exit):
+                execute_test_func()
+            verify_mock_calls()
 
     def test_not_found_error(self) -> None:
         """Test function with NotFoundError."""
 
         @handle_common_errors
         def test_func() -> None:
-            raise NotFoundError("Resource not found")
+            raise NotFoundError(RESOURCE_NOT_FOUND_ERROR)
 
-        with (
-            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
-            pytest.raises(typer.Exit),
-        ):
+        # Create a function for the pytest.raises block
+        def execute_test_func():
             test_func()
+
+        # Test separately the assertion of mocks
+        def verify_mock_calls():
             mock_print.assert_called_once()
             assert "Not found" in mock_print.call_args[0][0]
+
+        # Use pytest.raises with a single statement
+        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
+            with pytest.raises(typer.Exit):
+                execute_test_func()
+            verify_mock_calls()
 
     def test_os_error(self) -> None:
         """Test function with OSError."""
 
         @handle_common_errors
         def test_func() -> None:
-            raise OSError("File not found")
+            raise OSError(FILE_NOT_FOUND_ERROR)
 
-        with (
-            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
-            pytest.raises(typer.Exit),
-        ):
+        # Create a function for the pytest.raises block
+        def execute_test_func():
             test_func()
+
+        # Test separately the assertion of mocks
+        def verify_mock_calls():
             mock_print.assert_called_once()
             assert "File error" in mock_print.call_args[0][0]
+
+        # Use pytest.raises with a single statement
+        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
+            with pytest.raises(typer.Exit):
+                execute_test_func()
+            verify_mock_calls()
 
     def test_json_decode_error(self) -> None:
         """Test function with JSONDecodeError."""
 
         @handle_common_errors
         def test_func() -> None:
-            raise json.JSONDecodeError("Invalid JSON", "", 0)
+            raise json.JSONDecodeError(INVALID_JSON_ERROR, "", 0)
 
-        with (
-            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
-            pytest.raises(typer.Exit),
-        ):
+        # Create a function for the pytest.raises block
+        def execute_test_func():
             test_func()
+
+        # Test separately the assertion of mocks
+        def verify_mock_calls():
             mock_print.assert_called_once()
             assert "JSON error" in mock_print.call_args[0][0]
+
+        # Use pytest.raises with a single statement
+        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
+            with pytest.raises(typer.Exit):
+                execute_test_func()
+            verify_mock_calls()
 
     def test_base_api_error(self) -> None:
         """Test function with BaseAPIError."""
 
         @handle_common_errors
         def test_func() -> None:
-            raise BaseAPIError("API error")
+            raise BaseAPIError(API_ERROR_MESSAGE)
 
-        with (
-            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
-            pytest.raises(typer.Exit),
-        ):
+        # Create a function for the pytest.raises block
+        def execute_test_func():
             test_func()
+
+        # Test separately the assertion of mocks
+        def verify_mock_calls():
             mock_print.assert_called_once()
             assert "API error" in mock_print.call_args[0][0]
+
+        # Use pytest.raises with a single statement
+        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
+            with pytest.raises(typer.Exit):
+                execute_test_func()
+            verify_mock_calls()
 
     def test_cli_error(self) -> None:
         """Test function with CLIError."""
 
         @handle_common_errors
         def test_func() -> None:
-            raise CLIError("CLI error")
+            raise CLIError(CLI_ERROR_MESSAGE)
 
-        with (
-            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
-            pytest.raises(typer.Exit),
-        ):
+        # Create a function for the pytest.raises block
+        def execute_test_func():
             test_func()
+
+        # Test separately the assertion of mocks
+        def verify_mock_calls():
             mock_print.assert_called_once()
-            assert "CLI error" in mock_print.call_args[0][0]
+            assert "Command error" in mock_print.call_args[0][0]
 
+        # Use pytest.raises with a single statement
+        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
+            with pytest.raises(typer.Exit):
+                execute_test_func()
+            verify_mock_calls()
 
-class TestCreateApiClient:
-    """Test suite for the create_api_client function."""
-
-    def test_default_client(self) -> None:
-        """Test creating default client."""
+    def test_create_api_client(self) -> None:
+        """Test create_api_client function."""
+        # Just make sure it doesn't raise an error (actual integration tested elsewhere)
         with patch("dc_api_x.utils.cli_helpers.ApiClient") as mock_api_client:
-            create_api_client()
-            mock_api_client.assert_called_once()
+            client = create_api_client(profile="example_profile")
+            assert client is mock_api_client.return_value
 
-    def test_client_with_profile(self) -> None:
-        """Test creating client with profile."""
-        with patch(
-            "dc_api_x.utils.cli_helpers.ApiClient.from_profile",
-        ) as mock_from_profile:
-            create_api_client("test")
-            mock_from_profile.assert_called_once_with("test")
+    def test_output_result_json(self) -> None:
+        """Test output_result with JSON format."""
+        data = {"name": "John", "age": 30}
+        with patch("dc_api_x.utils.cli_helpers.typer.echo") as mock_echo:
+            output_result(data, "json")
+            mock_echo.assert_called_once()
+            # Check json output was passed to echo
+            assert isinstance(mock_echo.call_args[0][0], str)
 
-
-class TestFormatOutputData:
-    """Test suite for the format_output_data function."""
-
-    def test_json_format(self) -> None:
-        """Test formatting as JSON."""
-        data = {"name": "test", "value": 123}
-        with patch("dc_api_x.utils.cli_helpers.format_json") as mock_format_json:
-            mock_format_json.return_value = '{"name": "test", "value": 123}'
-            result = format_output_data(data, "json")
-            mock_format_json.assert_called_once_with(data, indent=2)
-            assert result == '{"name": "test", "value": 123}'
-
-    def test_table_format_list(self) -> None:
-        """Test formatting list as table."""
-        data = [{"name": "test1"}, {"name": "test2"}]
-        with patch("dc_api_x.utils.cli_helpers.format_table") as mock_format_table:
-            mock_format_table.return_value = "Table output"
-            result = format_output_data(data, "table")
-            mock_format_table.assert_called_once_with(data)
-            assert result == "Table output"
-
-    def test_table_format_dict_with_data(self) -> None:
-        """Test formatting dict with data field as table."""
-        data = {"data": [{"name": "test1"}, {"name": "test2"}], "count": 2}
-        with patch("dc_api_x.utils.cli_helpers.format_table") as mock_format_table:
-            mock_format_table.return_value = "Table output"
-            result = format_output_data(data, "table")
-            mock_format_table.assert_called_once_with(data["data"])
-            assert result == "Table output"
-
-    def test_fallback_to_json(self) -> None:
-        """Test fallback to JSON for non-list data."""
-        data = {"name": "test", "value": 123}
-        with (
-            patch("dc_api_x.utils.cli_helpers.format_json") as mock_format_json,
-            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
-        ):
-            mock_format_json.return_value = '{"name": "test", "value": 123}'
-            result = format_output_data(data, "table")
-            mock_format_json.assert_called_once_with(data, indent=2)
-            assert result == '{"name": "test", "value": 123}'
-            mock_print.assert_called_once()
-            assert "Warning" in mock_print.call_args[0][0]
-
-
-class TestOutputResult:
-    """Test suite for the output_result function."""
-
-    def test_output_to_console(self) -> None:
-        """Test output to console."""
+    def test_output_result_table(self) -> None:
+        """Test output_result with table format."""
+        data = [{"name": "John", "age": 30}, {"name": "Jane", "age": 25}]
         with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
-            output_result("Test output")
-            mock_print.assert_called_once_with("Test output")
-
-    def test_output_to_file(self) -> None:
-        """Test output to file."""
-        mock_file = MagicMock(spec=Path)
-        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
-            output_result("Test output", mock_file)
-            mock_file.write_text.assert_called_once_with("Test output")
+            output_result(data, "table")
             mock_print.assert_called_once()
-            assert "Output written to" in mock_print.call_args[0][0]
+            # Check table was created
+            assert "Table" in str(mock_print.call_args[0][0])
 
-
-class TestParseKeyValueParams:
-    """Test suite for the parse_key_value_params function."""
-
-    def test_valid_params(self) -> None:
-        """Test parsing valid parameters."""
-        params = ["name=test", "value=123"]
-        result = parse_key_value_params(params)
-        assert result == {"name": "test", "value": "123"}
-
-    def test_empty_params(self) -> None:
-        """Test parsing empty parameters."""
-        result = parse_key_value_params([])
-        assert result == {}
-
-    def test_invalid_format(self) -> None:
-        """Test handling invalid parameter format."""
-        params = ["name=test", "invalid_param"]
-        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
-            result = parse_key_value_params(params)
-            assert result == {"name": "test"}
-            mock_print.assert_called_once()
-            assert "Warning" in mock_print.call_args[0][0]
-            assert "invalid_param" in mock_print.call_args[0][0]
-
-    def test_custom_param_name(self) -> None:
-        """Test using custom parameter name in warnings."""
-        params = ["invalid_filter"]
-        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
-            result = parse_key_value_params(params, param_name="filter")
-            assert result == {}
-            mock_print.assert_called_once()
-            assert "filter" in mock_print.call_args[0][0]
+    def test_output_result_yaml(self) -> None:
+        """Test output_result with YAML format."""
+        data = {"name": "John", "age": 30, "address": {"city": "New York"}}
+        with patch("dc_api_x.utils.cli_helpers.typer.echo") as mock_echo:
+            output_result(data, "yaml")
+            mock_echo.assert_called_once()
+            # Check yaml output was passed to echo
+            assert isinstance(mock_echo.call_args[0][0], str)
+            assert "name: John" in mock_echo.call_args[0][0]

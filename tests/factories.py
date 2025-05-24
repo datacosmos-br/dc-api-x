@@ -10,6 +10,14 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from dc_api_x.client import ApiClient
+from tests.constants import (
+    DEFAULT_USER,
+    NO_MOCK_RESPONSE_ERROR,
+    TEST_API_URL,
+    TEST_AUTH_PASSWORD,
+    TEST_AUTH_TOKEN,
+    TEST_AUTH_USERNAME,
+)
 
 
 class User(BaseModel):
@@ -33,10 +41,10 @@ class User(BaseModel):
 class MockAuthProvider:
     """Mock authentication provider for testing."""
 
-    def __init__(self, token: str = "test-token") -> None:  # noqa: S107
+    def __init__(self, token: str = TEST_AUTH_TOKEN) -> None:  # noqa: S107
         self.token = token
-        self.username = "test-user"
-        self.password = "test-password"
+        self.username = TEST_AUTH_USERNAME
+        self.password = TEST_AUTH_PASSWORD
 
     def authenticate(self) -> dict[str, str]:
         """Return a mock authentication response."""
@@ -86,7 +94,7 @@ class MockAdapter:
         # Look up the response
         key = (method, path)
         if key not in self.responses:
-            raise KeyError("No mock response defined")
+            raise KeyError(NO_MOCK_RESPONSE_ERROR)
 
         return self.responses[key]
 
@@ -104,13 +112,7 @@ class UserFactory:
         Returns:
             User instance
         """
-        defaults = {
-            "id": 1,
-            "name": "Test User",
-            "email": "test@example.com",
-            "role": "user",
-            "active": True,
-        }
+        defaults = DEFAULT_USER.copy()
 
         if overrides:
             defaults.update(overrides)
@@ -132,7 +134,7 @@ def create_mock_client_with_responses(
     mock_adapter = MockAdapter(responses=responses)
     # Create client based on the actual signature expected by ApiClient
     # Adjust parameters based on the actual implementation
-    client = ApiClient(url="https://api.example.com", adapter=mock_adapter)
+    client = ApiClient(url=TEST_API_URL, adapter=mock_adapter)
     # Add a reference to the mock adapter for test assertions
     client.adapter = mock_adapter
     # Add a mock auth provider for convenience in tests

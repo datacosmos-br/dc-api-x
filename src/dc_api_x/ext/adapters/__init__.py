@@ -19,6 +19,12 @@ from .directory import DirectoryAdapter
 from .filesystem import FileSystemAdapter
 from .graphql import GraphQLAdapter
 from .http import HttpAdapter
+from .implementations import (
+    DatabaseTransactionImpl,
+    DirectoryAdapterImpl,
+    GenericDatabaseAdapter,
+    RequestsHttpAdapter,
+)
 from .message_queue import MessageQueueAdapter
 from .protocol import AsyncDatabaseAdapter, AsyncDatabaseTransaction, ProtocolAdapter
 from .websocket import WebSocketAdapter
@@ -42,4 +48,9 @@ __all__ = [
     "AsyncDatabaseAdapterImpl",
     "AsyncDatabaseTransactionImpl",
     "async_transaction",
+    # Implementation classes
+    "RequestsHttpAdapter",
+    "GenericDatabaseAdapter",
+    "DatabaseTransactionImpl",
+    "DirectoryAdapterImpl",
 ]

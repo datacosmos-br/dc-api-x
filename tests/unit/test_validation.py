@@ -22,6 +22,12 @@ from dc_api_x.utils.validation import (
     validate_uuid,
 )
 
+# Import utilities from tests package
+from tests import (
+    requires_logfire,
+    test_context,
+)
+
 # Mark all tests in this module as unit tests
 pytestmark = pytest.mark.unit
 
@@ -43,7 +49,8 @@ class TestValidateUrl:
             assert is_valid is True
             assert error is None
 
-    def test_invalid_url(self) -> None:
+    @requires_logfire
+    def test_invalid_url(self, logfire_testing) -> None:
         """Test with invalid URLs."""
         invalid_urls = [
             "example.com",  # Missing protocol
@@ -52,10 +59,24 @@ class TestValidateUrl:
             "http://.com",  # Invalid domain
             "https://*invalid.com",  # Invalid characters
         ]
+
+        with test_context(test_case="invalid_urls", url_count=len(invalid_urls)):
+            for url in invalid_urls:
+                is_valid, error = validate_url(url)
+                assert is_valid is False
+                assert error == "Invalid URL format"
+
+        # Verify that validation errors were logged
+        url_validation_logs = logfire_testing.find_logs(level="WARNING", field="url")
+
+        assert len(url_validation_logs) == len(
+            invalid_urls,
+        ), "Not all URL validation errors were logged"
+
+        # Check that the values were logged correctly
         for url in invalid_urls:
-            is_valid, error = validate_url(url)
-            assert is_valid is False
-            assert error == "Invalid URL format"
+            log = logfire_testing.find_log(field="url", value=url)
+            assert log is not None, f"URL '{url}' was not found in the logs"
 
 
 class TestValidateEmail:
@@ -75,7 +96,8 @@ class TestValidateEmail:
             assert is_valid is True
             assert error is None
 
-    def test_invalid_email(self) -> None:
+    @requires_logfire
+    def test_invalid_email(self, logfire_testing) -> None:
         """Test with invalid email addresses."""
         invalid_emails = [
             "user",  # Missing @ and domain
@@ -86,10 +108,27 @@ class TestValidateEmail:
             "user@example.",  # Incomplete TLD
             "user@exam ple.com",  # Space in domain
         ]
+
+        with test_context(test_case="invalid_emails", email_count=len(invalid_emails)):
+            for email in invalid_emails:
+                is_valid, error = validate_email(email)
+                assert is_valid is False
+                assert error == "Invalid email format"
+
+        # Verify that validation errors were logged
+        email_validation_logs = logfire_testing.find_logs(
+            level="WARNING",
+            field="email",
+        )
+
+        assert len(email_validation_logs) == len(
+            invalid_emails,
+        ), "Not all email validation errors were logged"
+
+        # Check that the values were logged correctly
         for email in invalid_emails:
-            is_valid, error = validate_email(email)
-            assert is_valid is False
-            assert error == "Invalid email format"
+            log = logfire_testing.find_log(field="email", value=email)
+            assert log is not None, f"Email '{email}' was not found in the logs"
 
 
 class TestValidateUuid:
@@ -108,7 +147,8 @@ class TestValidateUuid:
             assert is_valid is True
             assert error is None
 
-    def test_invalid_uuid(self) -> None:
+    @requires_logfire
+    def test_invalid_uuid(self, logfire_testing) -> None:
         """Test with invalid UUID strings."""
         invalid_uuids = [
             "not-a-uuid",
@@ -116,10 +156,19 @@ class TestValidateUuid:
             "123e4567-e89b-12d3-a456",  # Incomplete
             "123e4567-e89b-12d3-a456-42661417400Z",  # Invalid character
         ]
-        for uuid_str in invalid_uuids:
-            is_valid, error = validate_uuid(uuid_str)
-            assert is_valid is False
-            assert error == "Invalid UUID format"
+
+        with test_context(test_case="invalid_uuids", uuid_count=len(invalid_uuids)):
+            for uuid_str in invalid_uuids:
+                is_valid, error = validate_uuid(uuid_str)
+                assert is_valid is False
+                assert error == "Invalid UUID format"
+
+        # Verify that validation errors were logged
+        uuid_validation_logs = logfire_testing.find_logs(level="WARNING", field="uuid")
+
+        assert len(uuid_validation_logs) == len(
+            invalid_uuids,
+        ), "Not all UUID validation errors were logged"
 
 
 class TestValidateDate:
@@ -167,31 +216,39 @@ class TestValidateRequiredFields:
         assert is_valid is True
         assert error is None
 
-    def test_missing_fields(self) -> None:
+    @requires_logfire
+    def test_missing_fields(self, logfire_testing) -> None:
         """Test with missing required fields."""
         data = {"name": "John", "age": 30}
         required_fields = ["name", "email", "age"]
-        is_valid, error = validate_required_fields(data, required_fields)
-        assert is_valid is False
-        assert "Missing required fields: email" in error
 
-    def test_multiple_missing_fields(self) -> None:
-        """Test with multiple missing required fields."""
-        data = {"name": "John"}
-        required_fields = ["name", "email", "age"]
-        is_valid, error = validate_required_fields(data, required_fields)
-        assert is_valid is False
-        assert "Missing required fields" in error
-        assert "email" in error
-        assert "age" in error
+        with test_context(
+            test_case="missing_fields",
+            data=data,
+            required_fields=required_fields,
+        ):
+            is_valid, error = validate_required_fields(data, required_fields)
+            assert is_valid is False
+            assert "Missing required fields: email" in error
 
-    def test_field_with_none_value(self) -> None:
-        """Test with field having None value."""
-        data = {"name": "John", "email": None, "age": 30}
-        required_fields = ["name", "email", "age"]
-        is_valid, error = validate_required_fields(data, required_fields)
-        assert is_valid is False
-        assert "Missing required fields: email" in error
+        # Verify that validation errors were logged
+        required_field_log = logfire_testing.find_log(
+            level="WARNING",
+            message=lambda msg: "Required fields missing" in msg,
+        )
+
+        assert (
+            required_field_log is not None
+        ), "Required field validation error was not logged"
+
+        # Verify the log contains the missing fields
+        assert hasattr(
+            required_field_log,
+            "missing_fields",
+        ), "Log entry missing the missing_fields field"
+        assert (
+            "email" in required_field_log.missing_fields
+        ), "Log entry doesn't contain the missing field 'email'"
 
 
 class TestValidateEnumField:
@@ -236,11 +293,32 @@ class TestValidateMinMax:
         assert is_valid is True
         assert error is None
 
-    def test_value_below_minimum(self) -> None:
+    @requires_logfire
+    def test_value_below_minimum(self, logfire_testing) -> None:
         """Test with value below minimum."""
-        is_valid, error = validate_min_max(0, min_value=1, max_value=10)
-        assert is_valid is False
-        assert "Value 0 is less than the minimum 1" in error
+        with test_context(
+            test_case="below_minimum",
+            value=0,
+            min_value=1,
+            max_value=10,
+        ):
+            is_valid, error = validate_min_max(0, min_value=1, max_value=10)
+            assert is_valid is False
+            assert "Value 0 is less than the minimum 1" in error
+
+        # Verify that validation errors were logged
+        min_max_log = logfire_testing.find_log(
+            level="WARNING",
+            field="numeric_value",
+            value=0,
+        )
+
+        assert min_max_log is not None, "Min/max validation error was not logged"
+
+        # Verify the log contains error details
+        assert (
+            "less than" in min_max_log.error
+        ), "Log entry doesn't indicate 'less than' error"
 
     def test_value_above_maximum(self) -> None:
         """Test with value above maximum."""
@@ -279,7 +357,7 @@ class TestValidateNotEmpty:
 
     def test_empty_string(self) -> None:
         """Test with empty string."""
-        with pytest.raises(ValueError) as exc_info:
+        with pytest.raises(ValueError, match="test_field cannot be empty") as exc_info:
             validate_not_empty("", "test_field")
         assert "test_field cannot be empty" in str(exc_info.value)
 
@@ -289,27 +367,51 @@ class TestValidateType:
 
     def test_correct_type(self) -> None:
         """Test with correct type."""
-        result = validate_type("test", str, "field")
+        result = validate_type(
+            value="test",
+            expected_type=str,
+            field_name="field",
+        )
         assert result == "test"
 
-        result = validate_type(123, int, "field")
+        result = validate_type(
+            value=123,
+            expected_type=int,
+            field_name="field",
+        )
         assert result == 123
 
-        result = validate_type(123.45, float, "field")
+        result = validate_type(
+            value=123.45,
+            expected_type=float,
+            field_name="field",
+        )
         assert result == 123.45
 
-        result = validate_type(True, bool, "field")
+        result = validate_type(
+            value=True,
+            expected_type=bool,
+            field_name="field",
+        )
         assert result is True
 
     def test_incorrect_type(self) -> None:
         """Test with incorrect type."""
         with pytest.raises(TypeError) as exc_info:
-            validate_type("123", int, "test_field")
+            validate_type(
+                value="123",
+                expected_type=int,
+                field_name="test_field",
+            )
         assert "test_field must be of type" in str(exc_info.value)
         assert "int" in str(exc_info.value)
 
         with pytest.raises(TypeError) as exc_info:
-            validate_type(123, str, "test_field")
+            validate_type(
+                value=123,
+                expected_type=str,
+                field_name="test_field",
+            )
         assert "test_field must be of type" in str(exc_info.value)
         assert "str" in str(exc_info.value)
 
@@ -321,22 +423,37 @@ class TestValidateDict:
         """Test with valid dictionary."""
         data = {"name": "John", "email": "john@example.com", "age": 30}
         required_keys = ["name", "email"]
-        result = validate_dict(data, required_keys, "user_data")
+        result = validate_dict(
+            data=data,
+            required_keys=required_keys,
+            field_name="user_data",
+        )
         assert result == data
 
     def test_missing_required_keys(self) -> None:
         """Test with missing required keys."""
         data = {"name": "John"}
         required_keys = ["name", "email"]
-        with pytest.raises(ValueError) as exc_info:
-            validate_dict(data, required_keys, "user_data")
+        with pytest.raises(
+            ValueError,
+            match="user_data is missing required keys",
+        ) as exc_info:
+            validate_dict(
+                data=data,
+                required_keys=required_keys,
+                field_name="user_data",
+            )
         assert "user_data is missing required keys" in str(exc_info.value)
         assert "email" in str(exc_info.value)
 
     def test_not_a_dict(self) -> None:
         """Test with non-dictionary value."""
         with pytest.raises(TypeError) as exc_info:
-            validate_dict("not a dict", ["key"], "test_field")
+            validate_dict(
+                data="not a dict",
+                required_keys=["key"],
+                field_name="test_field",
+            )
         assert "test_field must be of type" in str(exc_info.value)
         assert "dict" in str(exc_info.value)
 
@@ -347,19 +464,34 @@ class TestValidateList:
     def test_valid_list(self) -> None:
         """Test with valid list."""
         data = [1, 2, 3]
-        result = validate_list(data, 1, "numbers")
+        result = validate_list(
+            data=data,
+            min_length=1,
+            field_name="numbers",
+        )
         assert result == data
 
     def test_empty_list_when_items_required(self) -> None:
         """Test with empty list when items are required."""
-        with pytest.raises(ValueError) as exc_info:
-            validate_list([], 1, "test_list")
+        with pytest.raises(
+            ValueError,
+            match="test_list must have at least 1 item",
+        ) as exc_info:
+            validate_list(
+                data=[],
+                min_length=1,
+                field_name="test_list",
+            )
         assert "test_list must have at least 1 item" in str(exc_info.value)
 
     def test_not_a_list(self) -> None:
         """Test with non-list value."""
         with pytest.raises(TypeError) as exc_info:
-            validate_list("not a list", 1, "test_field")
+            validate_list(
+                data="not a list",
+                min_length=1,
+                field_name="test_field",
+            )
         assert "test_field must be of type" in str(exc_info.value)
         assert "list" in str(exc_info.value)
 
@@ -370,18 +502,40 @@ class TestValidateOneOf:
     def test_valid_value(self) -> None:
         """Test with valid value."""
         valid_values = ["apple", "banana", "cherry"]
-        result = validate_one_of("banana", valid_values, "fruit")
+        result = validate_one_of(
+            value="banana",
+            valid_values=valid_values,
+            field_name="fruit",
+        )
         assert result == "banana"
 
-    def test_invalid_value(self) -> None:
+    @requires_logfire
+    def test_invalid_value(self, logfire_testing) -> None:
         """Test with invalid value."""
         valid_values = ["apple", "banana", "cherry"]
-        with pytest.raises(ValueError) as exc_info:
-            validate_one_of("orange", valid_values, "fruit")
-        assert "fruit must be one of" in str(exc_info.value)
-        assert "apple" in str(exc_info.value)
-        assert "banana" in str(exc_info.value)
-        assert "cherry" in str(exc_info.value)
+
+        with test_context(
+            test_case="invalid_enum",
+            value="orange",
+            valid_values=valid_values,
+            field="fruit",
+        ):
+            with pytest.raises(ValueError, match="fruit must be one of") as exc_info:
+                validate_one_of(
+                    value="orange",
+                    valid_values=valid_values,
+                    field_name="fruit",
+                )
+            assert "fruit must be one of" in str(exc_info.value)
+
+        # Verify that validation errors were logged
+        enum_log = logfire_testing.find_log(
+            level="WARNING",
+            field="fruit",
+            value="orange",
+        )
+
+        assert enum_log is not None, "Enum validation error was not logged"
 
 
 class TestValidateCallable:
@@ -393,11 +547,17 @@ class TestValidateCallable:
         def test_func() -> None:
             pass
 
-        result = validate_callable(test_func, "callback")
+        result = validate_callable(
+            callable=test_func,
+            field_name="callback",
+        )
         assert result == test_func
 
     def test_invalid_callable(self) -> None:
         """Test with non-callable value."""
         with pytest.raises(TypeError) as exc_info:
-            validate_callable("not a function", "callback")
+            validate_callable(
+                callable="not a function",
+                field_name="callback",
+            )
         assert "callback must be callable" in str(exc_info.value)

@@ -24,6 +24,10 @@ __all__ = [
     "EntityManager",
 ]
 
+# Error message constants
+ENTITY_NAME_REQUIRED = "Entity name is required"
+ENTITY_NOT_REGISTERED = "Entity '{name}' not registered"
+
 
 class EntityManager:
     """
@@ -57,7 +61,7 @@ class EntityManager:
         """
         entity_name = name or entity_class.resource_name
         if not entity_name:
-            raise ValueError("Entity name is required")
+            raise ValueError(ENTITY_NAME_REQUIRED)
         self._entities[entity_name] = entity_class
 
     def get(self, name: str, base_path: str = "") -> BaseEntity[T]:
@@ -75,6 +79,6 @@ class EntityManager:
             KeyError: If the entity is not registered
         """
         if name not in self._entities:
-            raise KeyError(f"Entity '{name}' not registered")
+            raise KeyError(ENTITY_NOT_REGISTERED.format(name=name))
         entity_class = self._entities[name]
         return entity_class(self.client, base_path)

@@ -3,6 +3,7 @@ Tests for the models module.
 """
 
 import json
+from typing import Any
 
 from dc_api_x.models import ApiResponse, BaseModel
 from tests.constants import (
@@ -84,6 +85,7 @@ class TestBaseModel:
         )
 
         # Convert to dictionary
+        order_dict = {}
         order_dict[str, Any] = order.to_dict()
 
         # Verify dictionary

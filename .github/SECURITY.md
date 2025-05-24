@@ -4,7 +4,7 @@
 
 ## GitHub Security Features
 
-DC-API-X utilizes several GitHub security features:
+DCApiX utilizes several GitHub security features:
 
 - **Private Vulnerability Reporting**: Enabled for secure vulnerability disclosure
 - **Dependabot Alerts**: Automatic scanning of dependencies for known vulnerabilities
@@ -38,4 +38,4 @@ We publish security advisories for all confirmed vulnerabilities. These advisori
 
 ## For more information
 
-See our complete [Security Policy](../SECURITY.md) for additional details. 
+See our complete [Security Policy](../SECURITY.md) for additional details.

@@ -1,7 +1,7 @@
 # Quick Start
 
 The following snippets take you from **zero → API call → database query** in
-less than 30 lines of code.  
+less than 30 lines of code.
 All examples assume you have already run:
 
 ```bash
@@ -73,9 +73,9 @@ with ora.transaction():
 
 ## 4  Using Configuration Profiles
 
-### 4.1 Using Pydantic V2.11 Settings
+### 4.1 Using Pydantic Settings
 
-dc-api-x uses Pydantic V2.11 Settings for flexible configuration management. You can set up configuration through environment variables, `.env` files, or JSON/TOML files.
+dc-api-x uses Pydantic Settings for flexible configuration management. You can set up configuration through environment variables, `.env` files, or JSON/TOML files.
 
 ```python
 from dc_api_x.config import Config

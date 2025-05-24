@@ -1,8 +1,8 @@
 """
-Hook specifications for the DC-API-X plugin system.
+Hook specifications for the DCApiX plugin system.
 
 This module defines the hook specifications that plugins can implement
-to extend the functionality of DC-API-X.
+to extend the functionality of DCApiX.
 """
 
 from .hookspecs import HookSpecs, hookspec

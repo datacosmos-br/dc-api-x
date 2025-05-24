@@ -16,12 +16,16 @@ from .adapters import (
     CacheAdapter,
     DatabaseAdapter,
     DatabaseTransaction,
+    DatabaseTransactionImpl,
     DirectoryAdapter,
+    DirectoryAdapterImpl,
     FileSystemAdapter,
+    GenericDatabaseAdapter,
     GraphQLAdapter,
     HttpAdapter,
     MessageQueueAdapter,
     ProtocolAdapter,
+    RequestsHttpAdapter,
     WebSocketAdapter,
     async_transaction,
 )
@@ -78,6 +82,11 @@ __all__ = [
     "AsyncDatabaseAdapterImpl",
     "AsyncDatabaseTransactionImpl",
     "async_transaction",
+    # Adapter implementations
+    "RequestsHttpAdapter",
+    "GenericDatabaseAdapter",
+    "DatabaseTransactionImpl",
+    "DirectoryAdapterImpl",
     # Auth providers
     "AuthProvider",
     "BasicAuthProvider",

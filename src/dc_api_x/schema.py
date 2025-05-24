@@ -14,6 +14,11 @@ from typing import Any, Optional, Union
 from pydantic import BaseModel, Field, create_model
 
 import dc_api_x as apix
+from dc_api_x.utils.constants import (
+    SCHEMA_CREATE_MODEL_ERROR,
+    SCHEMA_FETCH_ERROR,
+    SCHEMA_LOAD_ERROR,
+)
 from dc_api_x.utils.logging import setup_logger
 
 # Set up logger
@@ -256,23 +261,25 @@ class SchemaExtractor:
                     logger.debug("Loading schema from cache for %s", entity_name)
                     schema = SchemaDefinition.load(schema_file)
                     self.schemas[entity_name] = schema
-                    return schema
                 except (
-                    Exception
-                ) as e:  # noqa: BLE001 - Tratamento genérico necessário para qualquer erro de cache
+                    ValueError,
+                    TypeError,
+                    json.JSONDecodeError,
+                    OSError,  # Includes FileNotFoundError, IOError, etc.
+                ) as e:  # Common file and JSON parsing errors
                     logger.warning(
-                        "Error loading cached schema for %s: %s",
-                        entity_name,
-                        str(e),
+                        SCHEMA_LOAD_ERROR.format(entity_name, str(e)),
                     )
                     # Ignore errors when loading from cache
+                else:
+                    return schema
 
         # Fetch from API
         try:
             logger.debug("Fetching schema from API for %s", entity_name)
             response = self.client.get(f"{self.schema_path}/{entity_name}")
             if not response.success or not isinstance(response.data, dict[str, Any]):
-                logger.warning("Failed to fetch schema for %s", entity_name)
+                logger.warning(SCHEMA_FETCH_ERROR.format(entity_name))
                 return None
 
             schema = SchemaDefinition.from_dict(entity_name, response.data)
@@ -284,13 +291,13 @@ class SchemaExtractor:
                 self.cache_dir.mkdir(parents=True, exist_ok=True)
                 schema.save(self.cache_dir)
 
-            return schema
         except apix.ApiError:
             logger.exception(
-                "API error extracting schema for %s",
-                entity_name,
+                SCHEMA_FETCH_ERROR.format(entity_name),
             )
             return None
+        else:
+            return schema
 
     def extract_schemas(
         self,
@@ -382,9 +389,12 @@ class SchemaManager:
                 self.schemas[schema.name] = schema
                 logger.debug("Loaded schema for %s", schema.name)
             except (
-                Exception
-            ) as e:  # noqa: BLE001 - Tratamento genérico necessário para qualquer erro de formato
-                logger.warning("Error loading schema from %s: %s", file_path, str(e))
+                ValueError,
+                TypeError,
+                json.JSONDecodeError,
+                OSError,  # Includes FileNotFoundError, IOError, etc.
+            ) as e:  # Common file and JSON parsing errors
+                logger.warning(SCHEMA_LOAD_ERROR.format(file_path, str(e)))
 
         logger.info("Loaded %d schemas from cache", len(self.schemas))
 
@@ -417,12 +427,14 @@ class SchemaManager:
                     schema = SchemaDefinition.load(schema_file)
                     self.schemas[entity_name] = schema
                 except (
-                    Exception
-                ) as e:  # noqa: BLE001 - Tratamento genérico necessário para qualquer erro de arquivo
+                    ValueError,
+                    TypeError,
+                    json.JSONDecodeError,
+                    OSError,  # Includes FileNotFoundError, IOError, etc.
+                ) as e:  # Common file and JSON parsing errors
                     logger.warning("Error loading schema file: %s", str(e))
                 else:
                     return schema
-
         return None
 
     def get_model(self, entity_name: str) -> Optional[type[BaseModel]]:
@@ -442,14 +454,14 @@ class SchemaManager:
         # Get schema and create model
         schema = self.get_schema(entity_name)
         if not schema:
-            logger.warning("No schema found for %s", entity_name)
+            logger.warning(SCHEMA_FETCH_ERROR.format(entity_name))
             return None
 
         try:
             model = self.create_model(schema)
             self.models[entity_name] = model
         except Exception:
-            logger.exception("Error creating model for %s", entity_name)
+            logger.exception(SCHEMA_CREATE_MODEL_ERROR.format(entity_name))
             return None
         else:
             return model
@@ -509,38 +521,44 @@ class SchemaManager:
 
         field_type = field_schema.get("type", "string")
         format_type = field_schema.get("format", "")
+        result = typing.Optional[typing.Any]  # Default type
 
+        # Define type mappings for different field types
         if field_type == "string":
-            if format_type == "date-time":
-                return typing.Optional[
-                    str
-                ]  # Use string for now, could use datetime.datetime
-            if format_type == "date":
-                return typing.Optional[
-                    str
-                ]  # Use string for now, could use datetime.date
-            if format_type in {"email", "uri"}:
-                return typing.Optional[str]
-            return typing.Optional[str]
-        if field_type == "number":
-            if format_type == "float":
-                return typing.Optional[float]
-            return typing.Optional[float]
-        if field_type == "integer":
-            return typing.Optional[int]
-        if field_type == "boolean":
-            return typing.Optional[bool]
-        if field_type == "array":
+            # String types based on format
+            string_format_types = {
+                "date-time": typing.Optional[str],  # Could use datetime.datetime
+                "date": typing.Optional[str],  # Could use datetime.date
+                "email": typing.Optional[str],
+                "uri": typing.Optional[str],
+            }
+            result = string_format_types.get(format_type, typing.Optional[str])
+
+        elif field_type == "number":
+            # Number types
+            result = typing.Optional[float]
+
+        elif field_type == "integer":
+            result = typing.Optional[int]
+
+        elif field_type == "boolean":
+            result = typing.Optional[bool]
+
+        elif field_type == "array":
+            # Handle array types
             if "items" in field_schema and isinstance(
                 field_schema["items"],
                 dict[str, Any],
             ):
                 item_type = self._get_field_type(field_schema["items"])
-                return typing.Optional[list[item_type]]
-            return typing.Optional[list[typing.Any]]
-        if field_type == "object":
-            return typing.Optional[dict[str, typing.Any]]
-        return typing.Optional[typing.Any]
+                result = typing.Optional[list[item_type]]
+            else:
+                result = typing.Optional[list[typing.Any]]
+
+        elif field_type == "object":
+            result = typing.Optional[dict[str, typing.Any]]
+
+        return result
 
     @classmethod
     def load_schema(cls, file_path: Union[str, Path]) -> SchemaDefinition:

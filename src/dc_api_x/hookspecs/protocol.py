@@ -1,8 +1,8 @@
 """
-Core hook specification protocol for DC-API-X plugin system.
+Core hook specification protocol for DCApiX plugin system.
 
 This module defines the base hook specification marker and common type definitions
-used throughout the DC-API-X plugin system.
+used throughout the DCApiX plugin system.
 """
 
 from typing import Any, TypeVar

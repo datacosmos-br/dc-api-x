@@ -10,8 +10,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel
 
-from dc_api_x.exceptions import ApiError
 from dc_api_x.pagination.base import BasePaginator
+from dc_api_x.utils.exceptions import ApiError
 
 
 class OffsetPaginator(BasePaginator[BaseModel]):

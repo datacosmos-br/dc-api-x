@@ -1,5 +1,5 @@
 """
-Hook specifications for the DC-API-X hooks system.
+Hook specifications for the DCApiX hooks system.
 
 This module defines the specifications for hooks that plugins can implement
 to register custom request, response, and error hooks.
@@ -10,7 +10,7 @@ from .protocol import TRegistry, hookspec
 
 class HookHookSpecs:
     """
-    Hook specifications for the hooks system in DC-API-X.
+    Hook specifications for the hooks system in DCApiX.
 
     This class defines the specifications for hooks that plugins can implement
     to register custom request, response, and error hooks.

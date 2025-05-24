@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from types import TracebackType
 from typing import Any, Optional, TypeVar
 
-from ...exceptions import AdapterError
+from ...utils.exceptions import AdapterError
 from .protocol import AsyncDatabaseAdapter, AsyncDatabaseTransaction, ProtocolAdapter
 
 T = TypeVar("T")

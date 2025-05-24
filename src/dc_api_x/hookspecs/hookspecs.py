@@ -1,7 +1,7 @@
 """
-Central hook specifications for the DC-API-X plugin system.
+Central hook specifications for the DCApiX plugin system.
 
-This module provides the combined hook specifications for the DC-API-X plugin system,
+This module provides the combined hook specifications for the DCApiX plugin system,
 gathering all hook specifications defined in specialized modules.
 """
 

@@ -1,25 +1,23 @@
 """
-Adapter implementations for DCApiX.
+Concrete adapter implementations for DCApiX.
 
-This module provides concrete adapter implementations that can be used out of the box,
+This module provides concrete adapter implementations for various protocols
 including HTTP, database, and directory adapters.
 """
 
 import importlib
 import logging
-from typing import Any, Optional, TypeVar
+from typing import Any, Optional, TypeVar, Union
 
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
-from ..ext.adapters import (
-    DatabaseAdapter,
-    DatabaseTransaction,
-    DirectoryAdapter,
-    HttpAdapter,
-)
-from ..ext.auth import AuthProvider, BasicAuthProvider
+from ...utils.exceptions import ApiConnectionError
+from ..auth import AuthProvider, BasicAuthProvider
+from .database import DatabaseAdapter, DatabaseTransaction
+from .directory import DirectoryAdapter
+from .http import HttpAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -40,11 +38,9 @@ class RequestsHttpAdapter(HttpAdapter):
         verify_ssl: bool = True,
         max_retries: int = 3,
         retry_backoff: float = 0.5,
-        auth_provider: Optional[AuthProvider] = None,
+        auth_provider: AuthProvider | None = None,
     ) -> None:
         """
-         result = None  # Implement this method
-
         Initialize the adapter.
 
         Args:
@@ -59,20 +55,10 @@ class RequestsHttpAdapter(HttpAdapter):
         self.max_retries = max_retries
         self.retry_backoff = retry_backoff
         self.auth_provider = auth_provider
-        if self is not None:
-            self.client = None
-        else:
-            # Handle None case appropriately
-            pass  # TODO: Implement proper None handling
+        self.client = None
 
     def connect(self) -> bool:
         """
-         return None  # Implement this method
-
-         return None  # Implement this method
-
-         return None  # Implement this method
-
         Establish a connection and set up the HTTP client.
 
         This method creates and configures a requests.Session with retry and auth.
@@ -122,7 +108,7 @@ class RequestsHttpAdapter(HttpAdapter):
                     auth_headers = self.auth_provider.get_auth_header()
                     self.client.headers.update(auth_headers)
         except Exception:
-            logging.exception("Failed to create HTTP client: %s")
+            logging.exception("Failed to create HTTP client")
             return False
         else:
             # Connection established successfully
@@ -130,10 +116,6 @@ class RequestsHttpAdapter(HttpAdapter):
 
     def disconnect(self) -> bool:
         """
-         return None  # Implement this method
-
-         return None  # Implement this method
-
         Close the connection.
 
         This method closes the requests session.
@@ -144,11 +126,7 @@ class RequestsHttpAdapter(HttpAdapter):
         try:
             if self.client:
                 self.client.close()
-                if self is not None:
-                    self.client = None
-                else:
-                    # Handle None case appropriately
-                    pass  # TODO: Implement proper None handling
+                self.client = None
         except Exception:
             logging.exception("Failed to close HTTP client")
             return False
@@ -160,10 +138,8 @@ class RequestsHttpAdapter(HttpAdapter):
         method: str,
         url: str,
         **kwargs: Any,
-    ) -> requests.Response:
+    ) -> tuple[int, dict[str, Any], bytes]:
         """
-         return None  # Implement this method
-
         Make an HTTP request.
 
         Args:
@@ -172,7 +148,7 @@ class RequestsHttpAdapter(HttpAdapter):
             **kwargs: Additional request parameters
 
         Returns:
-            Response object
+            Tuple of (status_code, headers, body)
         """
         if not self.client:
             self.connect()
@@ -186,11 +162,18 @@ class RequestsHttpAdapter(HttpAdapter):
             kwargs["verify"] = self.verify_ssl
 
         # Make the request
-        return self.client.request(method.upper(), url, **kwargs)
+        response = self.client.request(method.upper(), url, **kwargs)
+
+        # Prepare the return tuple
+        status_code = response.status_code
+        headers = dict(response.headers)
+        body = response.content
+
+        return (status_code, headers, body)
 
     def set_option(self, name: str, value: Any) -> None:
         """Set an adapter option."""
-        # Implement if needed
+        setattr(self, name, value)
 
     def is_connected(self) -> bool:
         """Check if the adapter is connected."""
@@ -202,8 +185,6 @@ class DatabaseTransactionImpl(DatabaseTransaction):
 
     def __init__(self, connection: Any, *, autocommit: bool = False) -> None:
         """
-         return None  # Implement this method
-
         Initialize the transaction.
 
         Args:
@@ -212,11 +193,7 @@ class DatabaseTransactionImpl(DatabaseTransaction):
         """
         self.connection = connection
         self.autocommit = autocommit
-        if self is not None:
-            self.cursor = None
-        else:
-            # Handle None case appropriately
-            pass  # TODO: Implement proper None handling
+        self.cursor = None
 
     def __enter__(self) -> "DatabaseTransactionImpl":
         """Enter the context manager."""
@@ -232,11 +209,7 @@ class DatabaseTransactionImpl(DatabaseTransaction):
         """Exit the context manager."""
         if self.cursor:
             self.cursor.close()
-            if self is not None:
-                self.cursor = None
-            else:
-                # Handle None case appropriately
-                pass  # TODO: Implement proper None handling
+            self.cursor = None
 
         if exc_type is None and not self.autocommit:
             # Commit the transaction on success
@@ -245,10 +218,8 @@ class DatabaseTransactionImpl(DatabaseTransaction):
             # Rollback on exception
             self.rollback()
 
-    def execute(self, query: str, params: Optional[dict[str, Any]] = None) -> Any:
+    def execute(self, query: str, params: dict[str, Any] | None = None) -> Any:
         """
-         return None  # Implement this method
-
         Execute a query.
 
         Args:
@@ -264,8 +235,6 @@ class DatabaseTransactionImpl(DatabaseTransaction):
 
     def fetchall(self) -> list[dict[str, Any]]:
         """
-         return None  # Implement this method
-
         Fetch all rows.
 
         Returns:
@@ -275,10 +244,8 @@ class DatabaseTransactionImpl(DatabaseTransaction):
         columns = [desc[0] for desc in self.cursor.description]
         return [dict(zip(columns, row, strict=False)) for row in rows]
 
-    def fetchone(self) -> Optional[dict[str, Any]]:
+    def fetchone(self) -> dict[str, Any] | None:
         """
-         return None  # Implement this method
-
         Fetch one row.
 
         Returns:
@@ -301,7 +268,7 @@ class DatabaseTransactionImpl(DatabaseTransaction):
             self.connection.rollback()
 
 
-class GenericDatabaseAdapter(DatabaseAdapter[Any]):
+class GenericDatabaseAdapter(DatabaseAdapter[dict[str, Any]]):
     """
     Generic database adapter implementation.
 
@@ -312,12 +279,10 @@ class GenericDatabaseAdapter(DatabaseAdapter[Any]):
         self,
         connection_string: str,
         driver: str = "sqlite3",
-        auth_provider: Optional[AuthProvider] = None,
+        auth_provider: AuthProvider | None = None,
         **kwargs: Any,
     ) -> None:
         """
-         return None  # Implement this method
-
         Initialize the adapter.
 
         Args:
@@ -330,16 +295,8 @@ class GenericDatabaseAdapter(DatabaseAdapter[Any]):
         self.driver = driver
         self.auth_provider = auth_provider
         self.connection_params = kwargs
-        if self is not None:
-            self.connection: Any = None
-        else:
-            # Handle None case appropriately
-            pass  # TODO: Implement proper None handling
-        if self is not None:
-            self.db_module: Any = None
-        else:
-            # Handle None case appropriately
-            pass  # TODO: Implement proper None handling
+        self.connection: Any = None
+        self.db_module: Any = None
 
     def connect(self) -> bool:
         """
@@ -370,19 +327,11 @@ class GenericDatabaseAdapter(DatabaseAdapter[Any]):
                     **self.connection_params,
                 )
 
-            logger.debug("Connected to {self.driver} database")
+            logger.debug(f"Connected to {self.driver} database")
         except ImportError as err:
-
-            def _driver_not_found_error() -> None:
-                return ImportError(f"Database driver {self.driver} not found")
-
-            raise _driver_not_found_error() from err
+            raise ImportError(f"Database driver {self.driver} not found") from err
         except Exception as e:
-
-            def _connection_error(err) -> None:
-                return ConnectionError(f"Failed to connect to database: {str(err)}")
-
-            raise _connection_error(e) from e
+            raise ApiConnectionError(f"Failed to connect to database: {str(e)}") from e
         else:
             return True
 
@@ -396,12 +345,8 @@ class GenericDatabaseAdapter(DatabaseAdapter[Any]):
         try:
             if self.connection:
                 self.connection.close()
-                if self is not None:
-                    self.connection = None
-                else:
-                    # Handle None case appropriately
-                    pass  # TODO: Implement proper None handling
-                logger.debug("Disconnected from {self.driver} database")
+                self.connection = None
+                logger.debug(f"Disconnected from {self.driver} database")
         except Exception:
             logger.exception("Failed to close database connection")
             return False
@@ -411,11 +356,9 @@ class GenericDatabaseAdapter(DatabaseAdapter[Any]):
     def execute(
         self,
         query: str,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """
-         return None  # Implement this method
-
         Execute a database query.
 
         Args:
@@ -432,14 +375,33 @@ class GenericDatabaseAdapter(DatabaseAdapter[Any]):
             transaction.execute(query, params)
             return transaction.fetchall()
 
-    def begin_transaction(self, *, autocommit: bool = False) -> DatabaseTransaction:
+    def execute_write(
+        self,
+        query: str,
+        params: Optional[dict[str, Any]] = None,
+    ) -> int:
         """
-         return None  # Implement this method
-
-        Begin a database transaction.
+        Execute a write operation.
 
         Args:
-            autocommit: Whether to auto-commit queries
+            query: Query to execute
+            params: Query parameters
+
+        Returns:
+            Number of affected rows
+        """
+        if not self.connection:
+            self.connect()
+
+        with DatabaseTransactionImpl(self.connection) as transaction:
+            result = transaction.execute(query, params)
+            if hasattr(result, "rowcount"):
+                return result.rowcount
+            return 0
+
+    def transaction(self) -> DatabaseTransaction:
+        """
+        Begin a database transaction.
 
         Returns:
             Transaction object
@@ -447,7 +409,26 @@ class GenericDatabaseAdapter(DatabaseAdapter[Any]):
         if not self.connection:
             self.connect()
 
-        return DatabaseTransactionImpl(self.connection, autocommit)
+        return DatabaseTransactionImpl(self.connection, autocommit=False)
+
+    def is_connected(self) -> bool:
+        """
+        Check if connected to the database.
+
+        Returns:
+            True if connected, False otherwise
+        """
+        return self.connection is not None
+
+    def set_option(self, name: str, value: Any) -> None:
+        """
+        Set an adapter option.
+
+        Args:
+            name: Option name
+            value: Option value
+        """
+        setattr(self, name, value)
 
 
 class DirectoryAdapterImpl(DirectoryAdapter):
@@ -461,11 +442,9 @@ class DirectoryAdapterImpl(DirectoryAdapter):
         self,
         url: str,
         base_dn: str,
-        auth_provider: Optional[AuthProvider] = None,
+        auth_provider: AuthProvider | None = None,
     ) -> None:
         """
-         return None  # Implement this method
-
         Initialize the adapter.
 
         Args:
@@ -476,16 +455,8 @@ class DirectoryAdapterImpl(DirectoryAdapter):
         self.url = url
         self.base_dn = base_dn
         self.auth_provider = auth_provider
-        if self is not None:
-            self.connection = None
-        else:
-            # Handle None case appropriately
-            pass  # TODO: Implement proper None handling
-        if self is not None:
-            self.ldap_module = None
-        else:
-            # Handle None case appropriately
-            pass  # TODO: Implement proper None handling
+        self.connection = None
+        self.ldap_module = None
 
     def connect(self) -> bool:
         """
@@ -517,21 +488,13 @@ class DirectoryAdapterImpl(DirectoryAdapter):
                     if bind_dn and bind_password:
                         self.connection.simple_bind_s(bind_dn, bind_password)
 
-            logger.debug("Connected to LDAP directory at {self.url}")
+            logger.debug(f"Connected to LDAP directory at {self.url}")
         except ImportError as err:
-
-            def _ldap_not_found_error() -> None:
-                return ImportError("python-ldap module not found")
-
-            raise _ldap_not_found_error() from err
+            raise ImportError("python-ldap module not found") from err
         except Exception as e:
-
-            def _ldap_connection_error(err) -> None:
-                return ConnectionError(
-                    f"Failed to connect to LDAP directory: {str(err)}",
-                )
-
-            raise _ldap_connection_error(e) from e
+            raise ApiConnectionError(
+                f"Failed to connect to LDAP directory: {str(e)}",
+            ) from e
         else:
             return True
 
@@ -545,12 +508,8 @@ class DirectoryAdapterImpl(DirectoryAdapter):
         try:
             if self.connection:
                 self.connection.unbind_s()
-                if self is not None:
-                    self.connection = None
-                else:
-                    # Handle None case appropriately
-                    pass  # TODO: Implement proper None handling
-                logger.debug("Disconnected from LDAP directory at {self.url}")
+                self.connection = None
+                logger.debug(f"Disconnected from LDAP directory at {self.url}")
         except Exception:
             logger.exception("Failed to close LDAP connection")
             return False
@@ -561,7 +520,7 @@ class DirectoryAdapterImpl(DirectoryAdapter):
         self,
         base_dn: str,
         search_filter: str,
-        attributes: Optional[list[str]] = None,
+        attributes: list[str] | None = None,
         scope: str = "subtree",
     ) -> list[dict[str, list[bytes]]]:
         """
@@ -574,7 +533,7 @@ class DirectoryAdapterImpl(DirectoryAdapter):
             scope: Search scope (base, onelevel, subtree)
 
         Returns:
-            List of dictionaries with attribute values
+            List of entries, each a dict of attribute: values
         """
         if not self.connection:
             self.connect()
@@ -602,5 +561,106 @@ class DirectoryAdapterImpl(DirectoryAdapter):
             attributes,
         )
 
-        # Convert to list of dictionaries
+        # Convert to list of dictionaries (remove DN from result)
         return [attrs for _, attrs in result]
+
+    def add(
+        self,
+        dn: str,
+        attributes: dict[str, list[Union[str, bytes]]],
+    ) -> None:
+        """
+        Add an entry to the directory.
+
+        Args:
+            dn: DN of the entry to add
+            attributes: Attributes of the entry
+        """
+        if not self.connection:
+            self.connect()
+
+        # Convert attributes to proper format if needed
+        ldap_attrs = {}
+        for key, values in attributes.items():
+            if all(isinstance(v, str) for v in values):
+                # Convert strings to bytes
+                ldap_attrs[key] = [
+                    v.encode("utf-8") if isinstance(v, str) else v for v in values
+                ]
+            else:
+                ldap_attrs[key] = values
+
+        # Add the entry
+        self.connection.add_s(dn, list(ldap_attrs.items()))
+
+    def modify(
+        self,
+        dn: str,
+        changes: dict[str, tuple[str, list[Union[str, bytes]]]],
+    ) -> None:
+        """
+        Modify an entry in the directory.
+
+        Args:
+            dn: DN of the entry to modify
+            changes: Dictionary of attribute: (operation, values)
+                    where operation is one of "add", "delete", "replace"
+        """
+        if not self.connection:
+            self.connect()
+
+        # Map operation strings to LDAP constants
+        op_map = {
+            "add": self.ldap_module.MOD_ADD,
+            "delete": self.ldap_module.MOD_DELETE,
+            "replace": self.ldap_module.MOD_REPLACE,
+        }
+
+        # Convert changes to proper format
+        mods = []
+        for attr, (op, values) in changes.items():
+            # Convert operation string to LDAP constant
+            op_value = op_map.get(op.lower(), self.ldap_module.MOD_REPLACE)
+
+            # Convert string values to bytes if needed
+            if all(isinstance(v, str) for v in values):
+                values = [
+                    v.encode("utf-8") if isinstance(v, str) else v for v in values
+                ]
+
+            mods.append((op_value, attr, values))
+
+        # Modify the entry
+        self.connection.modify_s(dn, mods)
+
+    def delete(self, dn: str) -> None:
+        """
+        Delete an entry from the directory.
+
+        Args:
+            dn: DN of the entry to delete
+        """
+        if not self.connection:
+            self.connect()
+
+        # Delete the entry
+        self.connection.delete_s(dn)
+
+    def is_connected(self) -> bool:
+        """
+        Check if connected to the directory.
+
+        Returns:
+            True if connected, False otherwise
+        """
+        return self.connection is not None
+
+    def set_option(self, name: str, value: Any) -> None:
+        """
+        Set an adapter option.
+
+        Args:
+            name: Option name
+            value: Option value
+        """
+        setattr(self, name, value)

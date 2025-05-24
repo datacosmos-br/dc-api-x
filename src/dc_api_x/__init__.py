@@ -18,34 +18,15 @@ Features:
 """
 
 # Mock logfire before anything else to avoid import issues
-from typing import Any, Optional
+from typing import Any
 
 # Import other modules after constants
-from . import config, exceptions, models, pagination, schema, utils
-
-# Import constants first to avoid circular imports
-from .constants import *  # noqa: F403 - Import all names for public API
+from . import config, models, pagination, schema, utils
+from . import utils as utils_module
 from .entity import EntityManager
 from .entity.base import BaseEntity
-from .exceptions import (
-    AdapterError,
-    AlreadyExistsError,
-    ApiConnectionError,
-    ApiError,
-    ApiTimeoutError,
-    AuthenticationError,
-    AuthorizationError,
-    BaseAPIError,
-    CLIError,
-    ConfigError,
-    ConfigurationError,
-    InvalidCredentialsError,
-    InvalidOperationError,
-    NotFoundError,
-    RateLimitError,
-    ServerError,
-    ValidationError,
-)
+
+# Import concrete implementations from ext module
 from .ext import (
     ApiResponseHook,
     AuthProvider,
@@ -54,15 +35,20 @@ from .ext import (
     CacheAdapter,
     ConfigProvider,
     DatabaseAdapter,
+    DatabaseTransaction,
+    DatabaseTransactionImpl,
     DataProvider,
     DirectoryAdapter,
+    DirectoryAdapterImpl,
     ErrorHook,
+    GenericDatabaseAdapter,
     HeadersHook,
     HttpAdapter,
     LoggingHook,
     MessageQueueAdapter,
     ProtocolAdapter,
     RequestHook,
+    RequestsHttpAdapter,
     ResponseHook,
     SchemaProvider,
     TokenAuthProvider,
@@ -113,6 +99,64 @@ from .plugins import (
 )
 from .schema import SchemaDefinition, SchemaExtractor, SchemaManager
 
+# Import exceptions module
+from .utils import exceptions  # Import exceptions module explicitly
+
+# Import constants first to avoid circular imports
+from .utils.constants import *  # noqa: F403 - Import all names for public API
+
+# Import protocol types from types module
+from .utils.definitions import (
+    ApiResponseHookProtocol,
+    ConnectionProtocol,
+    DataProviderProtocol,
+    EntityData,
+    EntityId,
+    EntityList,
+    EntityProtocol,
+    ErrorHookProtocol,
+    FilterDict,
+    Headers,
+    HttpMethod,
+    JsonArray,
+    JsonObject,
+    JsonPrimitive,
+    JsonValue,
+    PathLike,
+    RequestHookProtocol,
+    ResponseHookProtocol,
+    SchemaProviderProtocol,
+    StatusCode,
+    TextOrBinary,
+    TransactionProtocol,
+    TransformFunc,
+    WebSocketProtocol,
+    assert_type,
+    check_type_compatibility,
+    validate_with_pydantic,
+)
+
+# Import exceptions
+from .utils.exceptions import (
+    AdapterError,
+    AlreadyExistsError,
+    ApiConnectionError,
+    ApiError,
+    ApiTimeoutError,
+    AuthenticationError,
+    AuthorizationError,
+    BaseAPIError,
+    CLIError,
+    ConfigError,
+    ConfigurationError,
+    InvalidCredentialsError,
+    InvalidOperationError,
+    NotFoundError,
+    RateLimitError,
+    ServerError,
+    ValidationError,
+)
+
 
 # Define DatabaseResult since it's not in models.py
 class DatabaseResult:
@@ -122,9 +166,9 @@ class DatabaseResult:
         self,
         *,
         success: bool = True,
-        rows: Optional[list[dict[str, Any]]] = None,
+        rows: list[dict[str, Any]] | None = None,
         query: str = "",
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
     ) -> None:
         """Initialize with query results.
 
@@ -161,25 +205,37 @@ __all__ = [
     "BaseEntity",
     # Extension interfaces
     "ApiResponseHook",
+    "ApiResponseHookProtocol",
     "AuthProvider",
     "BasicAuthProvider",
     "BatchDataProvider",
     "CacheAdapter",
     "ConfigProvider",
     "DatabaseAdapter",
+    "DatabaseTransaction",
     "DataProvider",
+    "DataProviderProtocol",
     "DirectoryAdapter",
     "ErrorHook",
+    "ErrorHookProtocol",
     "HeadersHook",
     "HttpAdapter",
     "LoggingHook",
     "MessageQueueAdapter",
     "ProtocolAdapter",
     "RequestHook",
+    "RequestHookProtocol",
     "ResponseHook",
+    "ResponseHookProtocol",
     "SchemaProvider",
+    "SchemaProviderProtocol",
     "TokenAuthProvider",
     "TransformProvider",
+    # Adapter implementations
+    "RequestsHttpAdapter",
+    "GenericDatabaseAdapter",
+    "DatabaseTransactionImpl",
+    "DirectoryAdapterImpl",
     # Models
     "ApiRequest",
     "ApiResponse",
@@ -227,6 +283,28 @@ __all__ = [
     "SchemaDefinition",
     "SchemaExtractor",
     "SchemaManager",
+    # Type definitions
+    "ConnectionProtocol",
+    "EntityData",
+    "EntityId",
+    "EntityList",
+    "EntityProtocol",
+    "FilterDict",
+    "Headers",
+    "HttpMethod",
+    "JsonArray",
+    "JsonObject",
+    "JsonPrimitive",
+    "JsonValue",
+    "PathLike",
+    "StatusCode",
+    "TextOrBinary",
+    "TransactionProtocol",
+    "TransformFunc",
+    "WebSocketProtocol",
+    "assert_type",
+    "check_type_compatibility",
+    "validate_with_pydantic",
     # Exceptions
     "AdapterError",
     "AlreadyExistsError",

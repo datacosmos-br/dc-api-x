@@ -8,7 +8,7 @@ import abc
 from collections.abc import Callable
 from typing import Any, Optional, TypeVar
 
-from ...exceptions import AdapterError, InvalidOperationError
+from ...utils.exceptions import AdapterError, InvalidOperationError
 from .protocol import ProtocolAdapter
 
 # Use TypeVar for the session type

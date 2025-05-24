@@ -283,5 +283,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     sys.exit(main())
-assert isinstance(result, None), f"Expected None, got {type(result)}"
-return result

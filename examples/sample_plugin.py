@@ -1,7 +1,7 @@
 """
-Sample plugin implementation for DC-API-X.
+Sample plugin implementation for DCApiX.
 
-This module demonstrates how to implement a plugin for DC-API-X that registers
+This module demonstrates how to implement a plugin for DCApiX that registers
 custom adapters, hooks, and providers.
 """
 

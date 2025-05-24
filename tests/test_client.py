@@ -9,13 +9,14 @@ import pytest
 import responses
 from _pytest.fixtures import SubRequest
 
-from dc_api_x import exceptions
 from dc_api_x.client import ApiClient
-from dc_api_x.exceptions import (
+from dc_api_x.utils import exceptions
+from dc_api_x.utils.exceptions import (
     AuthenticationError,
     ConfigurationError,
     RequestFailedError,
 )
+from tests import requires_logfire, test_context
 
 
 class TestApiClient:
@@ -26,7 +27,7 @@ class TestApiClient:
         self,
         request: SubRequest,
         mock_http_service: responses.RequestsMock,
-    ) -> ApiClient:  # Corrigido o tipo de retorno
+    ) -> ApiClient:
         """Create a test API client."""
         # Create test client
         client = ApiClient(
@@ -76,7 +77,8 @@ class TestApiClient:
         assert url == "https://api.example.com/users/123/orders"
 
     @responses.activate
-    def test_get_success(self, client: ApiClient) -> None:
+    @requires_logfire
+    def test_get_success(self, client: ApiClient, logfire_testing) -> None:
         """Test successful GET request."""
         # Mock response
         responses.add(
@@ -86,14 +88,32 @@ class TestApiClient:
             status=200,
         )
 
-        # Make request
-        response = client.get("users")
+        # Log test context
+        with test_context(operation="get_users", client_test=True):
+            # Make request
+            response = client.get("users")
 
         # Verify response
         assert response.success is True
         assert response.status_code == 200
         assert response.data == {"data": [{"id": 1, "name": "John"}]}
         assert response.error is None
+
+        # Verify logs
+        request_log = logfire_testing.find_log(
+            url="https://api.example.com/users",
+            method="GET",
+        )
+
+        assert request_log is not None, "No request log found"
+
+        # Should find debug logs for the request
+        debug_logs = logfire_testing.find_logs(level="DEBUG")
+        assert len(debug_logs) > 0, "No debug logs for request"
+
+        # Verify test context was applied
+        assert request_log.operation == "get_users"
+        assert request_log.client_test is True
 
     @responses.activate
     def test_get_not_found(self, client: ApiClient) -> None:
@@ -110,11 +130,30 @@ class TestApiClient:
             client.get("server-error")
 
     @responses.activate
-    def test_get_connection_error(self, client: ApiClient) -> None:
+    @requires_logfire
+    def test_get_connection_error(self, client: ApiClient, logfire_testing) -> None:
         """Test GET request with connection error."""
-        # Test request
-        with pytest.raises(exceptions.ApiConnectionError):
+        # Create test context
+        with (
+            test_context(operation="connection_error_test"),
+            pytest.raises(exceptions.ApiConnectionError),
+        ):
+            # Test request - this will trigger an exception
             client.get("error")
+
+        # Verify logs - should have error logs
+        error_log = logfire_testing.find_log(
+            level="ERROR",
+            url="https://api.example.com/error",
+        )
+
+        assert error_log is not None, "No error log found for connection error"
+
+        # Should contain error details
+        assert hasattr(error_log, "error_type"), "Error log missing error_type field"
+
+        # Verify context was applied
+        assert error_log.operation == "connection_error_test"
 
     @responses.activate
     def test_get_timeout(self, client: ApiClient) -> None:
@@ -124,7 +163,8 @@ class TestApiClient:
             client.get("timeout")
 
     @responses.activate
-    def test_post_success(self, client: ApiClient) -> None:
+    @requires_logfire
+    def test_post_success(self, client: ApiClient, logfire_testing) -> None:
         """Test successful POST request."""
         # Mock response
         responses.add(
@@ -134,8 +174,12 @@ class TestApiClient:
             status=201,
         )
 
-        # Make request
-        response = client.post("users", json_data={"name": "John"})
+        # Log test data
+        user_data = {"name": "John"}
+
+        with test_context(operation="create_user", data=user_data):
+            # Make request
+            response = client.post("users", json_data=user_data)
 
         # Verify response
         assert response.success is True
@@ -145,7 +189,31 @@ class TestApiClient:
 
         # Verify request payload
         assert len(responses.calls) == 1
-        assert responses.calls[0].request.body == json.dumps({"name": "John"}).encode()
+        assert responses.calls[0].request.body == json.dumps(user_data).encode()
+
+        # Verify logs
+        post_logs = logfire_testing.find_logs(
+            url="https://api.example.com/users",
+            method="POST",
+        )
+
+        assert len(post_logs) > 0, "No logs found for POST request"
+
+        # Should have debug logs showing completion
+        completion_log = logfire_testing.find_log(
+            level="DEBUG",
+            method="POST",
+            message=lambda msg: "Completed POST request" in msg,
+        )
+
+        assert completion_log is not None, "No completion log for POST request"
+
+        # Check for duration timing
+        assert hasattr(completion_log, "duration_ms"), "Timing information missing"
+
+        # Verify context was applied
+        assert completion_log.operation == "create_user"
+        assert completion_log.data == user_data
 
     @responses.activate
     def test_put_success(self, client: ApiClient) -> None:
@@ -222,7 +290,8 @@ class TestApiClient:
         )
 
     @responses.activate
-    def test_authentication_error(self, client: ApiClient) -> None:
+    @requires_logfire
+    def test_authentication_error(self, client: ApiClient, logfire_testing) -> None:
         """Test authentication error."""
         # Mock response
         responses.add(
@@ -232,12 +301,28 @@ class TestApiClient:
             status=401,
         )
 
-        # Make request and expect error
-        with pytest.raises(AuthenticationError) as excinfo:
+        # Create test context
+        with (
+            test_context(operation="auth_error_test", user="testuser"),
+            pytest.raises(AuthenticationError) as excinfo,
+        ):
+            # Make request and expect error
             client.get("users")
 
         # Verify error
         assert "Unauthorized" in str(excinfo.value)
+
+        # Verify logs
+        auth_error_log = logfire_testing.find_log(
+            level="ERROR",
+            error=lambda err: "Unauthorized" in str(err),
+        )
+
+        assert auth_error_log is not None, "No authentication error log found"
+
+        # Verify context was applied
+        assert auth_error_log.operation == "auth_error_test"
+        assert auth_error_log.user == "testuser"
 
     @responses.activate
     def test_from_profile(self) -> None:
@@ -288,10 +373,12 @@ class TestApiClient:
     def test_test_connection_failure(self, client: ApiClient) -> None:
         """Test test_connection with failure."""
         # Mock the get method to raise an exception
-        with patch.object(
-            client,
-            "get",
-            side_effect=exceptions.ApiConnectionError("Connection failed"),
+        with (
+            patch.object(
+                client,
+                "get",
+                side_effect=exceptions.ApiConnectionError("Connection failed"),
+            ),
         ):
             # Test connection
             success, message = client.test_connection()

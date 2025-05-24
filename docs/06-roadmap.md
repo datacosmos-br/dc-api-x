@@ -1,6 +1,6 @@
 # Project Roadmap
 
-dc-api-x follows a transparent roadmap with clear milestones and planned features.  
+dc-api-x follows a transparent roadmap with clear milestones and planned features.
 This document outlines what's coming next and our long-term vision.
 
 ---
@@ -17,7 +17,7 @@ This document outlines what's coming next and our long-term vision.
 We follow semantic versioning rigorously:
 
 - **Patch** (0.x.1): Bug fixes only, no new features
-- **Minor** (0.x+1.0): New features, backwards compatible 
+- **Minor** (0.x+1.0): New features, backwards compatible
 - **Major** (x+1.0.0): Breaking changes
 
 ---

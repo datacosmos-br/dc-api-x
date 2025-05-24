@@ -10,9 +10,9 @@ import os
 import tempfile
 import warnings
 import xml.etree.ElementTree as ET
-from collections.abc import Callable
+from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -23,6 +23,14 @@ from pydantic import BaseModel
 
 import dc_api_x as apix
 from dc_api_x.config import Config
+from tests import (
+    LOGFIRE_AVAILABLE,
+    CapturedLogs,
+    info,
+    setup_test_logging,
+    test_context,
+    testing,
+)
 
 # -----------------------------------------------------------------------------
 # Pytest Configuration
@@ -46,6 +54,14 @@ def pytest_addoption(parser) -> None:
         help="Enable mock services for testing",
     )
 
+    # Add logfire option
+    parser.addoption(
+        "--logfire",
+        action="store_true",
+        default=False,
+        help="Enable Logfire structured logging during tests",
+    )
+
 
 def pytest_configure(config) -> None:
     """Configure pytest based on command line options."""
@@ -58,11 +74,33 @@ def pytest_configure(config) -> None:
         "security: marks tests for security validation",
         "slow: marks tests as slow (deselect with '-m \"not slow\"')",
         "plugins: tests for plugin system",
-        "mock_services: mark test as requiring mock services",
+        "logfire: marks tests that use or require structured logging with Logfire (run with --logfire flag)",
     ]
 
     for marker in markers:
         config.addinivalue_line("markers", marker)
+
+    # Configure Logfire if enabled
+    if LOGFIRE_AVAILABLE and config.getoption("--logfire"):
+        setup_test_logging(
+            service_name="dc-api-x-tests",
+            environment="test",
+            level="DEBUG",
+        )
+
+        # Add test execution context
+        info(
+            "Starting test execution",
+            test_session_id=config.rootdir.basename,
+            pytest_version=pytest.__version__,
+        )
+
+
+def pytest_unconfigure(config) -> None:
+    """Clean up after test execution."""
+    # Log test completion with Logfire
+    if LOGFIRE_AVAILABLE and config.getoption("--logfire"):
+        info("Test execution completed")
 
 
 # -----------------------------------------------------------------------------
@@ -71,13 +109,13 @@ def pytest_configure(config) -> None:
 
 
 @pytest.fixture(scope="session")
-def mock_services_enabled(request) -> None:
+def mock_services_enabled(request) -> bool:
     """Check if mock services are enabled."""
-    request.config.getoption("--mock-services")
+    return request.config.getoption("--mock-services")
 
 
 @pytest.fixture
-def temp_dir() -> Path:
+def temp_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for tests."""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
@@ -95,10 +133,84 @@ def test_data_dir() -> Path:
 
 
 @pytest.fixture
-def captured_logs(caplog) -> None:
+def captured_logs(caplog) -> Any:
     """Capture logs during tests."""
     caplog.set_level(logging.INFO)
     return caplog
+
+
+@pytest.fixture
+def logfire_testing(
+    request,
+) -> Generator[Optional[CapturedLogs], None, None]:
+    """Setup Logfire structured logging for tests.
+
+    This fixture configures Logfire for testing with proper context
+    and enables the capture of logs for assertions. It provides helper
+    methods for finding logs based on criteria.
+
+    Example:
+        def test_example(logfire_testing):
+            info("Test message", value=42)
+            log = logfire_testing.find_log(message="Test message")
+            assert log.value == 42
+
+    Returns:
+        Generator with captured logs for assertions
+    """
+    if not LOGFIRE_AVAILABLE:
+        pytest.skip("Logfire not available, skipping test")
+        yield None
+        return
+
+    # Configure Logfire for testing if not already configured
+    setup_test_logging()
+
+    # Get test metadata
+    test_name = request.node.name if hasattr(request, "node") else "unknown-test"
+    test_module = (
+        request.module.__name__ if hasattr(request, "module") else "unknown-module"
+    )
+    test_class = request.cls.__name__ if hasattr(request, "cls") and request.cls else ""
+    test_file = (
+        Path(request.module.__file__).name
+        if hasattr(request, "module") and hasattr(request.module, "__file__")
+        else "unknown-file"
+    )
+
+    # Create test context with all test metadata
+    with test_context(
+        test_name=test_name,
+        test_module=test_module,
+        test_class=test_class,
+        test_file=test_file,
+        pytest_nodeid=request.node.nodeid if hasattr(request, "node") else "",
+    ):
+        # Log test start
+        info(f"Starting test: {test_name}", module=test_module)
+
+        # Use testing capture context manager
+        with testing.capture() as captured:
+            yield captured
+
+        # Log test completion
+        if hasattr(request, "node") and hasattr(request.node, "rep_call"):
+            outcome = request.node.rep_call.outcome
+            info(
+                f"Test completed: {test_name}",
+                module=test_module,
+                outcome=outcome,
+            )
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call) -> Generator[None, Any, None]:  # noqa: ARG001
+    """Store test result for access in fixtures."""
+    outcome = yield
+    rep = outcome.get_result()
+
+    # Set report attributes on the node for use in fixtures
+    setattr(item, f"rep_{rep.when}", rep)
 
 
 # -----------------------------------------------------------------------------
@@ -107,7 +219,7 @@ def captured_logs(caplog) -> None:
 
 
 @pytest.fixture
-def mock_response() -> None:
+def mock_response() -> MagicMock:
     """Create a mock HTTP response for testing."""
     response = MagicMock()
     response.status_code = 200
@@ -117,7 +229,7 @@ def mock_response() -> None:
 
 
 @pytest.fixture
-def mock_error_response() -> None:
+def mock_error_response() -> MagicMock:
     """Create a mock error HTTP response for testing."""
     response = MagicMock()
     response.status_code = 400
@@ -128,7 +240,7 @@ def mock_error_response() -> None:
 
 
 @pytest.fixture
-def mock_http_service() -> None:
+def mock_http_service() -> Generator[responses.RequestsMock, None, None]:
     """Create a mock HTTP service for testing."""
     with responses.RequestsMock(assert_all_requests_are_fired=False) as rsps:
         # Setup common endpoints
@@ -213,10 +325,15 @@ def mock_http_service() -> None:
 
 
 @pytest.fixture
-def mock_response_factory() -> Callable[..., Any]:
+def mock_response_factory() -> Callable[..., httpx.Response]:
     """Create a factory for generating mock responses."""
 
-    def _factory(status_code=200, json_data=None, text=None, headers=None) -> None:
+    def _factory(
+        status_code=200,
+        json_data=None,
+        text=None,
+        headers=None,
+    ) -> httpx.Response:
         response = httpx.Response(
             status_code=status_code,
             headers=headers or {},
@@ -231,7 +348,7 @@ def mock_response_factory() -> Callable[..., Any]:
 
 
 @pytest.fixture
-def mock_api_client() -> None:
+def mock_api_client() -> Any:
     """Create a mock API client for testing."""
     from tests.factories import create_mock_client_with_responses
 
@@ -248,7 +365,7 @@ def mock_api_client() -> None:
 
 
 @pytest.fixture
-def mock_auth_provider() -> None:
+def mock_auth_provider() -> MagicMock:
     """Create a mock authentication provider for testing."""
     auth_provider = MagicMock(spec=apix.AuthProvider)
     auth_provider.authenticate.return_value = {"token": "mock-token"}
@@ -283,7 +400,7 @@ def jwt_token(jwt_payload: dict[str, Any]) -> str:
 
 
 @pytest.fixture(scope="session")
-def in_memory_db() -> None:
+def in_memory_db() -> Generator[Any, None, None]:
     """Create an in-memory SQLite database."""
     import sqlite3
 
@@ -293,7 +410,7 @@ def in_memory_db() -> None:
 
 
 @pytest.fixture
-def db_schema(in_memory_db) -> None:
+def db_schema(in_memory_db) -> Generator[Any, None, None]:
     """Create a test schema in the database."""
     cursor = in_memory_db.cursor()
     cursor.execute(
@@ -363,7 +480,7 @@ def xml_document() -> ET.Element:
 
 
 @pytest.fixture
-def benchmark_data() -> None:
+def benchmark_data() -> list[dict[str, Any]]:
     """Generate data for benchmarks."""
     return [
         {
@@ -382,7 +499,7 @@ def benchmark_data() -> None:
 
 
 @pytest.fixture
-def sample_xml_file(temp_dir) -> None:
+def sample_xml_file(temp_dir) -> Path:
     """Create a sample XML file for testing."""
     xml_content = """<?xml version="1.0" encoding="UTF-8"?>
 <root>
@@ -403,7 +520,7 @@ def sample_xml_file(temp_dir) -> None:
 
 
 @pytest.fixture
-def sample_json_file(temp_dir) -> None:
+def sample_json_file(temp_dir) -> Path:
     """Create a sample JSON file for testing."""
     json_content = {
         "items": [
@@ -428,7 +545,7 @@ def sample_json_file(temp_dir) -> None:
 
 
 @pytest.fixture(autouse=True)
-def mock_env_file(mock_services_enabled) -> None:
+def mock_env_file(mock_services_enabled) -> Generator[None, None, None]:
     """Mock environment file for testing."""
     if mock_services_enabled:
         with (
@@ -445,7 +562,7 @@ def mock_env_file(mock_services_enabled) -> None:
 
 
 @pytest.fixture(autouse=True)
-def mock_secrets_dir(mock_services_enabled) -> None:
+def mock_secrets_dir(mock_services_enabled) -> Generator[None, None, None]:
     """Mock secrets directory for testing."""
     if mock_services_enabled:
         with (
@@ -463,7 +580,7 @@ def mock_secrets_dir(mock_services_enabled) -> None:
 
 
 @pytest.fixture(scope="session", autouse=True)
-def suppress_pydantic_warnings():
+def suppress_pydantic_warnings() -> Generator[None, None, None]:
     """Suppress UserWarning about non-existent secrets directory."""
     # Filter out the specific warning
     warnings.filterwarnings(
@@ -491,8 +608,11 @@ def suppress_pydantic_warnings():
         import shutil
 
         shutil.rmtree(temp_secrets_dir, ignore_errors=True)
-    except Exception:
-        pass
+    except ImportError:
+        # Log warning instead of using pass
+        import logging
+
+        logging.warning("Failed to clean up temporary secrets directory")
 
 
 # -----------------------------------------------------------------------------

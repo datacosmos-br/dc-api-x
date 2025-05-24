@@ -63,10 +63,7 @@ class LdapAuthProvider(AuthProvider):
             pass  # TODO: Implement proper None handling
 
     def authenticate(self, *_args: Any, **_kwargs: Any) -> dict[str, Any]:
-        """
-         return None  # Implement this method
-
-        Authenticate with LDAP server.
+        """Authenticate with LDAP server.
 
         Returns:
             Dictionary with authentication result
@@ -87,19 +84,9 @@ class LdapAuthProvider(AuthProvider):
                 auto_bind=True,
             )
 
-            # Check if bind was successful
-            if not conn.bound:
-                return {
-                    "authenticated": False,
-                    "message": BIND_FAILED_MSG,
-                }
-            # Store the connection and update authentication state
-            self.conn = conn
-            self.authenticated = True
-            return {
-                "authenticated": True,
-                "user": self.bind_dn,
-            }
+            # Store connection for later use in the else block
+            bound = conn.bound
+            connection = conn
 
         except ImportError:
             return {
@@ -116,6 +103,22 @@ class LdapAuthProvider(AuthProvider):
             return {
                 "authenticated": False,
                 "message": LDAP_ERROR_MSG % str(e),
+            }
+        else:
+            # Handle authentication result in the else block
+            if not bound:
+                # Connection not bound successfully
+                return {
+                    "authenticated": False,
+                    "message": BIND_FAILED_MSG,
+                }
+
+            # Connection bound successfully - store the connection and update state
+            self.conn = connection
+            self.authenticated = True
+            return {
+                "authenticated": True,
+                "user": self.bind_dn,
             }
 
     def get_auth_header(self) -> dict[str, str]:

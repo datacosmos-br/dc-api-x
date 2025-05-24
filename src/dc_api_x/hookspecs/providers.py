@@ -1,8 +1,8 @@
 """
-Provider hook specifications for the DC-API-X plugin system.
+Provider hook specifications for the DCApiX plugin system.
 
 This module defines the specifications for provider-related hooks that plugins can
-implement to extend the functionality of DC-API-X.
+implement to extend the functionality of DCApiX.
 """
 
 from .protocol import TRegistry, hookspec
@@ -10,7 +10,7 @@ from .protocol import TRegistry, hookspec
 
 class ProviderHookSpecs:
     """
-    Hook specifications for providers in the DC-API-X plugin system.
+    Hook specifications for providers in the DCApiX plugin system.
 
     This class defines the specifications for hooks that plugins can implement
     to register custom providers for data, schemas, transformations, etc.

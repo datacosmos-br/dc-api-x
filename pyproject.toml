@@ -51,8 +51,8 @@ structlog = "^25.3.0"
 
 # cli
 click = "^8.1.8"
-typer = { version = "^0.15.4", extras = ["all"] } # rich-help & completion
-doctyper = "^0.15.4"
+# typer = { version = "^0.15.4", extras = ["all"] } # rich-help & completion
+doctyper = { version = "^0.15.4", extras = ["all"] } # rich-help & completion
 # Plug-ins / retries / tracing
 pluggy = "^1.6.0"
 # tenacity = "^9.1.2"
@@ -72,11 +72,12 @@ pyjwt = "*"
 #  Dev / CI toolchain                                                        #
 # ========================================================================== #
 pydantic-core = "2.33.2"
+tomli = "^2.2.1"
 
 [tool.poetry.group.dev.dependencies]
 # pyupgrade = "3.19.1"
 # autoflake = "^2.3.1"
-refurb = "^2.1.0" # A tool for refurbishing and modernizing Python codebases 
+refurb = "^2.1.0" # A tool for refurbishing and modernizing Python codebases
 
 build = "^1.2.2"
 
@@ -84,7 +85,7 @@ build = "^1.2.2"
 pylint = "^3.3.7"
 ruff = "^0.11.11"
 # flake8
-# wemake-python-styleguide 
+# wemake-python-styleguide
 # pyflakes
 # parso
 # pycodestyle
@@ -95,16 +96,16 @@ ruff = "^0.11.11"
 # flake8-compreehensions
 # flake8-quotes
 # mypy-protobuf (🥈28 · ⭐ 630) - open source tools to generate mypy stubs from protobufs. Apache-2
-# flake8-eradicate (🥈28 · ⭐ 310) - Flake8 plugin to find commented out or dead code. MIT 
-# hacking (🥈28 · ⭐ 240) - OpenStack Hacking Style Checks. Mirror of code maintained at.. Apache-2 
-# flake8-commas (🥈28 · ⭐ 130) - Flake8 extension for enforcing trailing commas in python. MIT 
-# flake8-isort (🥉27 · ⭐ 170) - flake8 plugin that integrates isort. ❗️GPL-2.0 
-# flake8-builtins (🥉27 · ⭐ 110) - Check for python builtins being used as variables or.. ❗️GPL-2.0 
-# nitpick (🥉26 · ⭐ 380) - Enforce the same settings on multiple projects. MIT 
+# flake8-eradicate (🥈28 · ⭐ 310) - Flake8 plugin to find commented out or dead code. MIT
+# hacking (🥈28 · ⭐ 240) - OpenStack Hacking Style Checks. Mirror of code maintained at.. Apache-2
+# flake8-commas (🥈28 · ⭐ 130) - Flake8 extension for enforcing trailing commas in python. MIT
+# flake8-isort (🥉27 · ⭐ 170) - flake8 plugin that integrates isort. ❗️GPL-2.0
+# flake8-builtins (🥉27 · ⭐ 110) - Check for python builtins being used as variables or.. ❗️GPL-2.0
+# nitpick (🥉26 · ⭐ 380) - Enforce the same settings on multiple projects. MIT
 # check-manifest (🥉26 · ⭐ 280) - Tool to check the completeness of MANIFEST.in for Python packages. MIT
-# flake8-black (🥉26 · ⭐ 160) - flake8 plugin to run black for checking Python coding style. MIT 
-# flake8-import-order (🥉24 · ⭐ 280 · 💤) - Flake8 plugin that checks import order against.. ❗️LGPL-3.0 
-# pandas-vet (🥉21 · ⭐ 160 · 💤) - A plugin for Flake8 that checks pandas code. MIT 
+# flake8-black (🥉26 · ⭐ 160) - flake8 plugin to run black for checking Python coding style. MIT
+# flake8-import-order (🥉24 · ⭐ 280 · 💤) - Flake8 plugin that checks import order against.. ❗️LGPL-3.0
+# pandas-vet (🥉21 · ⭐ 160 · 💤) - A plugin for Flake8 that checks pandas code. MIT
 # flake8-simplify (🥉20 · ⭐ 180) - A flake8 plugin that helps you to simplify code. MIT
 # bellybutton (🥉17 · ⭐ 270 · 💤) - Custom Python linting through AST expressions. MIT
 # imhotep (🥉17 · ⭐ 220 · 💤) - A static-analysis bot for Github. MIT

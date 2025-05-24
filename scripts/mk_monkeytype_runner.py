@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-MonkeyType Runner for DC-API-X
+MonkeyType Runner for DCApiX
 
 Script to collect runtime type information during test execution,
 apply these type annotations to modules, and generate stubs for integration with mypy and pydantic.
@@ -41,7 +41,7 @@ from typing import Optional
 
 
 class MonkeyTypeRunner:
-    """Runner for MonkeyType in the DC-API-X project."""
+    """Runner for MonkeyType in the DCApiX project."""
 
     def __init__(self) -> None:
         """Initialize the runner with project paths."""
@@ -81,7 +81,7 @@ class MonkeyTypeRunner:
             )
 
     def _find_project_root(self) -> Path:
-        """Find the root of the DC-API-X project."""
+        """Find the root of the DCApiX project."""
         # Get current directory
         current_dir = Path.cwd()
 
@@ -137,7 +137,7 @@ class MonkeyTypeRunner:
                 return 1
             cmd.append(str(test_path))
 
-        print("Running tests with MonkeyType in DC-API-X")
+        print("Running tests with MonkeyType in DCApiX")
         result = subprocess.run(cmd, check=False)
 
         if result.returncode == 0:
@@ -380,7 +380,7 @@ class MonkeyTypeRunner:
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="DC-API-X MonkeyType Runner - Tool for collecting and applying types.",
+        description="DCApiX MonkeyType Runner - Tool for collecting and applying types.",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to execute")

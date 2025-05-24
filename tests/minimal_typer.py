@@ -2,17 +2,32 @@
 
 import typer
 
+from tests.constants import (
+    DEFAULT_GREETING,
+    DEFAULT_NAME_OPTION,
+    DEFAULT_NAME_OPTION_SHORT,
+    DEFAULT_VERBOSE_OPTION,
+    DEFAULT_VERBOSE_OPTION_SHORT,
+    TEST_GREETING_FORMAT,
+    TEST_VERBOSE_MESSAGE,
+)
+
 app = typer.Typer()
 
 # Define option constants
-NAME_OPTION = typer.Option("World", "--name", "-n", help="Name to greet")
+NAME_OPTION = typer.Option(
+    DEFAULT_GREETING,
+    DEFAULT_NAME_OPTION,
+    DEFAULT_NAME_OPTION_SHORT,
+    help="Name to greet",
+)
 VERBOSE_OPTION = typer.Option(
-    False,  # First parameter should be the default value
-    "--verbose",
-    "-v",
+    False,  # noqa: FBT003 - Required by Typer API
+    DEFAULT_VERBOSE_OPTION,
+    DEFAULT_VERBOSE_OPTION_SHORT,
     help="Enable verbose output",
-    is_flag=True,  # Specify this is a flag
-)  # noqa: FBT003 - Este é o padrão do Typer, sem alternativa
+    is_flag=True,
+)
 
 
 @app.command()
@@ -22,8 +37,8 @@ def hello(
 ) -> None:
     """Say hello to someone."""
     if verbose:
-        typer.echo(f"Running hello with name={name}")
-    typer.echo(f"Hello {name}!")
+        typer.echo(TEST_VERBOSE_MESSAGE.format(name))
+    typer.echo(TEST_GREETING_FORMAT.format(name))
 
 
 if __name__ == "__main__":

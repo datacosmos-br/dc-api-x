@@ -11,6 +11,9 @@ import logfire
 
 from dc_api_x.ext.hooks.logging import LoggingHook
 
+# HTTP status code constants
+HTTP_ERROR_STATUS_CODE = 400
+
 
 class LogfireHook(LoggingHook):
     """Hook for logging API interactions using Logfire."""
@@ -19,14 +22,12 @@ class LogfireHook(LoggingHook):
         self,
         service_name: Optional[str] = None,
         environment: Optional[str] = None,
-        logger: Optional[Any] = None,
     ) -> None:
         """Initialize the LogfireHook.
 
         Args:
             service_name: Name of the service for logging
             environment: Environment name (prod, staging, etc)
-            logger: Custom logger to use (optional)
         """
         # Initialize with defaults from environment if not provided
         self.service_name = service_name or os.environ.get(
@@ -128,7 +129,7 @@ class LogfireHook(LoggingHook):
         """
         # Determine log level based on status code
         status_code = getattr(response, "status_code", 0)
-        log_level = "error" if status_code >= 400 else "info"
+        log_level = "error" if status_code >= HTTP_ERROR_STATUS_CODE else "info"
 
         # Calculate response time
         elapsed = getattr(response, "elapsed", None)

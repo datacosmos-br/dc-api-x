@@ -6,7 +6,7 @@ This module defines the BasicAuthProvider class for HTTP Basic Authentication.
 
 from typing import Any, Optional
 
-from ...exceptions import AuthenticationError, InvalidCredentialsError
+from ...utils.exceptions import AuthenticationError, InvalidCredentialsError
 from .provider import AuthProvider
 
 

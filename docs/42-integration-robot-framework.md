@@ -186,7 +186,7 @@ class TestResult:
     message: str = ""
     duration: float = 0.0
     tags: List[str] = field(default_factory=list)
-    
+
 @dataclass
 class SuiteResult:
     name: str
@@ -195,12 +195,12 @@ class SuiteResult:
     suites: List['SuiteResult'] = field(default_factory=list)
     message: str = ""
     stats: Dict[str, int] = field(default_factory=dict)
-    
+
     @property
     def failures(self) -> List[TestResult]:
         """Return list of failed tests."""
         return [t for t in self.tests if t.status.upper() != 'PASS']
-    
+
     @property
     def pass_percentage(self) -> float:
         """Calculate the percentage of passed tests."""
@@ -212,35 +212,35 @@ class SuiteResult:
 
 class ResultParser:
     """Parses Robot Framework output.xml into structured results."""
-    
+
     def parse(self, output_path: str) -> SuiteResult:
         """Parse Robot Framework output.xml into a SuiteResult object."""
         if not os.path.exists(output_path):
             raise FileNotFoundError(f"Robot Framework output file not found: {output_path}")
-        
+
         tree = ET.parse(output_path)
         root = tree.getroot()
-        
+
         # Parse the top-level suite
         suite_elem = root.find("suite")
         if suite_elem is None:
             raise ValueError("No suite element found in output.xml")
-        
+
         # Get statistics
         stat_elem = root.find("statistics/total")
         stats = {}
         if stat_elem is not None:
             for stat in stat_elem.findall("stat"):
                 stats[stat.get("name", "").lower()] = int(stat.get("pass", 0))
-        
+
         return self._parse_suite(suite_elem, stats)
-    
+
     def _parse_suite(self, suite_elem: ET.Element, stats: Dict[str, int]) -> SuiteResult:
         """Parse a suite element from output.xml."""
         name = suite_elem.get("name", "Unknown Suite")
         status_elem = suite_elem.find("status")
         status = status_elem.get("status", "FAIL") if status_elem is not None else "FAIL"
-        
+
         # Parse tests in this suite
         tests = []
         for test_elem in suite_elem.findall("test"):
@@ -248,10 +248,10 @@ class ResultParser:
             test_status_elem = test_elem.find("status")
             if test_status_elem is None:
                 continue
-                
+
             test_status = test_status_elem.get("status", "FAIL")
             test_message = test_status_elem.text or ""
-            
+
             # Calculate duration
             start = test_status_elem.get("starttime", "")
             end = test_status_elem.get("endtime", "")
@@ -263,13 +263,13 @@ class ResultParser:
                 except ImportError:
                     # Fallback if Robot utils are not available
                     duration = 0.0
-            
+
             # Get tags
             tags = []
             tags_elem = test_elem.find("tags")
             if tags_elem is not None:
                 tags = [tag.text for tag in tags_elem.findall("tag") if tag.text]
-                
+
             tests.append(TestResult(
                 name=test_name,
                 status=test_status,
@@ -277,12 +277,12 @@ class ResultParser:
                 duration=duration,
                 tags=tags
             ))
-        
+
         # Parse sub-suites recursively
         suites = []
         for subsuite_elem in suite_elem.findall("suite"):
             suites.append(self._parse_suite(subsuite_elem, {}))  # Empty stats for sub-suites
-            
+
         return SuiteResult(
             name=name,
             passed=status == "PASS",
@@ -293,37 +293,37 @@ class ResultParser:
 
 class RobotRunner:
     """Runs Robot Framework tests and parses the results."""
-    
+
     def __init__(self, parser: Optional[ResultParser] = None, **options):
         self.options = options
         self.parser = parser or ResultParser()
-        
+
     def run_suite(self, path: str, **kwargs) -> SuiteResult:
         """Run a Robot Framework test suite from a file or directory."""
         if not os.path.exists(path):
             raise FileNotFoundError(f"Test suite not found: {path}")
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = os.path.join(temp_dir, "output.xml")
-            
+
             # Combine base options with kwargs
             options = {**self.options, **kwargs}
             options.setdefault("outputdir", temp_dir)
             options.setdefault("output", "output.xml")
-            
+
             # Convert options to command line arguments
             args = self._build_arguments(path, options)
-            
+
             # Run the tests
             try:
                 run_cli(args)
             except SystemExit:
                 # Robot Framework always calls sys.exit, we need to catch it
                 pass
-                
+
             # Parse results
             return self.parser.parse(output_path)
-    
+
     def run_string(self, content: str, **kwargs) -> SuiteResult:
         """Run Robot Framework tests from a string."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -331,27 +331,27 @@ class RobotRunner:
             robot_file = os.path.join(temp_dir, "test.robot")
             with open(robot_file, "w", encoding="utf-8") as f:
                 f.write(content)
-                
+
             # Run the suite
             return self.run_suite(robot_file, **kwargs)
-    
+
     def run_task(self, path: str, variables: Optional[Dict[str, Any]] = None, **kwargs) -> SuiteResult:
         """Run a Robot Framework task file with variables."""
         kwargs.setdefault("rpa", True)  # Enable RPA mode for tasks
-        
+
         # Convert variables to command line format if provided
         if variables:
             var_args = {}
             for name, value in variables.items():
                 var_args[f"variable:{name}"] = str(value)
             kwargs.update(var_args)
-            
+
         return self.run_suite(path, **kwargs)
-            
+
     def _build_arguments(self, path: str, options: Dict[str, Any]) -> List[str]:
         """Convert options dictionary to command line arguments."""
         args = []
-        
+
         # Add all options as command line arguments
         for key, value in options.items():
             if key == "variable":
@@ -369,10 +369,10 @@ class RobotRunner:
             else:
                 # Handle other options
                 args.extend([f"--{key}", str(value)])
-        
+
         # Add the path last
         args.append(path)
-        
+
         return args
 ```
 
@@ -398,7 +398,7 @@ wms_adapter = apix.get_adapter("oracle_wms")
 @builder.keyword
 def connect_to_wms(url, username, password, warehouse=None):
     """Connect to the Oracle WMS system.
-    
+
     Args:
         url: The WMS server URL
         username: WMS username
@@ -406,8 +406,8 @@ def connect_to_wms(url, username, password, warehouse=None):
         warehouse: Optional warehouse code
     """
     wms_adapter.connect(
-        url, 
-        username=username, 
+        url,
+        username=username,
         password=password,
         warehouse=warehouse
     )
@@ -416,7 +416,7 @@ def connect_to_wms(url, username, password, warehouse=None):
 @builder.keyword
 def create_wave(wave_number, carrier_code, orders=None):
     """Create a new wave in WMS.
-    
+
     Args:
         wave_number: The wave identifier
         carrier_code: The carrier code
@@ -432,7 +432,7 @@ def create_wave(wave_number, carrier_code, orders=None):
 @builder.keyword
 def release_orders(order_numbers):
     """Release orders in WMS.
-    
+
     Args:
         order_numbers: List of order numbers to release
     """
@@ -446,7 +446,7 @@ def release_orders(order_numbers):
 @builder.keyword
 def get_order_status(order_number):
     """Get the current status of an order.
-    
+
     Args:
         order_number: The order number to check
     """
@@ -456,7 +456,7 @@ def get_order_status(order_number):
 @builder.keyword
 def verify_order_status(order_number, expected_status, message=None):
     """Verify that an order has the expected status.
-    
+
     Args:
         order_number: The order number to check
         expected_status: The expected status
@@ -491,16 +491,16 @@ Process Order Wave
     Connect To WMS    ${WMS_URL}    ${WMS_USER}    ${WMS_PASSWORD}    ${WMS_WAREHOUSE}
     Log    Creating wave ${WAVE_NUMBER} with carrier ${CARRIER}
     ${wave_result}=    Create Wave    ${WAVE_NUMBER}    ${CARRIER}    ${ORDER_NUMBERS}
-    
+
     # Release the orders
     ${release_results}=    Release Orders    ${ORDER_NUMBERS}
     Log    Release results: ${release_results}
-    
+
     # Verify all orders were released
     FOR    ${order}    IN    @{ORDER_NUMBERS}
         Verify Order Status    ${order}    ${TARGET_STATUS}    Order ${order} was not released correctly
     END
-    
+
     Log    Wave ${WAVE_NUMBER} processing completed successfully
 ```
 
@@ -520,7 +520,7 @@ logger = logging.getLogger(__name__)
 # Main application function
 def process_wms_wave(config, orders):
     """Process a wave of orders in WMS using Robot Framework.
-    
+
     Args:
         config: Application configuration
         orders: List of order numbers to process
@@ -528,11 +528,11 @@ def process_wms_wave(config, orders):
     # Enable plugins to discover Robot Framework adapter
     apix.enable_plugins()
     robot = apix.get_adapter("robotframework")
-    
+
     # Register our custom WMS library with the Robot adapter
     from wms_library import wms_library
     robot.register_library(wms_library)
-    
+
     # Set up variables for the task
     variables = {
         "WMS_URL": config.wms_url,
@@ -544,7 +544,7 @@ def process_wms_wave(config, orders):
         "CARRIER": config.default_carrier,
         "TARGET_STATUS": "RELEASED"
     }
-    
+
     # Execute the Robot task
     logger.info(f"Starting WMS wave processing for {len(orders)} orders")
     result = robot.run_task(
@@ -554,7 +554,7 @@ def process_wms_wave(config, orders):
         report=True,  # Generate an HTML report
         outputdir="logs/robot"  # Where to store the logs
     )
-    
+
     # Process the results
     if result.passed:
         logger.info(f"Wave processing completed successfully")
@@ -567,13 +567,13 @@ def process_wms_wave(config, orders):
         logger.error(f"Wave processing failed: {len(result.failures)} errors")
         for failure in result.failures:
             logger.error(f"Test '{failure.name}' failed: {failure.message}")
-            
+
         return {
             "status": "error",
             "wave_id": variables["WAVE_NUMBER"],
             "errors": [f"{f.name}: {f.message}" for f in result.failures]
         }
-        
+
 def generate_wave_number():
     """Generate a unique wave number."""
     from datetime import datetime
@@ -584,10 +584,10 @@ if __name__ == "__main__":
     # Application configuration
     from config import AppConfig
     config = AppConfig()
-    
+
     # Orders to process
     orders_to_process = ["ORD-12345", "ORD-12346", "ORD-12347"]
-    
+
     # Process the orders
     result = process_wms_wave(config, orders_to_process)
     print(f"Wave processing result: {result}")
@@ -618,15 +618,15 @@ Documentation    Test Order to Shipping Workflow
 Order To Shipping Process
     # Create order in ERP
     ${order_id}=    Create Order In ERP    SKU-123    quantity=5
-    
+
     # Verify WMS received order
     Connect To WMS
     ${wms_order}=    Get WMS Order By ERP ID    ${order_id}
     Should Not Be Empty    ${wms_order}
-    
+
     # Process in WMS
     Process WMS Order    ${wms_order.id}
-    
+
     # Verify shipping status in both systems
     ${erp_status}=    Get Order Status In ERP    ${order_id}
     ${wms_status}=    Get Order Status In WMS    ${wms_order.id}
@@ -712,25 +712,25 @@ from .result_parser import ResultParser
 
 class RobotFrameworkAdapter(ProtocolAdapter):
     """Adapter for using Robot Framework capabilities in DCApiX."""
-    
+
     def __init__(self, **options):
         self.options = options
         self.result_parser = ResultParser()
-        
+
     def create_runner(self, **kwargs):
         """Create a Robot Framework runner with specified options."""
         return RobotRunner(parser=self.result_parser, **{**self.options, **kwargs})
-    
+
     def run_test_suite(self, path, **kwargs):
         """Run a Robot Framework test suite directly."""
         runner = self.create_runner(**kwargs)
         return runner.run_suite(path)
-    
+
     def run_test_string(self, content, **kwargs):
         """Run Robot Framework test content from a string."""
         runner = self.create_runner(**kwargs)
         return runner.run_string(content)
-    
+
     def create_executor(self, **kwargs):
         """Create a Robot Framework keyword executor."""
         from .keyword_executor import KeywordExecutor
@@ -746,7 +746,7 @@ def register_adapters(registry):
     """Register the Robot Framework adapter."""
     from .robot_adapter import RobotFrameworkAdapter
     registry["robotframework"] = RobotFrameworkAdapter
-    
+
 def register_hooks(registry):
     """Register Robot Framework related hooks."""
     from .hooks import RobotResultHook
@@ -835,178 +835,178 @@ Description
 Stars
 
 Tags
-SeleniumLibrary 
+SeleniumLibrary
 Web testing library that uses popular Selenium tool internally.
 1304 web, selenium
-Browser Library 
+Browser Library
 A modern web testing library powered by Playwright. Aiming for speed, reliability and visibility.
 777 web
-HTTP RequestsLibrary (Python) 
+HTTP RequestsLibrary (Python)
 HTTP level testing using Python Requests internally.
 458 http
-AppiumLibrary 
+AppiumLibrary
 Android and iOS testing. Uses Appium internally.
 371 mobile
-RESTinstance 
+RESTinstance
 Test library for HTTP JSON APIs.
 195 http
-Database Library (Python) 
+Database Library (Python)
 Python based library for database testing. Works with any Python interpreter, including Jython.
 141 db
-SikuliLibrary 
+SikuliLibrary
 Provides keywords to test UI through Sikulix. This library supports Python 2.x and 3.x.
 137 ui
-Zoomba Library 
+Zoomba Library
 Extends features in many popular tools for GUI, Rest API, Soap API, Mobile, and Windows (WinAppDriver) automation. An ideal all-in-one toolkit for new or existing Robot Framework projects.
 136 ui, http
-DataDriver Library 
+DataDriver Library
 Data-Driven Testing with external 📤 data tables (csv, xls, xlsx, etc.). 🧬 Pairwise Combinatorial Testing support.
 117 db
-DebugLibrary 
+DebugLibrary
 A debug library for RobotFramework, which can be used as an interactive shell(REPL) also.
-98 
-ImageHorizonLibrary 
+98
+ImageHorizonLibrary
 Cross-platform, pure Python library for GUI automation based on image recognition.
 72 ui, visual
-Python Library Core 
+Python Library Core
 Tools to ease creating larger test libraries for Robot Framework using Python.
 55 tools
-PuppeteerLibrary 
+PuppeteerLibrary
 Web testing using Puppeteer tool internally.
 53 web, ui
-WatchUI 
+WatchUI
 Visual testing library for visual difference testing as well as image content testing (including PDF documents). Runs on Selenium to generate screenshots, uses PyMuPDF to process PDFs and Tesseract OCR to recognize text.
 51 ui
-Robotframework-FlaUI 
+Robotframework-FlaUI
 Robotframework-FlaUI is a keyword based user interface automation testing library for Windows applications like Win32, WinForms, WPF or Store Apps. It's based on the FlaUI user interface automation library.
 47 windows, ui
-SapGuiLibrary 
+SapGuiLibrary
 Testing the SAPGUI client using the internal SAP Scripting Engine
 47 ui, sap
-JavalibCore 
+JavalibCore
 Base for implementing larger Java based test libraries for Robot Framework.
 42 java
-DocTest Library 
+DocTest Library
 Library for Document Testing, offers visual/content comparisons and masks for images, PDFs and more.
 38 pdf, visual
-Django Library 
+Django Library
 Library for Django, a Python web framework.
 37 django
-ScreenCapLibrary 
+ScreenCapLibrary
 Taking screenshots and video recording. Similar functionality as Screenshot standard library, with some additional features.
 37 ui
-Qweb 
+Qweb
 A modern web testing library focusing on making web testing and automation Easy 🎉 and maintainable 🧹 with its high level keyword design.
 35 web, ui
-AutoItLibrary 
+AutoItLibrary
 Windows GUI testing library that uses AutoIt freeware tool as a driver.
 32 windows, ui
-CURFLibrary 
+CURFLibrary
 Testing CAN bus with support for ISO-TP and UDS.
-32 
-ConfluentKafkaLibrary 
+32
+ConfluentKafkaLibrary
 Python confluent kafka.
-28 
-Diff Library 
+28
+Diff Library
 Diff two files together.
-23 
-MQTT library 
+23
+MQTT library
 Testing MQTT brokers and applications.
 23 iot
-SeleniumLibrary for Java 
+SeleniumLibrary for Java
 Java port of the SeleniumLibrary.
 23 java, selenium
-ArchiveLibrary 
+ArchiveLibrary
 Handling zip- and tar-archives.
 22 zip
-HttpRequestLibrary (Java) 
+HttpRequestLibrary (Java)
 HTTP level testing using Apache HTTP client. Available also at Maven central.
 21 http, java
-JavaFXLibrary 
+JavaFXLibrary
 Testing JavaFX applications, based on TestFX. Has also remote interface support.
 21 java
-TestFX Library 
+TestFX Library
 Enables testing Java FX applications using the TestFX framework. Has also remote interface support. Maintained Fork...
 19 java
-Dependency Library 
+Dependency Library
 Declare dependencies between tests. Ideally tests are independent, but when tests depend on earlier tests, DependencyLibrary makes it easy to explicitly declare these dependencies and have tests that depend on each other do the right thing.
-13 
-CncLibrary 
+13
+CncLibrary
 Driving a CNC milling machine.
 12 rpa
-Database Library (Java) 
+Database Library (Java)
 Java-based library for database testing. Usable with Jython. Available also at Maven central.
 12 java
-RemoteApplications 
+RemoteApplications
 Special test library for launching Java applications on a separate JVM and taking other libraries into use on them.
 12 java
-SeleniumScreenshots 
+SeleniumScreenshots
 Annotating and cropping screenshots taken with SeleniumLibrary.
 11 ui, selenium
-Plone.app .robotframework 
+Plone.app .robotframework
 Provides resources and tools for writing functional Selenium tests for Plone CMS and its add-ons.
 11 selenium
-OracleDBLibrary 
+OracleDBLibrary
 A database testing library for Robot Framework that utilizes the python-oracledb tool internally.
 9 db, oracle, oracledb
-Eclipse Library 
+Eclipse Library
 Testing Eclipse RCP applications using SWT widgets.
-8 
-FTP library 
+8
+FTP library
 Testing and using FTP server with Robot Framework.
 7 ftp
-KiCadLibrary 
+KiCadLibrary
 Interacting with KiCad EDA designs.
-7 
-AutoRecorder 
+7
+AutoRecorder
 Allows automatically recording video for test/suites execution.
 6 visual
-ListenerLibrary 
+ListenerLibrary
 Register keywords to run before/after other keywords and suites.
-3 
-TFTPLibrary 
+3
+TFTPLibrary
 Interact over Trivial File Transfer Portocol.
 3 ftp
-DoesIsLibrary 
+DoesIsLibrary
 Autogenerated keywords like Is Something, Does Someting created form assertion keywords like Should Be, Should Not Be, etc
-1 
-Robotframework-MailClientLibrary 
+1
+Robotframework-MailClientLibrary
 The Robotframework-MailClientLibrary is a keyword-based mail client library that supports testing of mail protocols, including IMAP, POP3, and SMTP with or without SSL connection.
 1 mail, imap, smtp, pop3, ssl
-UDS Library 
+UDS Library
 UDS (Unified Diagnostic Services) keyword library based on udsoncan, doipclient and odxtools. This library is part of the RobotFramework AIO (All In One) OSS project.
 N/A embedded, automotive
-WADLibrary 
+WADLibrary
 Application testing library that utilizes Win App Driver.
 N/A windows
-SwingLibrary 
+SwingLibrary
 Testing Java applications with Swing GUI.
 N/A java, ui
-SSHLibrary 
+SSHLibrary
 Enables executing commands on remote machines over an SSH connection. Also supports transfering files using SFTP.
 N/A ftp, ssh
-SoapLibrary 
+SoapLibrary
 Designed for those who want to work with webservice automation as if they were using SoapUI, make a request through an XML file, and receive the response in another XML file.
 N/A http
-RoboSAPiens 
+RoboSAPiens
 RoboSAPiens is a library for automating the Windows SAP GUI. Its key innovation (compared to SapGuiLibrary) is that UI elements can be selected using the texts in the GUI. No need to use a third-party tool to find some XPath-like selectors. Moreover, RoboSAPiens is under active development.
 N/A ui, sap
-Robotframework-XmlValidator 
+Robotframework-XmlValidator
 A Robot Framework test library for validating XML files against XSD schemas, and more.
 N/A xml, xsd, xmlschema
-Robotframework-faker 
+Robotframework-faker
 Library for Faker, a fake test data generator.
-N/A 
-RemoteSwingLibrary 
+N/A
+RemoteSwingLibrary
 Testing and connecting to a java process and using SwingLibrary, especially Java Web Start applications.
 N/A java
-Rammbock 
+Rammbock
 Generic network protocol test library that offers easy way to specify network packets and inspect the results of sent and received packets.
 N/A http
-Mainframe3270 Library 
+Mainframe3270 Library
 Allows the creation of automated test scripts to test IBM Mainframe 3270.
 N/A ibm
-DoIP Library 
+DoIP Library
 DoIP (Diagnostic over Internet Protocol) keyword library based on doipclient. This library is part of the RobotFramework AIO (All In One) OSS project.
 
 Libraries
@@ -1020,49 +1020,49 @@ Name
 Description
 
 Tags
-Builtin 
+Builtin
 Provides a set of often needed generic keywords. Always automatically available without imports.
 library
-Collections 
+Collections
 Provides a set of keywords for handling Python lists and dictionaries.
 library
-DateTime 
+DateTime
 Library for date and time conversions.
 library
-Dialogs 
+Dialogs
 Provides means for pausing the execution and getting input from users.
 library
-Libdoc 
+Libdoc
 Generate keyword documentation for test libraries and resource files.
 tool
-OperatingSystem 
+OperatingSystem
 Enables various operating system related tasks to be performed in the system where Robot Framework is running.
 library
-Process 
+Process
 Library for running processes in the system.
 library
-Rebot 
+Rebot
 Generate logs and reports based on XML outputs and for combining multiple outputs together.
 tool
-Remote 
+Remote
 Special library acting as a proxy between Robot Framework and libraries elsewhere. Actual libraries can be running on different machines and be implemented using any programming language supporting XML-RPC protocol.
 library
-Screenshot 
+Screenshot
 Provides keywords to capture screenshots of the desktop.
 library
-String 
+String
 Library for generating, modifying and verifying strings.
 library
-Telnet 
+Telnet
 Makes it possible to connect to Telnet servers and execute commands on the opened connections.
 library
-Testdoc 
+Testdoc
 Generate high level HTML documentation based on Robot Framework test cases.
 tool
-Tidy 
+Tidy
 Cleaning up and changing format of Robot Framework test data files.
 tool
-XML 
+XML
 Library for generating, modifying and verifying XML files.
 library
 
@@ -1076,148 +1076,148 @@ Description
 Stars
 
 Tags
-RIDE 
+RIDE
 Standalone Robot Framework test data editor.
 915 editor
-Pabot 
+Pabot
 A parallel executor for Robot Framework tests and tasks.
-450 
-RCC 
+450
+RCC
 Share your Robot projects with ease. RCC allows you to create, manage, and distribute Python-based self-contained automation packages.
-393 
-Robot Framework Hub 
+393
+Robot Framework Hub
 Lightweight web server that provides access to the Robot Framework test assets via browser.
-168 
-Robocop linter 
+168
+Robocop linter
 Static code analysis tool for Robot Framework with use of latest robot API and many built-in rules that can be easily configured or switched off.
-163 
-Sublime assistant 
+163
+Sublime assistant
 A plugin for Sublime Text 2 & 3 by Andriy Hrytskiv.
 110 editor
-Vim plugin 
+Vim plugin
 Vim plugin for development with Robot Framework.
 89 editor
-rfswarm 
+rfswarm
 Testing tool that allows you to use Robot Framework test cases for performance or load testing.
-85 
-Robot Corder 
+85
+Robot Corder
 Robot Corder generates Robot Framework test script by recording user interactions and scanning the html page in your Chrome browser. It aims to be equivalent of Selenium IDE for RobotFramework browser test automation.
-84 
-Jenkins plugin 
+84
+Jenkins plugin
 Plugin to collect and publish Robot Framework execution results in Jenkins.
 60 build
-Robotmk 
+Robotmk
 With Robotmk, arbitrary Robot Framework tests can be seamlessly integrated into the Checkmk monitoring tool. In addition to server and network metrics, Checkmk administrators also get worthful insights about on how well business applications are performing from the users point of view ("End-2-End Monitoring"). Robotmk can flexibly monitor and graph the runtimes of tests and keywords, and also alert when related SLAs are violated.
-51 
-Notepad++ 
+51
+Notepad++
 Syntax highlighting for Notepad++.
 31 editor
-Emacs major mode 
+Emacs major mode
 Emacs major mode for editing tests.
 30 editor
-Atom plugin 
+Atom plugin
 Robot Framework plugin for Atom.
 26 editor
-Sublime plugin 
+Sublime plugin
 A plugin for Sublime Text 2 by Mike Gershunovsky.
 26 editor
-Maven plugin 
+Maven plugin
 Maven plugin for using Robot Framework.
 24 build
-Oxygen 
+Oxygen
 Tool for consolidating other test tools' reporting to Robot Framework outputs.
-24 
-StatusChecker 
+24
+StatusChecker
 A tool for validation that executed Robot Framework test cases have expected statuses and log messages. Mainly targeted for test library developers.
-24 
-Distbot 
+24
+Distbot
 A bot for self distribution of Robot Framework tests into multiple machines/docker and execute in parallel (without need of master node).
-21 
-Brackets plugin 
+21
+Brackets plugin
 Robot Framework plugin for Brackets.
 20 editor
-RFDoc 
+RFDoc
 Web based system for storing and searching Robot Framework library and resource file documentations.
-14 
-Mabot 
+14
+Mabot
 Tool for reporting manual tests in format compatible with Robot Framework outputs.
-12 
-TestDataTable 
+12
+TestDataTable
 Enables you to assign test data variable values from a single set of data to multiple scripts while allowing you to ensure each script has a unique data value.
-7 
-Ant task 
+7
+Ant task
 Ant task for running Robot Framework tests.
 3 build
-Test Assistant 
+Test Assistant
 Control test processes and RPA tasks with your voice or with a text message sent directly to the assistant through leon-ai's UI..
-2 
-Xray Test Management 
+2
+Xray Test Management
 Test management app for Jira that provides the ability to track coverage based on traditional manual test cases, exploratory testing and automation-related results. For automation, users can track detailed results from test scripts implemented with Robot Framework and link them to the respective requirements.
-N/A 
-Tesults Listener 
+N/A
+Tesults Listener
 A listener that provides a codeless integration experience for test results reporting from Robot Framework into Tesults.
-N/A 
-SAGE Framework 
+N/A
+SAGE Framework
 Multi-agent based extension to Robot Framework. Agent based systems make it possible to test distributed systems such as Service Oriented Architecture systems. SAGE Provides a library of Robot Framework keywords for creating and managing SAGE agent networks as well as collecting and reporting results from remote agents.
-N/A 
-Robot Tools 
+N/A
+Robot Tools
 Collection of supporting tools that can be used with Robot Framework.
-N/A 
-RobotFramework AIO (All in One) 
+N/A
+RobotFramework AIO (All in One)
 RobotFramework AIO combines test development and execution into a single, integrated environment with VSCodium, Robot Framework, and additional keyword libraries. With just three clicks, a fully pre-configured installation is ready, offering version control to ensure reproducible and predictable test results. This solution simplifies test case development and production testing through seamless integration and continuous updates.
 N/A IDTE
-Robot Framework Lexer 
+Robot Framework Lexer
 Robot Framework syntax highlighting with Pygments. Link is to the lexer project itself, but the lexer is part of Pygments from version 1.6 onwards.
 N/A editor
-Fixml 
+Fixml
 Tool for fixing Robot Framework output files that are broken.
-N/A 
-DbBot 
+N/A
+DbBot
 Tool for serializing Robot Framework execution results, i.e. output.xml files, into an SQLite database. It serves a good starting point to create your own reporting and analyzing tools.
-N/A 
-Debugger for Visual Studio Code 
+N/A
+Debugger for Visual Studio Code
 A Visual Studio Code extension that lets you debug robot files with call stack, breakpoints, etc.
 N/A editor
-Intellisense for Visual Studio Code 
+Intellisense for Visual Studio Code
 A Visual Studio Code extension that supports Robot Framework development.
 N/A editor
-Language Server for PyCharm 
+Language Server for PyCharm
 PyCharm LSP plugin - syntax highlight, code completion, and other LSP features for PyCharm.
 N/A editor
-Robot Support for IntelliJ IDEA 
+Robot Support for IntelliJ IDEA
 For IntelliJ IDEA-based editors by Valerio Angelini.
 N/A editor
-Robot Plugin for IntelliJ IDEA 
+Robot Plugin for IntelliJ IDEA
 For IntelliJ IDEA-based editors by JIVE Software.
 N/A editor
-Gedit 
+Gedit
 Syntax highlighting for Gedit.
 N/A editor
-RobotCode 
+RobotCode
 RobotFramework support for Visual Studio Code, including features like code completion, navigation, refactoring, usage analysis, debugging, test explorer, test execution and more!
 N/A editor, vscode
 
-Rebot 
+Rebot
 Generate logs and reports based on XML outputs and for combining multiple outputs together.
 tool
-Remote 
+Remote
 Special library acting as a proxy between Robot Framework and libraries elsewhere. Actual libraries can be running on different machines and be implemented using any programming language supporting XML-RPC protocol.
 library
-Screenshot 
+Screenshot
 Provides keywords to capture screenshots of the desktop.
 library
-String 
+String
 Library for generating, modifying and verifying strings.
 library
-Telnet 
+Telnet
 Makes it possible to connect to Telnet servers and execute commands on the opened connections.
 library
-Testdoc 
+Testdoc
 Generate high level HTML documentation based on Robot Framework test cases.
 tool
-Tidy 
+Tidy
 Cleaning up and changing format of Robot Framework test data files.
 tool
-XML 
+XML
 Library for generating, modifying and verifying XML files.
 library

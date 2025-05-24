@@ -1,6 +1,6 @@
 ---
 name: Security Vulnerability Report
-about: Report a security vulnerability in DC-API-X
+about: Report a security vulnerability in DCApiX
 title: "[SECURITY] "
 assignees: ''
 ---
@@ -15,13 +15,13 @@ A clear and concise description of the security vulnerability.
 
 ### Affected Version(s)
 
-Which versions of DC-API-X are affected?
+Which versions of DCApiX are affected?
 
 ### Steps to Reproduce
 
-1. 
-2. 
-3. 
+1.
+2.
+3.
 
 ### Impact
 
@@ -40,4 +40,4 @@ Add any other context about the vulnerability here.
 How would you like to be contacted regarding this report?
 
 - [ ] I would like to be credited for discovering this vulnerability
-- [ ] I prefer to remain anonymous 
+- [ ] I prefer to remain anonymous

@@ -1,21 +1,17 @@
 """
-Configuration management for DCApiX.
+Configuration management module.
 
-This module provides configuration management classes for the API client,
-including loading configuration from environment variables, files, and cloud
-secret management services.
+This module provides classes and functions for managing configuration settings,
+including loading from different sources, validation, and serialization.
 """
 
+import importlib.util
 import json
 import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import (
-    Any,
-    Optional,
-    Union,
-)
+from typing import Any, Optional, Union
 
 from dotenv import load_dotenv
 from pydantic import (
@@ -25,15 +21,38 @@ from pydantic import (
     field_validator,
     model_validator,
 )
-from pydantic_settings import (
-    BaseSettings,
-    PydanticBaseSettingsSource,
-    SettingsConfigDict,
+from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings.main import PydanticBaseSettingsSource
+
+from .utils.constants import (
+    AWS_SECRETS_DEPENDENCY_ERROR,
+    AWS_SECRETS_LOAD_ERROR,
+    AZURE_KEY_VAULT_DEPENDENCY_ERROR,
+    AZURE_KEY_VAULT_LOAD_ERROR,
+    CONFIG_DEFAULT_ENV_FILE,
+    CONFIG_ENV_PREFIX,
+    CONFIG_FILE_NOT_FOUND_ERROR,
+    CONFIG_PASSWORD_KEY,
+    CONFIG_RELOAD_ERROR,
+    CONFIG_REQUIRED_KEYS,
+    DEFAULT_MAX_RETRIES,
+    DEFAULT_RETRY_BACKOFF,
+    DEFAULT_TIMEOUT,
+    LOAD_CONFIG_ERROR,
+    LOAD_PROFILE_FAILED_ERROR,
+    MAX_RETRIES_ERROR,
+    MISSING_REQUIRED_VARS_ERROR,
+    PROFILE_FILE_NOT_FOUND_ERROR,
+    RETRY_BACKOFF_ERROR,
+    TIMEOUT_ERROR,
+    UNSUPPORTED_FORMAT_ERROR,
+    URL_EMPTY_ERROR,
+    URL_FORMAT_ERROR,
 )
+from .utils.exceptions import ConfigError
 
 try:
-    # Optional dependencies for cloud secret management
-    from pydantic_settings import (
+    from pydantic_settings.sources import (
         AWSSecretsManagerSettingsSource,
         AzureKeyVaultSettingsSource,
     )
@@ -42,19 +61,38 @@ try:
 except ImportError:
     CLOUD_SECRETS_AVAILABLE = False
 
-# Import constants from the constants module
-from .constants import (
-    CONFIG_DEFAULT_ENV_FILE,
-    CONFIG_ENV_PREFIX,
-    CONFIG_PASSWORD_KEY,
-    CONFIG_REQUIRED_KEYS,
-    DEFAULT_MAX_RETRIES,
-    DEFAULT_RETRY_BACKOFF,
-    DEFAULT_TIMEOUT,
-    URL_EMPTY_ERROR,
-    URL_FORMAT_ERROR,
+# Check for optional dependencies
+YAML_AVAILABLE = importlib.util.find_spec("yaml") is not None
+TOML_AVAILABLE = (
+    importlib.util.find_spec("tomli") is not None
+    and importlib.util.find_spec("tomli_w") is not None
 )
-from .exceptions import ConfigError, ConfigurationError
+
+
+def _raise_profile_not_found(profile_name: str) -> None:
+    """
+    Raise a ConfigError for a profile that wasn't found.
+
+    Args:
+        profile_name: Name of the profile that wasn't found
+
+    Raises:
+        ConfigError: Always raised with formatted error message
+    """
+    raise ConfigError(PROFILE_FILE_NOT_FOUND_ERROR.format(profile_name))
+
+
+def _raise_missing_required_vars(missing_keys: list[str]) -> None:
+    """
+    Raise a ConfigError for missing required configuration variables.
+
+    Args:
+        missing_keys: List of missing keys
+
+    Raises:
+        ConfigError: Always raised with formatted error message
+    """
+    raise ConfigError(MISSING_REQUIRED_VARS_ERROR.format(", ".join(missing_keys)))
 
 
 @dataclass
@@ -107,7 +145,9 @@ class ConfigProfile:
     @property
     def is_valid(self) -> bool:
         """Check if the profile contains the minimum required configuration."""
-        return all(key in self.config for key in CONFIG_REQUIRED_KEYS)
+        return all(
+            key in self.config and self.config[key] for key in CONFIG_REQUIRED_KEYS
+        )
 
     def __repr__(self) -> str:
         """Return string representation of the profile."""
@@ -163,8 +203,11 @@ class Config(BaseSettings):
 
     # Connection settings
     url: str = Field(description="API base URL")
-    timeout: int = Field(DEFAULT_TIMEOUT, description="Request timeout in seconds")
-    verify_ssl: bool = Field(True, description="Verify SSL certificates")
+    timeout: int = Field(
+        default=DEFAULT_TIMEOUT,
+        description="Request timeout in seconds",
+    )
+    verify_ssl: bool = Field(default=True, description="Verify SSL certificates")
 
     # Authentication
     username: str = Field(description="API username")
@@ -172,14 +215,14 @@ class Config(BaseSettings):
 
     # Client behavior
     max_retries: int = Field(
-        DEFAULT_MAX_RETRIES,
+        default=DEFAULT_MAX_RETRIES,
         description="Maximum number of retry attempts",
     )
     retry_backoff: float = Field(
-        DEFAULT_RETRY_BACKOFF,
+        default=DEFAULT_RETRY_BACKOFF,
         description="Exponential backoff factor for retries",
     )
-    debug: bool = Field(False, description="Enable debug mode")
+    debug: bool = Field(default=False, description="Enable debug mode")
 
     # Optional settings
     environment: Optional[str] = Field(
@@ -244,17 +287,17 @@ class Config(BaseSettings):
         """
         # Add any cross-field validation here
         if self.max_retries < 0:
-            raise ValueError("max_retries must be a non-negative integer")
+            raise ValueError(MAX_RETRIES_ERROR)
 
         if self.retry_backoff <= 0:
-            raise ValueError("retry_backoff must be a positive number")
+            raise ValueError(RETRY_BACKOFF_ERROR)
 
         if self.timeout <= 0:
-            raise ValueError("timeout must be a positive integer")
+            raise ValueError(TIMEOUT_ERROR)
 
         return self
 
-    def model_dump_custom(self, exclude_secrets: bool = True) -> dict[str, Any]:
+    def model_dump_custom(self, *, exclude_secrets: bool = True) -> dict[str, Any]:
         """
         Convert configuration to dictionary with custom handling.
 
@@ -338,7 +381,7 @@ class Config(BaseSettings):
         if path.suffix.lower() == ".json":
             self._save_json(path)
         else:
-            raise ValueError(f"Unsupported file format: {path.suffix}")
+            raise ValueError(UNSUPPORTED_FORMAT_ERROR.format(path.suffix))
 
     @classmethod
     def _load_json_config(cls, file_path: Path) -> dict[str, Any]:
@@ -372,13 +415,13 @@ class Config(BaseSettings):
         path = Path(file_path)
 
         if not path.exists():
-            raise FileNotFoundError(f"Configuration file {str(path)} not found")
+            raise FileNotFoundError(CONFIG_FILE_NOT_FOUND_ERROR.format(str(path)))
 
         # Load based on file extension
         if path.suffix.lower() == ".json":
             config_data = cls._load_json_config(path)
         else:
-            raise ValueError(f"Unsupported file format: {path.suffix}")
+            raise ValueError(UNSUPPORTED_FORMAT_ERROR.format(path.suffix))
 
         return cls(**config_data)
 
@@ -399,7 +442,7 @@ class Config(BaseSettings):
         profile_path = cls.get_profile_path(profile_name)
 
         if not profile_path.exists():
-            raise ConfigError(f"Profile file .env.{profile_name} not found")
+            raise ConfigError(PROFILE_FILE_NOT_FOUND_ERROR.format(profile_name))
 
         # Load environment variables from profile
         load_dotenv(dotenv_path=profile_path, override=True)
@@ -433,51 +476,62 @@ class Config(BaseSettings):
             profile_name: Name of the profile to load
 
         Returns:
-            Config instance loaded from the profile
+            Config object with profile configuration
 
         Raises:
-            ConfigError: If profile file not found
-            ConfigurationError: If configuration is invalid (missing required fields)
+            ConfigError: If the profile cannot be loaded
         """
-        # Check if profile env file exists
-        env_file = f"{CONFIG_DEFAULT_ENV_FILE}.{profile_name}"
-        env_path = Path(env_file)
-
-        if env_path.exists():
-            # Load environment variables from the profile file
-            if not load_dotenv(dotenv_path=env_path, override=True):
-                raise ConfigError(f"Could not load profile from {env_file}")
-        else:
-            raise ConfigError(f"Profile file {env_file} not found")
-
-        # Check if required environment variables are present
-        missing_vars = []
-        for key in CONFIG_REQUIRED_KEYS:
-            env_key = f"{CONFIG_ENV_PREFIX}{key.upper()}"
-            if env_key not in os.environ:
-                missing_vars.append(env_key)
-
-        if missing_vars:
-            raise ConfigurationError(
-                f"Missing required configuration variables: {', '.join(missing_vars)}",
-            )
-
-        # Create configuration from environment variables
         try:
-            config = cls(_env_file=env_file)
-            config.environment = profile_name
-            return config
+            # Load configuration from environment variables
+            config_vars = {}
+
+            # Load configuration from INI file
+            import configparser
+
+            # Define the config path
+            config_path = Path(os.environ.get("CONFIG_PATH", "config.ini"))
+
+            if not config_path.exists():
+                _raise_profile_not_found(profile_name)
+
+            # Parse the INI file
+            parser = configparser.ConfigParser()
+            parser.read(config_path)
+
+            # Check if the profile exists
+            if profile_name not in parser:
+                _raise_profile_not_found(profile_name)
+
+            # Get the profile section
+            profile_section = parser[profile_name]
+
+            # Convert the profile section to a dictionary
+            for key, value in profile_section.items():
+                config_vars[key] = value
+
+            # Validate required keys
+            missing_keys = [
+                key for key in CONFIG_REQUIRED_KEYS if key not in config_vars
+            ]
+            if missing_keys:
+                _raise_missing_required_vars(missing_keys)
+
+            # Create config object from loaded data
+            return cls(**config_vars)
+
+        except ConfigError:
+            # Re-raise ConfigError
+            raise
         except Exception as e:
-            raise ConfigurationError(
-                f"Failed to load profile {profile_name}: {str(e)}",
+            # Wrap other exceptions
+            raise ConfigError(
+                LOAD_PROFILE_FAILED_ERROR.format(profile_name, str(e)),
             ) from e
-        else:
-            raise ConfigError(f"Failed to load profile {profile_name}")
 
     @classmethod
     def settings_customise_sources(
         cls,
-        settings_cls: type[BaseSettings],
+        _settings_cls: type[BaseSettings],
         init_settings: PydanticBaseSettingsSource,
         env_settings: PydanticBaseSettingsSource,
         dotenv_settings: PydanticBaseSettingsSource,
@@ -493,7 +547,7 @@ class Config(BaseSettings):
         4. Secret files (lowest priority)
 
         Args:
-            settings_cls: The Settings class
+            _settings_cls: The Settings class (unused)
             init_settings: Settings from initialization
             env_settings: Settings from environment variables
             dotenv_settings: Settings from .env file
@@ -525,23 +579,20 @@ class Config(BaseSettings):
             ConfigError: If AWS configuration fails
         """
         if not CLOUD_SECRETS_AVAILABLE:
-            raise ImportError(
-                "AWS Secrets Manager integration requires additional dependencies. "
-                "Install with: pip install pydantic-settings[aws]",
-            )
+            raise ImportError(AWS_SECRETS_DEPENDENCY_ERROR)
 
         class AWSConfig(cls):
             @classmethod
             def settings_customise_sources(
                 cls,
-                settings_cls: type[BaseSettings],
+                _settings_cls: type[BaseSettings],
                 init_settings: PydanticBaseSettingsSource,
                 env_settings: PydanticBaseSettingsSource,
                 dotenv_settings: PydanticBaseSettingsSource,
                 file_secret_settings: PydanticBaseSettingsSource,
             ) -> tuple[PydanticBaseSettingsSource, ...]:
                 aws_settings = AWSSecretsManagerSettingsSource(
-                    settings_cls,
+                    _settings_cls,
                     secret_id,
                     region_name=region_name,
                 )
@@ -556,9 +607,7 @@ class Config(BaseSettings):
         try:
             return AWSConfig()
         except Exception as e:
-            raise ConfigError(
-                f"Failed to load AWS Secrets Manager config: {str(e)}",
-            ) from e
+            raise ConfigError(AWS_SECRETS_LOAD_ERROR.format(str(e))) from e
 
     @classmethod
     def with_azure_key_vault(cls, vault_url: str, credential: Any) -> "Config":
@@ -577,23 +626,20 @@ class Config(BaseSettings):
             ConfigError: If Azure configuration fails
         """
         if not CLOUD_SECRETS_AVAILABLE:
-            raise ImportError(
-                "Azure Key Vault integration requires additional dependencies. "
-                "Install with: pip install pydantic-settings[azure]",
-            )
+            raise ImportError(AZURE_KEY_VAULT_DEPENDENCY_ERROR)
 
         class AzureConfig(cls):
             @classmethod
             def settings_customise_sources(
                 cls,
-                settings_cls: type[BaseSettings],
+                _settings_cls: type[BaseSettings],
                 init_settings: PydanticBaseSettingsSource,
                 env_settings: PydanticBaseSettingsSource,
                 dotenv_settings: PydanticBaseSettingsSource,
                 file_secret_settings: PydanticBaseSettingsSource,
             ) -> tuple[PydanticBaseSettingsSource, ...]:
                 az_key_vault_settings = AzureKeyVaultSettingsSource(
-                    settings_cls,
+                    _settings_cls,
                     vault_url,
                     credential,
                 )
@@ -608,36 +654,50 @@ class Config(BaseSettings):
         try:
             return AzureConfig()
         except Exception as e:
-            raise ConfigError(f"Failed to load Azure Key Vault config: {str(e)}") from e
+            raise ConfigError(AZURE_KEY_VAULT_LOAD_ERROR.format(str(e))) from e
+
+    def reload(self, file_path: Optional[Union[str, Path]] = None) -> None:
+        """
+        Reload configuration from file.
+
+        Args:
+            file_path: Path to configuration file
+
+        Raises:
+            ConfigError: If configuration reload fails
+        """
+        if file_path is None:
+            # Create new instance with same env file then copy attributes
+            new_config = Config(_env_file=self.__class__.model_config.get("env_file"))
+
+            for field_name in self.model_fields:
+                if hasattr(new_config, field_name):
+                    setattr(self, field_name, getattr(new_config, field_name))
+        else:
+            # Load from file
+            new_config = self.from_file(file_path)
+
+            for field_name in self.model_fields:
+                if hasattr(new_config, field_name):
+                    setattr(self, field_name, getattr(new_config, field_name))
 
     def model_reload(self) -> None:
         """
-        Reload configuration from sources.
+        Reload configuration from environment variables.
 
         This method reloads configuration from environment variables and files,
         useful when environment variables have changed at runtime.
         """
-        # Create new instance with same env file then copy attributes
-        new_config = Config(_env_file=self.__class__.model_config.get("env_file"))
+        try:
+            # Create new instance with same env file then copy attributes
+            new_config = Config(_env_file=self.__class__.model_config.get("env_file"))
 
-        for field_name in self.model_fields:
-            if hasattr(new_config, field_name):
-                setattr(self, field_name, getattr(new_config, field_name))
-
-    @classmethod
-    def from_config(cls, config: "Config") -> "Config":
-        """
-        Create a new configuration from an existing one.
-
-        This is useful for creating a new configuration with some modified values.
-
-        Args:
-            config: Existing configuration
-
-        Returns:
-            New configuration object
-        """
-        return cls(**config.model_dump(exclude_none=True))
+            for field_name in self.model_fields:
+                if hasattr(new_config, field_name):
+                    setattr(self, field_name, getattr(new_config, field_name))
+        except Exception as e:
+            # Wrap any exceptions
+            raise ConfigError(CONFIG_RELOAD_ERROR.format(str(e))) from e
 
 
 def load_config_from_env() -> Config:
@@ -653,7 +713,7 @@ def load_config_from_env() -> Config:
     try:
         return Config()
     except Exception as e:
-        raise ConfigError(f"Failed to load configuration: {str(e)}") from e
+        raise ConfigError(LOAD_CONFIG_ERROR.format(str(e))) from e
 
 
 def list_available_profiles() -> list[str]:
