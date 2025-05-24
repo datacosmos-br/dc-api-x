@@ -24,6 +24,8 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+monkeytype.sqlite3
+*.typed
 
 # PyInstaller
 #  Usually these files are written by a python installer script
@@ -139,7 +141,7 @@ dmypy.json
 
 # Project specific
 logs/
-.scaffold-tracking/ 
+.scaffold-tracking/
 
 # Never ignore GitHub directory (needed for CI/CD)
-!.github/ 
+!.github/

@@ -1,7 +1,5 @@
 # Installation Guide
 
-> **TL;DR**  
->
 > ```bash
 > # Core
 > pip install dc-api-x

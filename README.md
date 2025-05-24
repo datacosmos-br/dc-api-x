@@ -198,6 +198,47 @@ Green CI is mandatory for every PR.
 
 ---
 
+## 🔍 Type Management with MonkeyType
+
+dc-api-x integrates MonkeyType for runtime type discovery and application. This helps maintain high-quality type annotations throughout the codebase.
+
+### What is MonkeyType?
+
+MonkeyType is a tool that collects runtime types during test execution and helps apply them to your Python code. It's particularly useful for:
+- Discovering types in legacy code
+- Verifying and improving existing type annotations
+- Helping with the transition to typed Python
+
+### Using MonkeyType via Makefile
+
+```bash
+# Run tests with MonkeyType enabled to collect runtime types
+make monkeytype-run
+
+# List modules with collected type information
+make monkeytype-list
+
+# Apply collected types to a specific module
+make monkeytype-apply MODULE=dc_api_x.config
+
+# Apply collected types to all modules with available type information
+make monkeytype-apply-all
+
+# Generate a type stub (.pyi file) for a specific module
+make monkeytype-stub MODULE=dc_api_x.utils.logging
+```
+
+### Benefits of Type Annotations
+
+- Enhanced code documentation
+- Better IDE support with accurate auto-completion
+- Early error detection via static type checking
+- Improved code maintainability
+
+Type annotations, combined with mypy static type checking, help catch issues before runtime and improve the overall code quality.
+
+---
+
 ## 🛠️ Code Quality Tools
 
 dc-api-x maintains high code quality through a comprehensive set of tools:
@@ -284,25 +325,25 @@ Each plugin will follow DCApiX's architecture principles with comprehensive docu
 
 [MIT](LICENSE) © 2025 Datacosmos — Marlon Costa.
 
-## Ferramentas de Desenvolvimento
+## Development Tools
 
-O DC-API-X usa várias ferramentas para garantir a qualidade do código:
+DC-API-X uses various tools to ensure code quality:
 
-* **Black** e **isort** para formatação
-* **Ruff** e **mypy** para linting e verificação de tipos
-* **pytest** para testes
-* **MonkeyType** para coletar e aplicar tipos em tempo de execução
+* **Black** and **isort** for formatting
+* **Ruff** and **mypy** for linting and type checking
+* **pytest** for testing
+* **MonkeyType** for collecting and applying runtime types
 
-### Descoberta Automática de Tipos com MonkeyType
+### Automatic Type Discovery with MonkeyType
 
-O projeto inclui integração com o MonkeyType, que ajuda a descobrir tipos em tempo de execução durante a execução dos testes. Isso facilita a adição de anotações de tipo ao código, especialmente para projetos complexos ou com muitas dependências externas.
+The project includes integration with MonkeyType, which helps discover runtime types during test execution. This makes it easier to add type annotations to code, especially for complex projects or those with many external dependencies.
 
 ```bash
-# Executar testes com MonkeyType para coletar tipos
+# Run tests with MonkeyType to collect types
 make monkeytype-run
 
-# Aplicar tipos coletados a um módulo
+# Apply collected types to a module
 make monkeytype-apply MODULE=dc_api_x.config
 ```
 
-Para mais detalhes, consulte o [Guia de Uso do MonkeyType](docs/monkeytype_guide.md).
+For more details, see the [MonkeyType Usage Guide](docs/monkeytype_guide.md).

@@ -9,6 +9,7 @@ ApiClient, load different profiles, and work with secure credentials.
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 from unittest import mock
 
 import dc_api_x as apix
@@ -284,6 +285,7 @@ def example_convert_to_dict() -> dict[str, Any]:
     )
 
     # Convert to dictionary
+    config_dict: dict[str, Any] = {}
     config_dict[str, Any] = config.model_dump(exclude_none=True)
 
     # Print dictionary representation

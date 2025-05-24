@@ -1,415 +1,286 @@
 ###############################################################################
 #  DCApiX Project Makefile
-#  Simple project-specific targets that integrate with root workspace
+#  Author : Marlon Costa <marlon.costa@datacosmos.com.br>
+#  Version: 1.1.0 – 2025-05-24
+#  License: MIT
+#
+#  Change Log
+#  | Date       | Version | Author    | Description                        |
+#  |------------|---------|-----------|------------------------------------|
+#  | 2025-05-24 | 1.1.0   | M. Costa  | Refactor – removed redundancies    |
 ###############################################################################
 
-# ───────────────═[ Basic Configuration ]═─────────────────────────────────────
-WORKSPACE_ROOT ?= $(shell git -C "$(CURDIR)" rev-parse --show-toplevel 2>/dev/null || echo "$(CURDIR)")
+# ───────────────────────────[ Paths ]─────────────────────────────────────────
+WORKSPACE_ROOT ?= $(shell git \
+						-C "$(CURDIR)" \
+						rev-parse \
+						--show-toplevel \
+						2>/dev/null \
+							|| echo "$(CURDIR)")
 PROJECT_ROOT   := $(CURDIR)
 PROJECT_NAME   := $(notdir $(PROJECT_ROOT))
 PACKAGE_NAME   := dc_api_x
 
-# ───────────────═[ Commands ]═───────────────────────────────────────────────
-POETRY     := poetry
-
-# ───────────────═[ Color Detection ]═─────────────────────────────────────────
-# Detect if terminal supports colors
-ifneq ($(TERM),)
-  ifneq ($(TERM),dumb)
-    COLORTERM ?= yes
-  endif
-endif
-
-# Force colors on/off with make COLORS=yes/no
-ifdef COLORS
-  ifeq ($(COLORS),yes)
-    COLORTERM = yes
-  else ifeq ($(COLORS),no)
-    COLORTERM = no
-  endif
-endif
-
-# Disable colors in CI environments or piped output
-ifndef COLORTERM
-  ifneq ($(CI),)
-    COLORTERM = no
-  else
-    SHELL_PIPE := $(shell ps -o comm= -p $$$$ | grep -q 'pipe' && echo 1 || echo 0)
-    ifeq ($(SHELL_PIPE),1)
-      COLORTERM = no
-    else
-      COLORTERM = yes
-    endif
-  endif
-endif
-
-# ───────────────═[ Colors & Formatting ]═─────────────────────────────────────
-ifeq ($(COLORTERM),yes)
-  # Text colors
-  BLACK      := \033[0;30m
-  RED        := \033[0;31m
-  GREEN      := \033[0;32m
-  YELLOW     := \033[0;33m
-  BLUE       := \033[0;34m
-  MAGENTA    := \033[0;35m
-  CYAN       := \033[0;36m
-  WHITE      := \033[0;37m
-
-  # Bold text colors
-  BBLACK     := \033[1;30m
-  BRED       := \033[1;31m
-  BGREEN     := \033[1;32m
-  BYELLOW    := \033[1;33m
-  BBLUE      := \033[1;34m
-  BMAGENTA   := \033[1;35m
-  BCYAN      := \033[1;36m
-  BWHITE     := \033[1;37m
-
-  # Background colors
-  BG_BLACK   := \033[40m
-  BG_RED     := \033[41m
-  BG_GREEN   := \033[42m
-  BG_YELLOW  := \033[43m
-  BG_BLUE    := \033[44m
-  BG_MAGENTA := \033[45m
-  BG_CYAN    := \033[46m
-  BG_WHITE   := \033[47m
-
-  # Text styles
-  BOLD       := \033[1m
-  UNDERLINE  := \033[4m
-  REVERSED   := \033[7m
-
-  # Reset
-  NC         := \033[0m
+# ───────────────────────────[ Colours & Helpers ]─────────────────────────────
+ifneq ($(shell tput colors 2>/dev/null),)
+	C_RESET  := $(shell tput sgr0)
+	C_BLUE   := $(shell tput setaf 4)
+	C_GREEN  := $(shell tput setaf 2)
+	C_YELLOW := $(shell tput setaf 3)
+	C_RED    := $(shell tput setaf 1)
 else
-  # No colors if not supported
-  BLACK      :=
-  RED        :=
-  GREEN      :=
-  YELLOW     :=
-  BLUE       :=
-  MAGENTA    :=
-  CYAN       :=
-  WHITE      :=
-  BBLACK     :=
-  BRED       :=
-  BGREEN     :=
-  BYELLOW    :=
-  BBLUE      :=
-  BMAGENTA   :=
-  BCYAN      :=
-  BWHITE     :=
-  BG_BLACK   :=
-  BG_RED     :=
-  BG_GREEN   :=
-  BG_YELLOW  :=
-  BG_BLUE    :=
-  BG_MAGENTA :=
-  BG_CYAN    :=
-  BG_WHITE   :=
-  BOLD       :=
-  UNDERLINE  :=
-  REVERSED   :=
-  NC         :=
+	C_RESET  :=
+	C_BLUE   :=
+	C_GREEN  :=
+	C_YELLOW :=
+	C_RED    :=
 endif
 
-# Symbols (always available regardless of color support)
-CHECK      := ✓
-CROSS      := ✗
-ARROW      := →
-BULLET     := •
-
-# ───────────────═[ Helper Functions ]═────────────────────────────────────────
-define print_header
-	@printf "$(BBLUE)╔═══════════════════════════════════════════════════════════════════╗$(NC)\n"
-	@printf "$(BBLUE)║ $(BWHITE)$(1)$(BBLUE) ║$(NC)\n"
-	@printf "$(BBLUE)╚═══════════════════════════════════════════════════════════════════╝$(NC)\n"
+define MSG
+	@printf '$(C_BLUE)→ %s$(C_RESET)\n'  "$(1)"
 endef
 
-define print_step
-	@printf "$(BGREEN)$(ARROW) $(1)$(NC)\n"
+define OK
+	@printf '$(C_GREEN)✓ %s$(C_RESET)\n' "$(1)"
 endef
 
-define print_substep
-	@printf "$(CYAN)  $(BULLET) $(1)$(NC)\n"
+define WARN
+	@printf '$(C_YELLOW)• %s$(C_RESET)\n' "$(1)"
 endef
 
-define print_success
-	@printf "$(GREEN)  $(CHECK) $(1)$(NC)\n"
+define ERR
+	@printf '$(C_RED)✗ %s$(C_RESET)\n'   "$(1)"
 endef
 
-define print_warning
-	@printf "$(YELLOW)  $(BULLET) $(1)$(NC)\n"
+# ───────────────────────────[ Default target ]───────────────────────────────
+default: help
+.DEFAULT_GOAL := default
+
+# ───────────────────────────[ Public targets ]────────────────────────────────
+.PHONY: \
+	default help \
+	install install-dev update build clean \
+	test test-cov test-html test-parallel test-profile \
+	lint lint-stats lint-report format lint-fix security auto-lint fix \
+	workspace root-lint root-format root-test \
+	monkeytype-run monkeytype-list monkeytype-apply monkeytype-apply-all \
+	monkeytype-stub monkeytype-mypy monkeytype-cycle
+
+# === Installation & Updates ==================================================
+POETRY := poetry
+PIP := pip
+
+install: ## Install project dependencies (poetry install)
+	$(call MSG,"Installing dependencies")
+	$(POETRY) install
+	$(call OK,"Dependencies installed")
+
+install-dev: ## Install dependencies + dev extras
+	$(call MSG,"Installing development dependencies")
+	$(POETRY) install --with dev
+	$(call OK,"Development dependencies installed")
+
+update: ## Upgrade Poetry, dev tools and project dependencies
+	$(call MSG,"Upgrading Poetry")
+	$(PIP) install --upgrade poetry || { \
+		$(call ERR,"Poetry upgrade failed but continuing..."); \
+		true; \
+	}
+	
+	$(call MSG,"Updating development dependencies")
+	$(POETRY) add --group dev autoflake bandit black isort mypy pytest pytest-asyncio pytest-cov pytest-mock pytest-xdist ruff types-requests pre-commit || { \
+		$(call ERR,"Development dependencies update failed but continuing..."); \
+		true; \
+	}
+	
+	$(call MSG,"Updating documentation dependencies")
+	$(POETRY) add --group docs sphinx-copybutton sphinx-rtd-theme myst-parser || { \
+		$(call ERR,"Documentation dependencies update failed but continuing..."); \
+		true; \
+	}
+	
+	$(call MSG,"Updating all dependencies")
+	$(POETRY) update --no-cache || { \
+		$(call ERR,"Dependency update failed but continuing..."); \
+		true; \
+	}
+	
+	$(call MSG,"Updating pre-commit hooks")
+	$(POETRY) run pre-commit autoupdate || true
+	$(POETRY) run pre-commit install || true
+	
+	$(call MSG,"Checking for outdated packages")
+	$(POETRY) show --outdated || true
+	
+	$(call OK,"Dependency and tool update completed")
+
+# === Build & Clean ===========================================================
+build: ## Build sdist and wheel into ./dist
+	$(call MSG,"Building package")
+	$(POETRY) build
+	$(call OK,"Package available in ./dist")
+
+clean: ## Remove build artefacts and caches
+	$(call MSG,"Removing artefacts")
+	@find . \( -name "__pycache__" \
+		-o -name "*.py[cod]" \
+		-o -name ".pytest_cache" \
+		-o -name ".mypy_cache" \
+		-o -name ".ruff_cache" \
+		-o -name ".coverage" \
+		-o -name "htmlcov" \
+		-o -name "dist" \
+		-o -name "build" \
+		-o -name "*.egg-info" \) -exec rm -rf {} + 2>/dev/null
+	$(call OK,"Cleanup done")
+
+# === Tests ===================================================================
+define _pytest
+	PYTHONPATH=. pytest $(1)
 endef
 
-define print_error
-	@printf "$(RED)  $(CROSS) $(1)$(NC)\n"
-endef
+test: ## Run unit tests
+	$(call MSG,"Running unit tests")
+	$(call _pytest,-xvs tests/unit)
+	$(call OK,"Tests finished")
 
-# ───────────────═[ Targets ]═─────────────────────────────────────────────────
-.DEFAULT_GOAL := help
+test-cov: ## Run tests with coverage (HTML under reports/coverage)
+	$(call MSG,"Running tests with coverage")
+	$(call _pytest,--cov=src/$(PACKAGE_NAME) --cov-report=term --cov-report=html:reports/coverage)
+	$(call OK,"Coverage report generated at reports/coverage/index.html")
 
-## Project-specific commands
-## ------------------------
+test-html: ## Run tests with HTML report
+	$(call MSG,"Running tests with HTML report")
+	$(call _pytest,--html=reports/pytest/report.html --self-contained-html tests/unit)
+	$(call OK,"HTML report generated")
 
-## install: Installs project dependencies
-install:
-	@echo "$(BGREEN)$(ARROW) Installing dependencies for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
-	@$(POETRY) install
+test-parallel: ## Run tests in parallel (pytest-xdist)
+	$(call MSG,"Running tests in parallel")
+	$(call _pytest,-n auto tests/unit)
+	$(call OK,"Parallel tests finished")
 
-## install-dev: Installs development dependencies
-install-dev:
-	@echo "$(BGREEN)$(ARROW) Installing development dependencies for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
-	@$(POETRY) install --with dev
+test-profile: ## Run tests with profiling (pytest-profiler)
+	$(call MSG,"Running tests with profiling")
+	$(call _pytest,--profile-svg --profile tests/unit)
+	$(call OK,"Profiling report generated")
 
-## update: Updates project dependencies and tools
-update:
-	@echo "$(BGREEN)$(ARROW) Atualizando Poetry para a versão mais recente$(BGREEN)$(NC)"
-	@pip install --upgrade poetry
-	
-	@echo "$(BGREEN)$(ARROW) Instalando/atualizando ferramentas de desenvolvimento$(BGREEN)$(NC)"
-	@$(POETRY) add --group dev black ruff isort mypy autoflake bandit pre-commit pytest pytest-cov pytest-mock pytest-asyncio pytest-xdist types-requests
-	
-	@echo "$(BGREEN)$(ARROW) Instalando/atualizando ferramentas de documentação$(BGREEN)$(NC)"
-	@$(POETRY) add --group docs sphinx-rtd-theme sphinx-autodoc-typehints myst-parser sphinx-copybutton
-	
-	@echo "$(BGREEN)$(ARROW) Atualizando todas as dependências do projeto $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
-	@$(POETRY) update --no-cache
-	
-	@echo "$(BGREEN)$(ARROW) Atualizando hooks do pre-commit$(BGREEN)$(NC)"
-	@$(POETRY) run pre-commit autoupdate
-	
-	@echo "$(BGREEN)$(ARROW) Reinstalando hooks do pre-commit$(BGREEN)$(NC)"
-	@$(POETRY) run pre-commit install
-	
-	@echo "$(BGREEN)$(ARROW) Verificando atualizações disponíveis$(BGREEN)$(NC)"
-	@$(POETRY) show --outdated
-	
-	@echo "$(GREEN)  $(CHECK) Atualização de dependências e ferramentas completa$(NC)"
+# === Code Quality ============================================================
+lint: ## Run ruff & mypy
+	$(call MSG,"Linting with ruff and mypy")
+	-$(POETRY) run ruff check src tests || $(call WARN,"Ruff reported issues")
+	-$(POETRY) run mypy src tests      || $(call WARN,"Mypy reported issues")
+	$(call OK,"Lint finished")
 
-## build: Builds the project package
-build:
-	@echo "$(BGREEN)$(ARROW) Building package for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
-	@$(POETRY) build
+lint-stats: ## Show ruff statistics
+	$(call MSG,"Generating lint statistics")
+	-$(POETRY) run ruff check . --select="E,F,I,W,UP" --ignore="UP007" --statistics
+	$(call OK,"Statistics printed above")
 
-## clean: Cleans project artifacts
-clean:
-	@echo "$(BGREEN)$(ARROW) Cleaning artifacts from project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
-	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	@find . -type f -name "*.pyc" -delete
-	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
-	@find . -type d -name ".mypy_cache" -exec rm -rf {} + 2>/dev/null || true
-	@find . -type d -name ".ruff_cache" -exec rm -rf {} + 2>/dev/null || true
-	@find . -name ".coverage" -delete
-	@find . -type d -name "htmlcov" -exec rm -rf {} + 2>/dev/null || true
-	@find . -type d -name "dist" -exec rm -rf {} + 2>/dev/null || true
-	@find . -type d -name "build" -exec rm -rf {} + 2>/dev/null || true
-	@find . -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
-	@echo "$(GREEN)  $(CHECK) Cleanup completed$(NC)"
-
-## test: Runs project tests
-test:
-	@echo "→ Running tests for project dc-api-x"
-	@cd $(CURDIR) && python -m pytest -xvs tests/unit
-
-## test-cov: Runs tests with coverage
-test-cov:
-	@echo "$(BGREEN)$(ARROW) Executing tests with coverage for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
-	@PYTHONPATH=. pytest --cov=src/$(PACKAGE_NAME) --cov-report=term --cov-report=html:reports/coverage
-	@echo "$(GREEN)  $(CHECK) Coverage report generated in reports/coverage/index.html$(NC)"
-
-## test-html: Runs tests with HTML report
-test-html:
-	@echo "→ Running tests with HTML report for project dc-api-x"
-	@cd $(CURDIR) && python -m pytest --html=reports/pytest/report.html --self-contained-html tests/unit
-
-## test-parallel: Runs tests in parallel
-test-parallel:
-	@echo "→ Running tests in parallel for project dc-api-x"
-	@cd $(CURDIR) && python -m pytest -xvs -n auto tests/unit
-
-## test-profile: Runs tests with profiling
-test-profile:
-	@echo "→ Running tests with profiling for project dc-api-x"
-	@cd $(CURDIR) && python -m pytest --profile-svg --profile tests/unit
-
-## lint: Runs linting checks on the project
-lint:
-	@echo "$(BBLUE)╔═══════════════════════════════════════════════════════════════════╗$(NC)"
-	@echo "$(BBLUE)║ $(BWHITE)Linting Project $(PROJECT_NAME)$(BBLUE) ║$(NC)"
-	@echo "$(BBLUE)╚═══════════════════════════════════════════════════════════════════╝$(NC)"
-	
-	@echo "$(CYAN)  $(BULLET) Running ruff check$(NC)"
-	-@$(POETRY) run ruff check src/ tests/ || echo "$(YELLOW)  $(BULLET) Ruff found issues$(NC)"
-	
-	@echo "$(CYAN)  $(BULLET) Running mypy$(NC)"
-	-@$(POETRY) run mypy src/ tests/ || echo "$(YELLOW)  $(BULLET) Mypy found issues$(NC)"
-	
-	@echo "$(GREEN)  $(CHECK) Linting completed - see above for any issues$(NC)"
-
-## lint-wps: Runs only wemake-python-styleguide (disabled due to conflict)
-lint-wps:
-	@echo "$(BGREEN)$(ARROW) Wemake-python-styleguide check disabled due to plugin conflicts$(BGREEN)$(NC)"
-	@echo "$(YELLOW)  $(BULLET) Please use 'ruff check' instead for linting$(NC)"
-	@echo "$(GREEN)  $(CHECK) Check completed$(NC)"
-
-## lint-stats: Generates lint statistics
-lint-stats:
-	@echo "$(BGREEN)$(ARROW) Generating lint statistics for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
-	-@$(POETRY) run ruff check . --select="E,F,I,W,UP" --ignore="UP007" --statistics
-	@echo "$(GREEN)  $(CHECK) Statistics generated$(NC)"
-
-## format: Formats project code
-format:
-	@echo "$(BBLUE)╔═══════════════════════════════════════════════════════════════════╗$(NC)"
-	@echo "$(BBLUE)║ $(BWHITE)Formatting Project $(PROJECT_NAME)$(BBLUE) ║$(NC)"
-	@echo "$(BBLUE)╚═══════════════════════════════════════════════════════════════════╝$(NC)"
-	
-	@echo "$(CYAN)  $(BULLET) Running black$(NC)"
-	@$(POETRY) run black .
-	
-	@echo "$(CYAN)  $(BULLET) Running isort$(NC)"
-	@$(POETRY) run isort .
-	
-	@echo "$(GREEN)  $(CHECK) Formatting completed$(NC)"
-
-## lint-fix: Automatically fixes lint issues
-lint-fix:
-	@echo "$(BBLUE)╔═══════════════════════════════════════════════════════════════════╗$(NC)"
-	@echo "$(BBLUE)║ $(BWHITE)Fixing Lint Issues in Project $(PROJECT_NAME)$(BBLUE) ║$(NC)"
-	@echo "$(BBLUE)╚═══════════════════════════════════════════════════════════════════╝$(NC)"
-	
-	@echo "$(CYAN)  $(BULLET) Running ruff check --fix$(NC)"
-	-@$(POETRY) run ruff check --fix . || echo "$(YELLOW)  $(BULLET) Ruff could not fix all issues$(NC)"
-	
-	@echo "$(CYAN)  $(BULLET) Running autoflake$(NC)"
-	@$(POETRY) run autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r src/ tests/
-	
-	@echo "$(CYAN)  $(BULLET) Running isort$(NC)"
-	@$(POETRY) run isort .
-	
-	@echo "$(CYAN)  $(BULLET) Running black$(NC)"
-	@$(POETRY) run black .
-	
-	@echo "$(GREEN)  $(CHECK) Automatic fixes completed - some issues may require manual intervention$(NC)"
-
-## security: Checks code for security issues
-security:
-	@echo "$(BGREEN)$(ARROW) Checking security for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
-	-@$(POETRY) run bandit -r src/ -x tests/ || echo "$(YELLOW)  $(BULLET) Security issues found$(NC)"
-	@echo "$(GREEN)  $(CHECK) Security check completed$(NC)"
-
-## auto-lint: Runs the automated lint-fix cycle
-auto-lint:
-	@echo "$(BGREEN)$(ARROW) Running automated lint-fix cycle for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
-	@chmod +x scripts/auto_lint_fix.sh
-	@./scripts/auto_lint_fix.sh
-	@echo "$(GREEN)  $(CHECK) Automated lint cycle completed$(NC)"
-
-## fix: Runs all fixing commands
-fix: lint-fix format security
-	@echo "$(GREEN)  $(CHECK) All automatic fixes and checks completed$(NC)"
-
-## lint-report: Generates a detailed lint report
-lint-report:
-	@echo "$(BGREEN)$(ARROW) Generating lint report for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
+lint-report: ## Output ruff report to JSON (reports/lint/)
+	$(call MSG,"Generating lint report")
 	@mkdir -p reports/lint
-	-@$(POETRY) run ruff check --output-format=json --output-file=reports/lint/ruff_report.json . || true
-	@echo "$(GREEN)  $(CHECK) Lint reports generated in reports/lint/$(NC)"
+	-$(POETRY) run ruff check --output-format=json --output-file=reports/lint/ruff_report.json .
+	$(call OK,"Report saved to reports/lint/")
 
-## Integration with workspace
-## ------------------------
-## workspace: Executes command in workspace (CMD=command)
-workspace:
-	@echo "$(BGREEN)$(ARROW) Executing command in workspace: $(BWHITE)$(CMD)$(BGREEN)$(NC)"
+format: ## Apply black & isort
+	$(call MSG,"Formatting code (black + isort)")
+	$(POETRY) run black .
+	$(POETRY) run isort .
+	$(call OK,"Formatting complete")
+
+lint-fix: ## Auto-fix with ruff –fix + autoflake + black + isort
+	$(call MSG,"Auto-fixing lint issues")
+	-$(POETRY) run ruff check --fix . || true
+	$(POETRY) run autoflake --in-place --remove-unused-variables --remove-all-unused-imports -r src tests
+	$(POETRY) run isort .
+	$(POETRY) run black .
+	$(call OK,"Auto-fix done (manual review may still be required)")
+
+security: ## Static security scan (bandit)
+	$(call MSG,"Running Bandit security scan")
+	-$(POETRY) run bandit -r src -x tests || $(call WARN,"Bandit reported issues")
+	$(call OK,"Security scan finished")
+
+auto-lint: ## Run scripts/auto_lint_fix.sh
+	$(call MSG,"Executing auto_lint_fix.sh")
+	chmod +x scripts/auto_lint_fix.sh
+	./scripts/auto_lint_fix.sh
+	$(call OK,"Auto-lint cycle complete")
+
+fix: lint-fix format security ## One-shot code clean-up
+	$(call OK,"Full fix complete")
+
+# === Workspace integration ===================================================
+workspace: ## Run "make CMD=target" in workspace root
+ifndef CMD
+	$(error CMD variable not set; usage: make workspace CMD=<target>)
+endif
+	$(call MSG,"Running '$(CMD)' from workspace root")
 	@cd $(WORKSPACE_ROOT) && make $(CMD) PROJECT=$(PROJECT_NAME)
 
-## root-lint: Uses workspace lint tools
-root-lint:
-	@echo "$(BGREEN)$(ARROW) Using workspace lint tools for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
+root-lint: ## Use root lint tools
 	@cd $(WORKSPACE_ROOT) && make -f Makefile.lint lint-fix-all PROJECT=$(PROJECT_NAME)
 
-## root-format: Uses workspace formatting tools
-root-format:
-	@echo "$(BGREEN)$(ARROW) Using workspace formatting tools for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
+root-format: ## Use root formatting tools
 	@cd $(WORKSPACE_ROOT) && make -f Makefile.lint lint-fix-black PROJECT=$(PROJECT_NAME)
 
-## root-test: Runs tests via workspace
-root-test:
-	@echo "$(BGREEN)$(ARROW) Running tests via workspace for project $(BWHITE)$(PROJECT_NAME)$(BGREEN)$(NC)"
+root-test: ## Run tests via workspace root
 	@cd $(WORKSPACE_ROOT) && make test PROJECT=$(PROJECT_NAME)
 
-## help: Display this help message
-help:
-	@echo "$(BBLUE)╔═══════════════════════════════════════════════════════════════════╗$(NC)"
-	@echo "$(BBLUE)║ $(BWHITE)DC-API-X Makefile Help$(BBLUE)                                        ║$(NC)"
-	@echo "$(BBLUE)╚═══════════════════════════════════════════════════════════════════╝$(NC)"
-	@echo ""
-	@echo "$(BGREEN)Usage:$(NC)"
-	@echo "  $(YELLOW)make$(NC) $(GREEN)<command>$(NC)"
-	@echo ""
-	@echo "$(BGREEN)Code Quality Commands:$(NC)"
-	@echo "  $(CYAN)lint$(NC)            Runs linting checks on the project"
-	@echo "  $(CYAN)format$(NC)          Formats code with black and isort"
-	@echo "  $(CYAN)lint-fix$(NC)        Attempts to fix lint issues automatically"
-	@echo "  $(CYAN)security$(NC)        Checks code for security issues"
-	@echo "  $(CYAN)auto-lint$(NC)       Runs the automated lint-fix cycle until all issues are fixed"
-	@echo "  $(CYAN)fix$(NC)             Runs all formatting and auto-fixes"
-	@echo "  $(CYAN)lint-report$(NC)     Generates detailed lint report in reports/lint/"
-	@echo "  $(CYAN)lint-stats$(NC)      Generates statistics about linting issues"
-	@echo ""
-	@echo "$(BGREEN)Development Commands:$(NC)"
-	@echo "  $(CYAN)test$(NC)            Runs tests with pytest"
-	@echo "  $(CYAN)test-cov$(NC)        Runs tests with coverage report"
-	@echo "  $(CYAN)test-watch$(NC)      Runs tests continuously on file changes"
-	@echo "  $(CYAN)docs$(NC)            Builds documentation"
-	@echo "  $(CYAN)docs-serve$(NC)      Serves documentation locally"
-	@echo "  $(CYAN)clean$(NC)           Removes build artifacts and cache files"
-	@echo ""
-	@echo "$(BGREEN)Build and Install Commands:$(NC)"
-	@echo "  $(CYAN)build$(NC)           Builds the project package"
-	@echo "  $(CYAN)install$(NC)         Installs the project package"
-	@echo "  $(CYAN)install-dev$(NC)     Installs the project in development mode"
-	@echo "  $(CYAN)update$(NC)          Updates dependencies and tools"
-	@echo ""
-	@echo "$(BGREEN)Example Usage:$(NC)"
-	@echo "  $(YELLOW)make lint$(NC)          # Run linting checks"
-	@echo "  $(YELLOW)make auto-lint$(NC)     # Automatically fix lint issues in a cycle"
-	@echo "  $(YELLOW)make test-cov$(NC)      # Run tests with coverage"
-	@echo ""
-	@echo "For more information, see the project documentation."
+# === MonkeyType workflow =====================================================
+monkeytype-run: ## Run tests collecting runtime types
+	$(call MSG,"Running tests with MonkeyType tracing")
+	python scripts/monkeytype_runner.py run $(if $(TEST_PATH),--test-path $(TEST_PATH),)
+	$(call OK,"MonkeyType run complete")
 
-## monkeytype-run: Executa testes com MonkeyType para coletar tipos
-monkeytype-run:
-	@echo "$(BGREEN)$(ARROW) Executing tests with MonkeyType for type collection$(NC)"
-	@python scripts/monkeytype_runner.py run $(if $(TEST_PATH),--test-path $(TEST_PATH),)
-	@echo "$(GREEN)  $(CHECK) MonkeyType test run completed$(NC)"
+monkeytype-list: ## List modules containing collected types
+	$(call MSG,"Listing collected MonkeyType modules")
+	python scripts/monkeytype_runner.py list
+	$(call OK,"Module list printed")
 
-## monkeytype-list: Lista módulos com tipos coletados pelo MonkeyType
-monkeytype-list:
-	@echo "$(BGREEN)$(ARROW) Listing modules with type information$(NC)"
-	@python scripts/monkeytype_runner.py list
-	@echo "$(GREEN)  $(CHECK) MonkeyType module listing completed$(NC)"
+monkeytype-apply: ## Apply types to MODULE=<pkg.mod>
+ifndef MODULE
+	$(error MODULE not set; usage: make monkeytype-apply MODULE=<pkg.mod>)
+endif
+	$(call MSG,"Applying types to $(MODULE)")
+	python scripts/monkeytype_runner.py apply --module $(MODULE)
+	$(call OK,"Types applied")
 
-## monkeytype-apply: Aplica tipos coletados a um módulo específico
-monkeytype-apply:
-	@if [ -z "$(MODULE)" ]; then \
-		echo "$(RED)  $(CROSS) MODULE não especificado. Use: make monkeytype-apply MODULE=dc_api_x.config$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(BGREEN)$(ARROW) Applying types to module $(BWHITE)$(MODULE)$(BGREEN)$(NC)"
-	@python scripts/monkeytype_runner.py apply --module $(MODULE)
-	@echo "$(GREEN)  $(CHECK) MonkeyType type application completed$(NC)"
+monkeytype-apply-all: ## Apply types to all collected modules
+	$(call MSG,"Applying types to all modules")
+	python scripts/monkeytype_runner.py apply --all
+	$(call OK,"Types applied to all modules")
 
-## monkeytype-stub: Gera stub com tipos coletados para um módulo
-monkeytype-stub:
-	@if [ -z "$(MODULE)" ]; then \
-		echo "$(RED)  $(CROSS) MODULE não especificado. Use: make monkeytype-stub MODULE=dc_api_x.config$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(BGREEN)$(ARROW) Generating type stub for module $(BWHITE)$(MODULE)$(BGREEN)$(NC)"
-	@python scripts/monkeytype_runner.py stub --module $(MODULE)
-	@echo "$(GREEN)  $(CHECK) MonkeyType stub generation completed$(NC)"
+monkeytype-stub: ## Generate .pyi stub for MODULE=<pkg.mod>
+ifndef MODULE
+	$(error MODULE not set; usage: make monkeytype-stub MODULE=<pkg.mod>)
+endif
+	$(call MSG,"Generating stub for $(MODULE)")
+	python scripts/mk_monkeytype_runner.py generate-stub --module $(MODULE)
+	$(call OK,"Stub generated")
 
-## benchmark: Executa benchmarks
+monkeytype-mypy: ## Run mypy (optionally MODULE=<pkg.mod>)
+ifndef MODULE
+	$(call MSG,"Running mypy on entire package")
+	python -m mypy src/$(PACKAGE_NAME)/
+else
+	$(call MSG,"Running mypy on $(MODULE)")
+	module_path=$$(echo $(MODULE) | sed 's/$(PACKAGE_NAME)\.//' | tr '.' '/')
+	python -m mypy src/$(PACKAGE_NAME)/$${module_path}.py
+endif
+	$(call OK,"mypy check done")
+
+monkeytype-cycle: ## Full MonkeyType cycle: run→list→apply-all→mypy
+	$(call MSG,"Starting full MonkeyType cycle")
+	@$(MAKE) monkeytype-run
+	@$(MAKE) monkeytype-list
+	@$(MAKE) monkeytype-apply-all
+	@$(MAKE) monkeytype-mypy
+	$(call OK,"MonkeyType cycle finished")
+
+# === Help ====================================================================
+help: ## Show this help message
+	@printf "\n$(C_BLUE)Available targets for $(PROJECT_NAME):$(C_RESET)\n\n"
+	@grep -E '^[a-zA-Z_\-]+:.*?## ' $(MAKEFILE_LIST) | \
+	  sed -E 's/^([a-zA-Z_\-]+):.*?## (.*)/  \1\t\2/' | \
+	  expand -t25 | sort

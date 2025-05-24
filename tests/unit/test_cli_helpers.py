@@ -175,7 +175,7 @@ class TestCreateApiClient:
     def test_client_with_profile(self) -> None:
         """Test creating client with profile."""
         with patch(
-            "dc_api_x.utils.cli_helpers.ApiClient.from_profile"
+            "dc_api_x.utils.cli_helpers.ApiClient.from_profile",
         ) as mock_from_profile:
             create_api_client("test")
             mock_from_profile.assert_called_once_with("test")

@@ -607,6 +607,233 @@ print(Settings().port)  # '8080' as a string, not validated to be an int
 
 12. **Model Reuse**: Create reusable model components that can be shared across different parts of your application.
 
+## Type Annotations with MonkeyType
+
+DCApiX uses [MonkeyType](https://github.com/Instagram/MonkeyType) to enhance Pydantic models and other code with accurate type annotations. This section explains how to use MonkeyType to collect runtime type information and apply it to your codebase.
+
+### Introduction to MonkeyType
+
+MonkeyType is a runtime type collection tool developed by Instagram that automatically generates type annotations by observing the types of arguments and return values during program execution. It helps:
+
+1. Discover types in existing untyped code
+2. Generate field types for Pydantic models based on actual usage
+3. Improve mypy coverage with minimal effort
+4. Find type inconsistencies in the code
+
+### Installation and Setup
+
+MonkeyType is configured as a development dependency for the project:
+
+```bash
+# Ensure MonkeyType is installed
+poetry install --with dev
+# or
+make install-dev
+```
+
+### Type Collection Workflow
+
+The basic workflow for adding types with MonkeyType consists of:
+
+1. **Collection**: Run tests with MonkeyType to collect runtime type information
+2. **Discovery**: List modules that have collected type information
+3. **Application**: Apply collected types to specific modules
+4. **Refinement**: Manually review and refine the types if necessary
+5. **Verification**: Verify type consistency with mypy
+
+### Using MonkeyType in DCApiX
+
+DCApiX includes several Makefile targets that simplify MonkeyType usage:
+
+```bash
+# Run all tests with MonkeyType to collect type information
+make monkeytype-run
+
+# Run a specific test with MonkeyType
+make monkeytype-run TEST_PATH=tests/unit/test_config.py
+
+# List modules with collected type information
+make monkeytype-list
+
+# Apply types to a specific module
+make monkeytype-apply MODULE=dc_api_x.config
+
+# Apply types to all modules at once
+make monkeytype-apply-all
+
+# Generate a stub file with collected types
+make monkeytype-stub MODULE=dc_api_x.models
+
+# Verify types with mypy
+make monkeytype-mypy MODULE=dc_api_x.config
+
+# Run complete MonkeyType cycle (collect, list, apply, verify)
+make monkeytype-cycle
+```
+
+> **Note**: Even if some tests fail, MonkeyType can still collect types from the tests that executed successfully.
+
+### Advanced Usage with Standalone Script
+
+For more specific use cases, you can use the script `scripts/mk_monkeytype_runner.py` directly:
+
+```bash
+# Run all tests with MonkeyType
+python scripts/mk_monkeytype_runner.py run
+
+# Run a specific test
+python scripts/mk_monkeytype_runner.py run --test-path tests/unit/test_config.py
+
+# List modules with type information
+python scripts/mk_monkeytype_runner.py list
+
+# Apply types to a module
+python scripts/mk_monkeytype_runner.py apply --module dc_api_x.config
+
+# Apply types to all modules
+python scripts/mk_monkeytype_runner.py apply --apply-all
+
+# Generate stub for a module
+python scripts/mk_monkeytype_runner.py stub --module dc_api_x.models
+```
+
+### Converting MonkeyType Annotations to Pydantic Models
+
+MonkeyType generates standard Python type annotations that need to be converted to Pydantic field definitions. Here are examples of the conversion process:
+
+#### Basic Example
+
+**Original class without types:**
+
+```python
+class Config:
+    def __init__(self, api_url, timeout=None):
+        self.api_url = api_url
+        self.timeout = timeout or 30
+```
+
+**After applying MonkeyType:**
+
+```python
+class Config:
+    def __init__(self, api_url: str, timeout: Optional[int] = None) -> None:
+        self.api_url = api_url
+        self.timeout = timeout or 30
+```
+
+**Converted to Pydantic model:**
+
+```python
+class Config(BaseModel):
+    api_url: str
+    timeout: Optional[int] = 30
+```
+
+#### Example with Collections
+
+**Original class:**
+
+```python
+class MyModel:
+    def __init__(self, name, value=None):
+        self.name = name
+        self.value = value or {}
+```
+
+**After MonkeyType:**
+
+```python
+class MyModel:
+    def __init__(self, name: str, value: Optional[Dict[str, Any]] = None) -> None:
+        self.name = name
+        self.value = value or {}
+```
+
+**Converted to Pydantic:**
+
+```python
+class MyModel(BaseModel):
+    name: str
+    value: Dict[str, Any] = Field(default_factory=dict)
+```
+
+### Recommended Workflow for DCApiX Projects
+
+For effective type annotation in DCApiX projects, follow this workflow:
+
+1. **Identify Target Module**: Determine which module needs type annotations
+2. **Run Targeted Tests**: Execute tests that exercise the target module with MonkeyType
+
+   ```bash
+   make monkeytype-run TEST_PATH=tests/unit/test_target_module.py
+   ```
+
+3. **Verify Collection**: Check if type information was collected
+
+   ```bash
+   make monkeytype-list
+   ```
+
+4. **Apply Types**: Apply the collected types to the module
+
+   ```bash
+   make monkeytype-apply MODULE=dc_api_x.target_module
+   ```
+
+5. **Manual Review**: Review and refine the applied types, especially for:
+   - Pydantic models
+   - Complex generic types
+   - Return types in abstract methods
+   - Parameters with default values
+   - Union types
+
+6. **Verify with mypy**: Check type consistency using mypy
+
+   ```bash
+   make monkeytype-mypy MODULE=dc_api_x.target_module
+   ```
+
+7. **Iterate**: Repeat the process for other modules or if additional type coverage is needed
+
+### Solving Common Problems
+
+#### Parameterized Generics with isinstance()
+
+When using MonkeyType-generated types, you might encounter errors with parameterized generics in `isinstance()` checks:
+
+```python
+# Before - causes error
+if isinstance(data, list[Any]):
+    # code...
+
+# After - correct usage
+if isinstance(data, list):
+    # code...
+```
+
+#### Missing Attributes
+
+If you see errors like `'ClientConfig' object has no attribute 'auth_provider'`, this indicates a mismatch between your code and tests. Either update the tests to match the current code structure or add the missing attributes to your classes.
+
+#### Incomplete Types
+
+If MonkeyType generates `Any` or incomplete types, it usually means your tests aren't exercising all code paths. Improve test coverage to get more accurate type information.
+
+### Limitations of MonkeyType
+
+When using MonkeyType with Pydantic, be aware of these limitations:
+
+- **Test Coverage Dependency**: MonkeyType only detects types used during test execution
+- **Complex Type Refinement**: Generic types, unions, and other complex types often need manual refinement
+- **Pydantic-Specific Features**: Features like Field, validator, and model_config must be added manually
+- **Uncalled Code**: Types for functions or methods never called in tests won't be collected
+- **Type Variety**: Tests must exercise code paths with different types to detect unions correctly
+- **Failed Tests**: Failed tests won't contribute type information
+
+### The py.typed File
+
+The empty `py.typed` file in the `dc_api_x` package indicates that the package supports type annotations. This file is necessary for mypy and other type checking tools to recognize and process the package's type annotations.
+
 ## Complete Example
 
 Here's a comprehensive example showing the various ways to use Pydantic Settings:
@@ -692,5 +919,7 @@ Path("config.json").unlink()
 - [Pydantic Documentation](https://docs.pydantic.dev/2.11/)
 - [Pydantic Settings Documentation](https://docs.pydantic.dev/2.11/concepts/pydantic_settings/)
 - [Pydantic V2 Migration Guide](https://docs.pydantic.dev/2.11/migration/)
+- [MonkeyType Documentation](https://github.com/Instagram/MonkeyType)
+- [mypy Documentation](https://mypy.readthedocs.io/)
 - [Environment Variables Best Practices](https://12factor.net/config)
-- [Docker Secrets](https://docs.docker.com/engine/swarm/secrets/) 
+- [Docker Secrets](https://docs.docker.com/engine/swarm/secrets/)

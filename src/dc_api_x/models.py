@@ -6,7 +6,8 @@ This module provides models for request and response data.
 
 from typing import Any, Generic, Optional, TypeVar, Union, cast
 
-from pydantic import BaseModel as PydanticBaseModel, ConfigDict, Field
+from pydantic import BaseModel as PydanticBaseModel
+from pydantic import ConfigDict, Field
 
 # Import constants directly from constants module instead of defining them locally
 from .constants import (
@@ -54,7 +55,7 @@ class BaseModel(PydanticBaseModel):
         """
         # Try exact match first
         if field_name in self.__dict__:
-            self.__dict__[field_name]
+            return self.__dict__[field_name]
 
         # Try case-insensitive match
         field_name_lower = field_name.lower()
@@ -136,7 +137,7 @@ class Error(ConfigurableBase):
     title: str = "Error"
     status: int = HTTP_BAD_REQUEST
     detail: str = ""
-    errors: list[ErrorDetail] = Field(default_factory=list[Any])
+    errors: list[ErrorDetail] = Field(default_factory=list)
 
     def add_error(
         self,
@@ -293,7 +294,7 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
     """API response model with status code and headers."""
 
     status_code: int = HTTP_OK
-    headers: dict[str, str] = Field(default_factory=dict[str, Any])
+    headers: dict[str, str] = Field(default_factory=dict)
 
     def __init__(self, **data: Any) -> None:
         """Initialize the response with the provided data."""
@@ -325,10 +326,11 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
             meta = {}
 
         # Set count if data is a list
-        if isinstance(data, list[Any]) and "count" not in meta:
+        if isinstance(data, list) and "count" not in meta:
             meta["count"] = len(data)
 
-        response = cls.from_data(data, meta)
+        # Cria uma resposta genérica e converte para ApiResponse
+        response = ApiResponse(success=True, data=data, meta=Metadata(**(meta or {})))
         response.status_code = status_code
         response.headers = headers or {}
         return response
@@ -403,7 +405,7 @@ class ApiResponse(GenericResponse[dict[str, Any]]):
 
         # Add data or error based on response type
         if self.success and self.data is not None:
-            if isinstance(self.data, dict[str, Any]):
+            if isinstance(self.data, dict):
                 result["data"] = self.data
             elif hasattr(self.data, "to_dict"):
                 result["data"] = self.data.to_dict()
@@ -476,18 +478,24 @@ class QueueMessage:
         """
         import json
 
-        if isinstance(self.content, dict[str, Any]):
-            return self.content
+        if isinstance(self.content, dict):
+            # Já é um dict, apenas retornar como dict[str, Any]
+            content_dict: dict[str, Any] = (
+                self.content
+            )  # type annotation ao invés de ignore
+            return content_dict
 
         if isinstance(self.content, str):
             try:
-                return json.loads(self.content)
+                # json.loads() retorna Any, precisamos fazer cast para dict[str, Any]
+                return cast(dict[str, Any], json.loads(self.content))
             except json.JSONDecodeError as e:
                 raise ContentNotJSONError(e) from e
 
         if isinstance(self.content, bytes):
             try:
-                return json.loads(self.content.decode("utf-8"))
+                # json.loads() retorna Any, precisamos fazer cast para dict[str, Any]
+                return cast(dict[str, Any], json.loads(self.content.decode("utf-8")))
             except (json.JSONDecodeError, UnicodeDecodeError) as e:
                 raise ContentNotUTF8Error(e) from e
 
@@ -495,7 +503,7 @@ class QueueMessage:
 
     def __str__(self) -> str:
         """Return string representation of the message."""
-        if isinstance(self.content, dict[str, Any]):
+        if isinstance(self.content, dict):
             content_str = str(self.content)
         elif isinstance(self.content, bytes):
             content_str = f"bytes[{len(self.content)}]"
