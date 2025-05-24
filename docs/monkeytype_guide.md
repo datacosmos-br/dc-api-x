@@ -77,6 +77,7 @@ python scripts/monkeytype_runner.py stub --module dc_api_x.models
 Para classes Pydantic, o MonkeyType gera anotações de tipo padrão Python. Você precisará convertê-las para a sintaxe de campos do Pydantic:
 
 **Antes de aplicar os tipos:**
+
 ```python
 class Config:
     def __init__(self, api_url, timeout=None):
@@ -85,6 +86,7 @@ class Config:
 ```
 
 **Depois de aplicar os tipos com MonkeyType:**
+
 ```python
 class Config:
     def __init__(self, api_url: str, timeout: Optional[int] = None) -> None:
@@ -93,6 +95,7 @@ class Config:
 ```
 
 **Convertido para Pydantic:**
+
 ```python
 class Config(BaseModel):
     api_url: str
@@ -115,26 +118,34 @@ class Config(BaseModel):
 
 1. Identifique um módulo que precisa de anotações de tipo
 2. Execute testes abrangentes com MonkeyType que exercitem esse módulo
+
    ```bash
    make monkeytype-run TEST_PATH=tests/test_module_related.py
    ```
+
 3. Verifique se os tipos foram coletados
+
    ```bash
    make monkeytype-list
    ```
+
 4. Aplique os tipos ao módulo
+
    ```bash
    make monkeytype-apply MODULE=dc_api_x.module_name
    ```
+
 5. Revise e refine os tipos manualmente, especialmente para:
    - Modelos Pydantic
    - Tipos genéricos complexos
    - Tipos de retorno em métodos abstratos
    - Parâmetros com valores padrão
 6. Verifique a conformidade dos tipos com mypy
+
    ```bash
    python -m mypy src/dc_api_x/module_name.py
    ```
+
 7. Repita com outros módulos conforme necessário
 
 ## Limitações

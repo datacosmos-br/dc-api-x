@@ -33,7 +33,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Optional
 
 
 class MonkeyTypeRunner:
@@ -46,7 +46,7 @@ class MonkeyTypeRunner:
 
         # Caminhos importantes
         self.venv_dir = Path(
-            os.environ.get("VIRTUAL_ENV", self.project_root.parent / ".venv")
+            os.environ.get("VIRTUAL_ENV", self.project_root.parent / ".venv"),
         )
         self.python_exe = self.venv_dir / "bin" / "python"
         self.monkeytype_exe = self.venv_dir / "bin" / "monkeytype"
@@ -86,7 +86,7 @@ class MonkeyTypeRunner:
         while dir_to_check != dir_to_check.parent:  # Até chegar à raiz do sistema
             if (dir_to_check / "pyproject.toml").exists():
                 # Verifica se é o projeto dc-api-x
-                with open(dir_to_check / "pyproject.toml", "r") as f:
+                with open(dir_to_check / "pyproject.toml") as f:
                     content = f.read()
                     if 'name = "dc-api-x"' in content:
                         return dir_to_check
@@ -96,7 +96,7 @@ class MonkeyTypeRunner:
         script_dir = Path(__file__).parent
         for check_dir in [current_dir, script_dir.parent]:
             if (check_dir / "pyproject.toml").exists():
-                with open(check_dir / "pyproject.toml", "r") as f:
+                with open(check_dir / "pyproject.toml") as f:
                     content = f.read()
                     if 'name = "dc-api-x"' in content:
                         return check_dir
@@ -107,16 +107,16 @@ class MonkeyTypeRunner:
     def run_tests_with_monkeytype(self, test_path: Optional[str] = None) -> int:
         """
         Executa testes com instrumentação do MonkeyType para coletar tipos.
-        
+
         Args:
             test_path: Caminho do teste específico a ser executado (opcional)
-            
+
         Returns:
             Código de retorno do comando
         """
         # Muda para o diretório raiz do projeto
         os.chdir(self.project_root)
-        
+
         # Constrói o comando monkeytype run -m pytest
         cmd = [
             "monkeytype",
@@ -124,7 +124,7 @@ class MonkeyTypeRunner:
             "-m",
             "pytest",
         ]
-        
+
         # Adiciona o caminho do teste, se especificado
         if test_path:
             test_path_full = self.project_root / test_path
@@ -132,28 +132,32 @@ class MonkeyTypeRunner:
                 print(f"Erro: Caminho de teste {test_path_full} não encontrado")
                 return 1
             cmd.append(str(test_path))
-        
-        print(f"Executando testes com MonkeyType em DC-API-X")
-        result = subprocess.run(cmd)
-        
+
+        print("Executando testes com MonkeyType em DC-API-X")
+        result = subprocess.run(cmd, check=False)
+
         if result.returncode == 0:
-            print("\nMonkeyType coletou tipos com sucesso durante a execução dos testes.")
-            
+            print(
+                "\nMonkeyType coletou tipos com sucesso durante a execução dos testes.",
+            )
+
             # Lista os módulos disponíveis
             print("\nMódulos com informações de tipo coletadas:")
-            subprocess.run(["monkeytype", "list-modules"])
-            
+            subprocess.run(["monkeytype", "list-modules"], check=False)
+
             print("\nPara aplicar os tipos coletados:")
             print(f"  python {Path(__file__).name} apply --module <caminho_do_módulo>")
-            
+
             # Sugestão para aplicar tipos ao módulo de configuração
             print("\nExemplo de aplicação de tipos:")
             print(f"  python {Path(__file__).name} apply --module dc_api_x.config")
         else:
-            print("\nAlguns testes falharam, mas os tipos podem ter sido coletados mesmo assim.")
+            print(
+                "\nAlguns testes falharam, mas os tipos podem ter sido coletados mesmo assim.",
+            )
             print("Verifique os módulos disponíveis com:")
             print(f"  python {Path(__file__).name} list")
-        
+
         return result.returncode
 
     def list_modules(self) -> int:
@@ -173,7 +177,7 @@ class MonkeyTypeRunner:
         cmd = ["monkeytype", "list-modules"]
 
         print("Listando módulos com informações de tipo coletadas:")
-        result = subprocess.run(cmd)
+        result = subprocess.run(cmd, check=False)
 
         # Se a listagem foi bem-sucedida, exibe instruções para o usuário
         if result.returncode == 0:
@@ -184,20 +188,77 @@ class MonkeyTypeRunner:
 
         return result.returncode
 
-    def apply_types(self, module_path: str) -> int:
+    def apply_types(self, module_path: str = None, apply_all: bool = False) -> int:
         """
-        Aplica tipos coletados a um módulo.
+        Aplica tipos coletados a um módulo ou a todos os módulos disponíveis.
 
         Args:
-            module_path: Caminho do módulo para aplicar os tipos
+            module_path: Caminho do módulo para aplicar os tipos (opcional se apply_all=True)
+            apply_all: Se True, aplica tipos a todos os módulos disponíveis
 
         Returns:
             Código de retorno do comando
         """
+        if apply_all:
+            # Lista todos os módulos com informações de tipo
+            cmd_list = ["monkeytype", "list-modules"]
+            print("Listando módulos com informações de tipo...")
+            result = subprocess.run(cmd_list, check=False, capture_output=True, text=True)
+            
+            if result.returncode != 0:
+                print("Erro ao listar módulos com informações de tipo")
+                return result.returncode
+            
+            # Extrai os módulos da saída
+            modules = [m.strip() for m in result.stdout.strip().split('\n') if m.strip()]
+            
+            # Filtra apenas os módulos dc_api_x
+            dc_modules = [m for m in modules if m.startswith('dc_api_x.')]
+            
+            if not dc_modules:
+                print("Nenhum módulo dc_api_x encontrado com informações de tipo")
+                return 0
+            
+            print(f"Encontrados {len(dc_modules)} módulos para aplicar tipos:")
+            for m in dc_modules:
+                print(f"  - {m}")
+            
+            # Aplica tipos a cada módulo
+            success_count = 0
+            failed_modules = []
+            
+            for module in dc_modules:
+                print(f"\n{'='*40}")
+                print(f"Aplicando tipos ao módulo {module}...")
+                result = self.apply_types(module)
+                
+                if result == 0:
+                    success_count += 1
+                else:
+                    failed_modules.append(module)
+            
+            # Resumo
+            print(f"\n{'='*60}")
+            print(f"Resumo: Aplicação de tipos concluída para {success_count}/{len(dc_modules)} módulos")
+            
+            if failed_modules:
+                print("Falha ao aplicar tipos para os seguintes módulos:")
+                for m in failed_modules:
+                    print(f"  - {m}")
+                return 1
+            
+            return 0
+        
+        # Aplicar tipos a um único módulo
+        if not module_path:
+            print("Erro: Caminho do módulo não especificado")
+            return 1
+            
         # Verifica se o módulo existe (por segurança)
         module_parts = module_path.split(".")
         if module_parts[0] == "dc_api_x":
-            module_file = self.src_dir / Path(*module_parts[1:])
+            # Corrige o caminho para apontar para o módulo dentro de src/dc_api_x/
+            module_file = self.src_dir / "dc_api_x" / "/".join(module_parts[1:])
             module_file = module_file.with_suffix(".py")
             if not module_file.exists():
                 print(f"Erro: Arquivo do módulo não encontrado: {module_file}")
@@ -211,7 +272,7 @@ class MonkeyTypeRunner:
         ]
 
         print(f"Aplicando tipos ao módulo {module_path}")
-        result = subprocess.run(cmd)
+        result = subprocess.run(cmd, check=False)
 
         if result.returncode == 0:
             print(f"\nTipos aplicados com sucesso ao módulo {module_path}")
@@ -241,17 +302,18 @@ class MonkeyTypeRunner:
     def generate_stub(self, module_path: str) -> int:
         """
         Gera stub com tipos coletados.
-
+        
         Args:
             module_path: Caminho do módulo para gerar o stub
-
+            
         Returns:
             Código de retorno do comando
         """
         # Verifica se o módulo existe (por segurança)
         module_parts = module_path.split(".")
         if module_parts[0] == "dc_api_x":
-            module_file = self.src_dir / Path(*module_parts[1:])
+            # Corrige o caminho para apontar para o módulo dentro de src/dc_api_x/
+            module_file = self.src_dir / "dc_api_x" / "/".join(module_parts[1:])
             module_file = module_file.with_suffix(".py")
             if not module_file.exists():
                 print(f"Erro: Arquivo do módulo não encontrado: {module_file}")
@@ -265,19 +327,19 @@ class MonkeyTypeRunner:
         ]
 
         print(f"Gerando stub de tipos para o módulo {module_path}")
-        result = subprocess.run(cmd)
+        result = subprocess.run(cmd, check=False)
 
         if result.returncode == 0:
             print(f"\nStub de tipos gerado com sucesso para {module_path}")
             print(
-                "Revise o stub gerado e aplique-o manualmente ao seu código, se necessário."
+                "Revise o stub gerado e aplique-o manualmente ao seu código, se necessário.",
             )
 
             # Dicas para integração com Pydantic
             if "models" in module_path or "schema" in module_path:
                 print("\nDica para integração com Pydantic:")
                 print(
-                    "  Para classes de modelo, converta as anotações de tipo para campos Pydantic:"
+                    "  Para classes de modelo, converta as anotações de tipo para campos Pydantic:",
                 )
                 print("  Exemplo:")
                 print("    # Stub gerado pelo MonkeyType")
@@ -298,7 +360,7 @@ class MonkeyTypeRunner:
 def parse_args() -> argparse.Namespace:
     """Analisa os argumentos de linha de comando."""
     parser = argparse.ArgumentParser(
-        description="DC-API-X MonkeyType Runner - Ferramenta para coleção e aplicação de tipos."
+        description="DC-API-X MonkeyType Runner - Ferramenta para coleção e aplicação de tipos.",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Comando a executar")
@@ -306,31 +368,40 @@ def parse_args() -> argparse.Namespace:
 
     # Comando run
     run_parser = subparsers.add_parser(
-        "run", help="Executar testes com rastreamento do MonkeyType"
+        "run",
+        help="Executar testes com rastreamento do MonkeyType",
     )
     run_parser.add_argument(
-        "--test-path", help="Caminho específico do teste dentro do projeto"
+        "--test-path",
+        help="Caminho específico do teste dentro do projeto",
     )
 
     # Comando list
     list_parser = subparsers.add_parser(
-        "list", help="Listar módulos com tipos coletados"
+        "list",
+        help="Listar módulos com tipos coletados",
     )
 
     # Comando apply
     apply_parser = subparsers.add_parser(
-        "apply", help="Aplicar tipos coletados a um módulo"
+        "apply",
+        help="Aplicar tipos coletados a um módulo",
     )
     apply_parser.add_argument(
-        "--module", required=True, help="Caminho do módulo para aplicar os tipos"
+        "--module",
+        required=True,
+        help="Caminho do módulo para aplicar os tipos",
     )
 
     # Comando stub
     stub_parser = subparsers.add_parser(
-        "stub", help="Gerar arquivo stub com tipos coletados"
+        "stub",
+        help="Gerar arquivo stub com tipos coletados",
     )
     stub_parser.add_argument(
-        "--module", required=True, help="Caminho do módulo para gerar o stub"
+        "--module",
+        required=True,
+        help="Caminho do módulo para gerar o stub",
     )
 
     return parser.parse_args()
@@ -344,15 +415,14 @@ def main() -> int:
 
         if args.command == "run":
             return runner.run_tests_with_monkeytype(args.test_path)
-        elif args.command == "list":
+        if args.command == "list":
             return runner.list_modules()
-        elif args.command == "apply":
+        if args.command == "apply":
             return runner.apply_types(args.module)
-        elif args.command == "stub":
+        if args.command == "stub":
             return runner.generate_stub(args.module)
-        else:
-            print(f"Comando desconhecido: {args.command}")
-            return 1
+        print(f"Comando desconhecido: {args.command}")
+        return 1
     except Exception as e:
         print(f"Erro: {e}")
         return 1

@@ -288,10 +288,10 @@ Each plugin will follow DCApiX's architecture principles with comprehensive docu
 
 O DC-API-X usa várias ferramentas para garantir a qualidade do código:
 
-- **Black** e **isort** para formatação
-- **Ruff** e **mypy** para linting e verificação de tipos
-- **pytest** para testes
-- **MonkeyType** para coletar e aplicar tipos em tempo de execução
+* **Black** e **isort** para formatação
+* **Ruff** e **mypy** para linting e verificação de tipos
+* **pytest** para testes
+* **MonkeyType** para coletar e aplicar tipos em tempo de execução
 
 ### Descoberta Automática de Tipos com MonkeyType
 

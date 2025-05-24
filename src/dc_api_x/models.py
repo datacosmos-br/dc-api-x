@@ -6,8 +6,7 @@ This module provides models for request and response data.
 
 from typing import Any, Generic, Optional, TypeVar, Union, cast
 
-from pydantic import BaseModel as PydanticBaseModel
-from pydantic import ConfigDict, Field
+from pydantic import BaseModel as PydanticBaseModel, ConfigDict, Field
 
 # Import constants directly from constants module instead of defining them locally
 from .constants import (

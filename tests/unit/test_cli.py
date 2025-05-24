@@ -387,10 +387,8 @@ class TestSchemaApp:
             patch("dc_api_x.cli.apix.SchemaManager", return_value=MagicMock()),
             patch("dc_api_x.cli.console.print") as mock_print,
         ):
-            from dc_api_x.cli import schema_extract
-
             # Setup the mock schema manager
-            from dc_api_x.cli import apix
+            from dc_api_x.cli import apix, schema_extract
 
             apix.SchemaManager.return_value.get_schema.return_value = MockSchema()
 

@@ -1,6 +1,7 @@
 """
 Tests for cli_helpers module.
 """
+
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -48,8 +49,10 @@ class TestHandleCommonErrors:
         def test_func() -> None:
             raise ConfigurationError("Invalid configuration")
 
-        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print, \
-             pytest.raises(typer.Exit):
+        with (
+            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
+            pytest.raises(typer.Exit),
+        ):
             test_func()
             mock_print.assert_called_once()
             assert "Configuration error" in mock_print.call_args[0][0]
@@ -61,8 +64,10 @@ class TestHandleCommonErrors:
         def test_func() -> None:
             raise ApiConnectionError("Connection failed")
 
-        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print, \
-             pytest.raises(typer.Exit):
+        with (
+            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
+            pytest.raises(typer.Exit),
+        ):
             test_func()
             mock_print.assert_called_once()
             assert "Connection error" in mock_print.call_args[0][0]
@@ -74,8 +79,10 @@ class TestHandleCommonErrors:
         def test_func() -> None:
             raise ValidationError("Invalid data")
 
-        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print, \
-             pytest.raises(typer.Exit):
+        with (
+            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
+            pytest.raises(typer.Exit),
+        ):
             test_func()
             mock_print.assert_called_once()
             assert "Validation error" in mock_print.call_args[0][0]
@@ -87,8 +94,10 @@ class TestHandleCommonErrors:
         def test_func() -> None:
             raise NotFoundError("Resource not found")
 
-        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print, \
-             pytest.raises(typer.Exit):
+        with (
+            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
+            pytest.raises(typer.Exit),
+        ):
             test_func()
             mock_print.assert_called_once()
             assert "Not found" in mock_print.call_args[0][0]
@@ -100,8 +109,10 @@ class TestHandleCommonErrors:
         def test_func() -> None:
             raise OSError("File not found")
 
-        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print, \
-             pytest.raises(typer.Exit):
+        with (
+            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
+            pytest.raises(typer.Exit),
+        ):
             test_func()
             mock_print.assert_called_once()
             assert "File error" in mock_print.call_args[0][0]
@@ -113,8 +124,10 @@ class TestHandleCommonErrors:
         def test_func() -> None:
             raise json.JSONDecodeError("Invalid JSON", "", 0)
 
-        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print, \
-             pytest.raises(typer.Exit):
+        with (
+            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
+            pytest.raises(typer.Exit),
+        ):
             test_func()
             mock_print.assert_called_once()
             assert "JSON error" in mock_print.call_args[0][0]
@@ -126,8 +139,10 @@ class TestHandleCommonErrors:
         def test_func() -> None:
             raise BaseAPIError("API error")
 
-        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print, \
-             pytest.raises(typer.Exit):
+        with (
+            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
+            pytest.raises(typer.Exit),
+        ):
             test_func()
             mock_print.assert_called_once()
             assert "API error" in mock_print.call_args[0][0]
@@ -139,8 +154,10 @@ class TestHandleCommonErrors:
         def test_func() -> None:
             raise CLIError("CLI error")
 
-        with patch("dc_api_x.utils.cli_helpers.console.print") as mock_print, \
-             pytest.raises(typer.Exit):
+        with (
+            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
+            pytest.raises(typer.Exit),
+        ):
             test_func()
             mock_print.assert_called_once()
             assert "CLI error" in mock_print.call_args[0][0]
@@ -157,7 +174,9 @@ class TestCreateApiClient:
 
     def test_client_with_profile(self) -> None:
         """Test creating client with profile."""
-        with patch("dc_api_x.utils.cli_helpers.ApiClient.from_profile") as mock_from_profile:
+        with patch(
+            "dc_api_x.utils.cli_helpers.ApiClient.from_profile"
+        ) as mock_from_profile:
             create_api_client("test")
             mock_from_profile.assert_called_once_with("test")
 
@@ -195,8 +214,10 @@ class TestFormatOutputData:
     def test_fallback_to_json(self) -> None:
         """Test fallback to JSON for non-list data."""
         data = {"name": "test", "value": 123}
-        with patch("dc_api_x.utils.cli_helpers.format_json") as mock_format_json, \
-             patch("dc_api_x.utils.cli_helpers.console.print") as mock_print:
+        with (
+            patch("dc_api_x.utils.cli_helpers.format_json") as mock_format_json,
+            patch("dc_api_x.utils.cli_helpers.console.print") as mock_print,
+        ):
             mock_format_json.return_value = '{"name": "test", "value": 123}'
             result = format_output_data(data, "table")
             mock_format_json.assert_called_once_with(data, indent=2)
